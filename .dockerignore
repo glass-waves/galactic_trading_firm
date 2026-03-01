@@ -1,0 +1,7 @@
+target/
+agents/.venv/
+agents/__pycache__/
+agents/*.egg-info/
+.env
+.git/
+docs/

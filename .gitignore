@@ -1,0 +1,28 @@
+# rust
+/target
+*.rs.bk
+
+# python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+dist/
+build/
+*.egg
+
+# environment
+.env
+*.db
+
+# os
+.DS_Store
+Thumbs.db
+
+# ide
+.idea/
+.vscode/
+*.swp
+*.swo
+*~

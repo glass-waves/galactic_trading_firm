@@ -1,0 +1,13 @@
+[package]
+name = "actions"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+types = { path = "../types" }
+ta = { workspace = true }
+chrono = { workspace = true }
+
+[dev-dependencies]
+chrono = { workspace = true }
+serde_json = { workspace = true }

@@ -1,0 +1,172 @@
+---
+title: Adaptive Multi-Timescale Trading System — v0.3
+---
+
+graph TD
+    subgraph SLOW["SLOW LAYER — Evolution Agents (Claude Agent SDK)"]
+        direction TB
+
+        subgraph FULL_CYCLE["Full PM Cycle (1-3x daily, Sonnet 4.5)"]
+            direction LR
+            A1F["1-Min Agent"]
+            A5F["5-Min Agent"]
+            AHF["Hourly Agent"]
+            ADF["Daily Agent"]
+            AMF["Monthly Agent"]
+        end
+
+        subgraph CHECKIN_CYCLE["Check-in Cycles (more frequent, Haiku 4.5)"]
+            direction LR
+            A1C["1-Min Check-in\n─────────\nObservation only\nNo config authority"]
+            A5C["5-Min Check-in\n─────────\nObservation only\nNo config authority"]
+            AHC["Hourly Check-in\n─────────\nObservation only\nNo config authority"]
+        end
+
+        PM["PM Agent (Sonnet 4.5)\n═══════════════════\nOwns cross-cutting tooling:\ntrailing stops, position sizing,\nentry thresholds, timescale weights\n\nReads check-in observations\nas additional context\n\nSole drafter of tool proposals"]
+
+        ORCH["Python Orchestrator\n─────────\nSchedule management,\nbudget tracking ($5/day cap),\ntoken accounting,\ncycle type dispatch\n\nAPI: Anthropic Tier 1 ($100/mo)"]
+
+        A1F -->|"recommendation memo"| PM
+        A5F -->|"recommendation memo"| PM
+        AHF -->|"recommendation memo"| PM
+        ADF -->|"recommendation memo"| PM
+        AMF -->|"recommendation memo"| PM
+
+        A1C -->|"observation memo"| MEMOS
+        A5C -->|"observation memo"| MEMOS
+        AHC -->|"observation memo"| MEMOS
+
+        A1F -.->|"tool request"| PM
+        A5F -.->|"tool request"| PM
+        AHF -.->|"tool request"| PM
+        ADF -.->|"tool request"| PM
+        AMF -.->|"tool request"| PM
+
+        ORCH -.->|"triggers full cycle"| FULL_CYCLE
+        ORCH -.->|"triggers check-ins"| CHECKIN_CYCLE
+        ORCH -.->|"then triggers PM"| PM
+    end
+
+    subgraph PROPOSAL["PROPOSAL SYSTEM — Human-Gated"]
+        direction LR
+        TREQ["Tool Requests\n─────────\nGap identification\nfrom any agent,\nwith trade evidence"]
+        TPROP["Tool Proposals\n─────────\nPM-drafted specs:\nRust code, tests,\ndocs, impact analysis"]
+        GITHUB["GitHub PR\n─────────\nHuman review,\niterate, merge\nor reject"]
+        TREQ -->|"PM evaluates"| TPROP
+        TPROP -->|"PM submits PR"| GITHUB
+        GITHUB -->|"merged → deploy"| ENGINE
+    end
+
+    subgraph FAST["FAST LAYER — Execution (Rust + ta-rs)"]
+        direction LR
+
+        subgraph TOOLBELT["Tool Belt"]
+            direction TB
+            INDICATORS["Indicator Registry\n─────────\n22 native ta-rs indicators\n+74 composable from ta-rs\n+custom implementations\n\nEach produces score\n-1.0 to +1.0"]
+            ACTIONS["Action Registry\n─────────\nLifecycle modules:\nentry, monitor,\nexit, sizing\n\nEach evaluates per-tick"]
+        end
+
+        SCORING["Scoring Pipeline\n─────────\nWeighted aggregation\nper timescale →\ncomposite score →\nhard gate check →\nentry/exit decision"]
+
+        CONFIG[("Strategy Config\n─────────\nVersioned manifest:\nactive tools,\nknob values,\nweights, thresholds")]
+
+        ENGINE["Execution Engine — Rust\n══════════════════════\nTick loop:\n1. Compute indicators\n2. Score per timescale\n3. Aggregate composite\n4. Entry/exit actions\n\nSub-ms latency target"]
+
+        BACKTEST["Backtest Engine\n─────────\nSame Rust logic\nReplays historical data\nValidates mutations"]
+
+        MARKET["Market Data Feed\n─────────\nLive price stream\nAll timescale candles"]
+
+        BROKER["Broker API\n─────────\nOrder execution"]
+
+        CONFIG -->|"loads tools + knobs"| TOOLBELT
+        INDICATORS -->|"scores per timescale"| SCORING
+        SCORING -->|"composite + gates"| ENGINE
+        ACTIONS -->|"entry/exit/sizing"| ENGINE
+        MARKET -->|"live prices"| ENGINE
+        ENGINE -->|"orders"| BROKER
+    end
+
+    subgraph DATA["DATA LAYER"]
+        direction TB
+
+        subgraph SHARED_DB["Shared Relational DB — Postgres"]
+            direction LR
+            TRADES[("Trade Event Log")]
+            CHANGELOG[("Config Changelog")]
+            CONFIG_HIST[("Config History")]
+            MEMOS[("Agent Memos\n─────────\nTwo types:\n· observation (check-in)\n· recommendation (full)")]
+            BUDGET[("Daily Budget\n─────────\nToken accounting,\ncost tracking,\nspend cap enforcement")]
+        end
+
+        subgraph VECTOR_STORES["Per-Agent Vector Stores — Insight RAG"]
+            direction LR
+            RAG1["1m RAG"]
+            RAG5["5m RAG"]
+            RAGH["1h RAG"]
+            RAGD["1d RAG"]
+            RAGM["1M RAG"]
+            RAGPM["PM RAG"]
+        end
+    end
+
+    %% Slow → Fast connections
+    PM -->|"config mutations"| CONFIG
+    PM -.->|"proposed mutations"| BACKTEST
+
+    %% Proposal connections
+    PM -->|"drafts proposals"| TREQ
+
+    %% Fast → Data connections
+    ENGINE -->|"writes trade events"| TRADES
+    CONFIG -->|"changelog entries"| CHANGELOG
+
+    %% Budget tracking
+    ORCH -->|"token accounting"| BUDGET
+
+    %% PM reads check-in memos
+    MEMOS -.->|"check-in observations"| PM
+
+    %% Data → Slow connections (reads)
+    TRADES -.->|"performance data"| FULL_CYCLE
+    TRADES -.->|"aggregate performance"| PM
+    CHANGELOG -.->|"reads changes"| FULL_CYCLE
+    CHANGELOG -.->|"reads all changes"| PM
+
+    %% Memos from full cycle
+    A1F -->|"writes"| MEMOS
+    A5F -->|"writes"| MEMOS
+    AHF -->|"writes"| MEMOS
+    ADF -->|"writes"| MEMOS
+    AMF -->|"writes"| MEMOS
+
+    %% Historical data for backtest
+    TRADES -.->|"historical replay"| BACKTEST
+
+    %% RAG connections
+    A1F <-.->|"insights"| RAG1
+    A5F <-.->|"insights"| RAG5
+    AHF <-.->|"insights"| RAGH
+    ADF <-.->|"insights"| RAGD
+    AMF <-.->|"insights"| RAGM
+    PM <-.->|"insights"| RAGPM
+
+    %% Styling
+    classDef agentBlue fill:#1e3a5f,stroke:#3b82f6,color:#e2e8f0,stroke-width:2px
+    classDef checkinTeal fill:#134e4a,stroke:#14b8a6,color:#e2e8f0,stroke-width:1px,stroke-dasharray:4
+    classDef agentAmber fill:#78350f,stroke:#f59e0b,color:#e2e8f0,stroke-width:2px
+    classDef engineGreen fill:#064e3b,stroke:#10b981,color:#e2e8f0,stroke-width:2px
+    classDef toolBelt fill:#0c2e1e,stroke:#059669,color:#d1fae5,stroke-width:1px,stroke-dasharray:4
+    classDef dataStore fill:#1e1b4b,stroke:#8b5cf6,color:#e2e8f0,stroke-width:1px
+    classDef ragStore fill:#111827,stroke:#3b82f6,color:#94a3b8,stroke-width:1px,stroke-dasharray:4
+    classDef external fill:#111827,stroke:#475569,color:#94a3b8,stroke-width:1px
+    classDef proposal fill:#3b1f0b,stroke:#d97706,color:#fef3c7,stroke-width:1px
+
+    class A1F,A5F,AHF,ADF,AMF agentBlue
+    class A1C,A5C,AHC checkinTeal
+    class PM,ORCH agentAmber
+    class ENGINE,BACKTEST engineGreen
+    class INDICATORS,ACTIONS,SCORING toolBelt
+    class CONFIG,TRADES,CHANGELOG,CONFIG_HIST,MEMOS,BUDGET dataStore
+    class RAG1,RAG5,RAGH,RAGD,RAGM,RAGPM ragStore
+    class MARKET,BROKER external
+    class TREQ,TPROP,GITHUB proposal

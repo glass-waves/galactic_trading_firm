@@ -1,0 +1,17 @@
+[package]
+name = "backtest"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+types = { path = "../types" }
+indicators = { path = "../indicators" }
+actions = { path = "../actions" }
+engine = { path = "../engine" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }
+csv = { workspace = true }
+
+[dev-dependencies]
+serde_json = { workspace = true }

@@ -1,0 +1,49 @@
+services:
+  postgres:
+    image: postgres:16
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: adaptive_trading
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d adaptive_trading"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  paper_trader:
+    build:
+      context: .
+      dockerfile: Dockerfile.paper_trader
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/adaptive_trading
+      APCA_API_KEY_ID: ${APCA_API_KEY_ID:-}
+      APCA_API_SECRET_KEY: ${APCA_API_SECRET_KEY:-}
+      BROKER_MODE: ${BROKER_MODE:-simulated}
+      RUST_LOG: ${RUST_LOG:-info}
+    stdin_open: true
+    tty: true
+    stop_grace_period: 30s
+
+  agents:
+    build:
+      context: .
+      dockerfile: Dockerfile.agents
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/adaptive_trading
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      BACKTEST_DATA_DIR: ${BACKTEST_DATA_DIR:-}
+    stop_grace_period: 15s
+
+volumes:
+  pgdata:
