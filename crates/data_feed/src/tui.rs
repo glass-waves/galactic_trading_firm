@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::io;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
@@ -15,8 +15,10 @@ use ratatui::symbols::Marker;
 use ratatui::widgets::canvas::{Canvas, Line, Context};
 use ratatui::widgets::*;
 
-use types::action::TradeDirection;
-use types::market::Candle;
+use types::action::{ActionPhase, TradeDirection};
+use types::market::{Candle, Timescale};
+use types::scoring::AggregationMethod;
+use types::StrategyConfig;
 
 // ---------------------------------------------------------------------------
 // cyberpunk theme
@@ -30,6 +32,7 @@ mod theme {
     pub const DIM_GREEN: Color = Color::Rgb(0, 140, 70);
     pub const CYAN: Color = Color::Rgb(0, 255, 255);
     pub const MAGENTA: Color = Color::Rgb(255, 0, 80);
+    pub const AMBER: Color = Color::Rgb(255, 191, 0);
     pub const CANDLE_UP: Color = Color::Rgb(0, 255, 128);
     pub const CANDLE_DOWN: Color = Color::Rgb(255, 0, 80);
     pub const BG: Color = Color::Black;
@@ -61,6 +64,16 @@ mod theme {
             MAGENTA
         }
     }
+}
+
+// ---------------------------------------------------------------------------
+// page enum
+// ---------------------------------------------------------------------------
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TuiPage {
+    Dashboard,
+    ConfigViewer,
 }
 
 // ---------------------------------------------------------------------------
@@ -117,6 +130,14 @@ pub struct DashboardState {
     pub selected_ticker_idx: usize,
     /// sorted ticker names for stable navigation
     pub ticker_order: Vec<String>,
+    /// which page is currently displayed
+    pub active_page: TuiPage,
+    /// full strategy config for the config viewer page
+    pub strategy_config: Option<StrategyConfig>,
+    /// vertical scroll offset for the config viewer
+    pub config_scroll_offset: u16,
+    /// total scrollable lines in the config viewer (computed on config set)
+    pub config_total_lines: u16,
 }
 
 impl DashboardState {
@@ -130,6 +151,54 @@ impl DashboardState {
             trade_log: Vec::new(),
             selected_ticker_idx: 0,
             ticker_order: Vec::new(),
+            active_page: TuiPage::Dashboard,
+            strategy_config: None,
+            config_scroll_offset: 0,
+            config_total_lines: 0,
+        }
+    }
+
+    /// toggle between dashboard and config viewer pages.
+    pub fn toggle_page(&mut self) {
+        self.active_page = match self.active_page {
+            TuiPage::Dashboard => TuiPage::ConfigViewer,
+            TuiPage::ConfigViewer => TuiPage::Dashboard,
+        };
+        self.config_scroll_offset = 0;
+    }
+
+    /// scroll config viewer up by one line.
+    pub fn scroll_up(&mut self) {
+        self.config_scroll_offset = self.config_scroll_offset.saturating_sub(1);
+    }
+
+    /// scroll config viewer down by one line, clamped to max.
+    pub fn scroll_down(&mut self, max: u16) {
+        if self.config_scroll_offset < max {
+            self.config_scroll_offset += 1;
+        }
+    }
+
+    /// scroll config viewer up by half a viewport.
+    pub fn scroll_page_up(&mut self, viewport_h: u16) {
+        let jump = viewport_h / 2;
+        self.config_scroll_offset = self.config_scroll_offset.saturating_sub(jump);
+    }
+
+    /// scroll config viewer down by half a viewport, clamped to max.
+    pub fn scroll_page_down(&mut self, viewport_h: u16, max: u16) {
+        let jump = viewport_h / 2;
+        self.config_scroll_offset = (self.config_scroll_offset + jump).min(max);
+    }
+
+    /// store the strategy config and compute total scrollable lines.
+    pub fn set_strategy_config(&mut self, config: StrategyConfig) {
+        let total = compute_config_lines(&config);
+        self.strategy_config = Some(config);
+        self.config_total_lines = total;
+        // clamp scroll if config shrank
+        if self.config_scroll_offset > self.config_total_lines {
+            self.config_scroll_offset = self.config_total_lines;
         }
     }
 
@@ -196,25 +265,71 @@ pub fn run_tui(state: Arc<RwLock<DashboardState>>, shutdown: Arc<AtomicBool>) ->
 
         terminal.draw(|frame| {
             let state = state.read().unwrap();
-            render_dashboard(frame, &state);
+            match state.active_page {
+                TuiPage::Dashboard => render_dashboard(frame, &state),
+                TuiPage::ConfigViewer => render_config_page(frame, &state),
+            }
         })?;
 
         // poll for input events
         if event::poll(tick_rate)? {
             if let Event::Key(key) = event::read()? {
                 if key.kind == KeyEventKind::Press {
+                    let page = state.read().unwrap().active_page;
                     match key.code {
+                        // global keys
                         KeyCode::Char('q') | KeyCode::Esc => {
                             shutdown.store(true, Ordering::Relaxed);
                             break;
                         }
-                        KeyCode::Tab | KeyCode::Right | KeyCode::Char('l') => {
+                        KeyCode::Char('c') => {
+                            let mut s = state.write().unwrap();
+                            s.toggle_page();
+                        }
+                        // dashboard-only keys
+                        KeyCode::Tab | KeyCode::Right | KeyCode::Char('l')
+                            if page == TuiPage::Dashboard =>
+                        {
                             let mut s = state.write().unwrap();
                             s.next_ticker();
                         }
-                        KeyCode::BackTab | KeyCode::Left | KeyCode::Char('h') => {
+                        KeyCode::BackTab | KeyCode::Left | KeyCode::Char('h')
+                            if page == TuiPage::Dashboard =>
+                        {
                             let mut s = state.write().unwrap();
                             s.prev_ticker();
+                        }
+                        // config viewer scroll keys
+                        KeyCode::Char('j') | KeyCode::Down
+                            if page == TuiPage::ConfigViewer =>
+                        {
+                            let mut s = state.write().unwrap();
+                            let max = s.config_total_lines;
+                            s.scroll_down(max);
+                        }
+                        KeyCode::Char('k') | KeyCode::Up
+                            if page == TuiPage::ConfigViewer =>
+                        {
+                            let mut s = state.write().unwrap();
+                            s.scroll_up();
+                        }
+                        KeyCode::PageDown if page == TuiPage::ConfigViewer => {
+                            let mut s = state.write().unwrap();
+                            let max = s.config_total_lines;
+                            // use a reasonable viewport estimate
+                            s.scroll_page_down(terminal.size()?.height.saturating_sub(9), max);
+                        }
+                        KeyCode::PageUp if page == TuiPage::ConfigViewer => {
+                            let mut s = state.write().unwrap();
+                            s.scroll_page_up(terminal.size()?.height.saturating_sub(9));
+                        }
+                        KeyCode::Home if page == TuiPage::ConfigViewer => {
+                            let mut s = state.write().unwrap();
+                            s.config_scroll_offset = 0;
+                        }
+                        KeyCode::End if page == TuiPage::ConfigViewer => {
+                            let mut s = state.write().unwrap();
+                            s.config_scroll_offset = s.config_total_lines;
                         }
                         _ => {}
                     }
@@ -636,13 +751,500 @@ fn render_footer(frame: &mut Frame, area: Rect, state: &DashboardState) {
             Style::default().fg(theme::DIM_GREEN),
         ),
         Span::styled("[tab]", Style::default().fg(theme::CYAN)),
-        Span::styled(" ticker ", Style::default().fg(theme::DIM_GREEN)),
+        Span::styled(" ticker  ", Style::default().fg(theme::DIM_GREEN)),
+        Span::styled("[c]", Style::default().fg(theme::CYAN)),
+        Span::styled(" config  ", Style::default().fg(theme::DIM_GREEN)),
         Span::styled("[q]", Style::default().fg(theme::CYAN)),
         Span::styled(" quit", Style::default().fg(theme::DIM_GREEN)),
     ]);
 
     let footer = Paragraph::new(footer_line).block(theme::neon_block(""));
     frame.render_widget(footer, area);
+}
+
+// ---------------------------------------------------------------------------
+// config page
+// ---------------------------------------------------------------------------
+
+/// compute the total number of lines the config viewer would render.
+fn compute_config_lines(config: &StrategyConfig) -> u16 {
+    let lines = build_config_lines(config);
+    lines.len() as u16
+}
+
+fn render_config_page(frame: &mut Frame, state: &DashboardState) {
+    let area = frame.area();
+
+    frame.render_widget(
+        Block::default().style(Style::default().bg(theme::BG)),
+        area,
+    );
+
+    let layout = Layout::default()
+        .direction(Direction::Vertical)
+        .constraints([
+            Constraint::Length(3), // header
+            Constraint::Min(10),  // config body
+            Constraint::Length(3), // footer
+        ])
+        .split(area);
+
+    render_header(frame, layout[0], state);
+    render_config_body(frame, layout[1], state);
+    render_config_footer(frame, layout[2], state);
+}
+
+fn render_config_body(frame: &mut Frame, area: Rect, state: &DashboardState) {
+    let block = theme::neon_block(" strategy config ");
+    let inner = block.inner(area);
+
+    let lines = match &state.strategy_config {
+        Some(config) => build_config_lines(config),
+        None => vec![ratatui::text::Line::from(Span::styled(
+            " no config loaded",
+            Style::default().fg(theme::DIM_GREEN),
+        ))],
+    };
+
+    let content_height = lines.len() as u16;
+    let viewport_h = inner.height;
+    let max_scroll = content_height.saturating_sub(viewport_h);
+    let scroll = state.config_scroll_offset.min(max_scroll);
+
+    let paragraph = Paragraph::new(lines)
+        .block(block)
+        .scroll((scroll, 0));
+
+    frame.render_widget(paragraph, area);
+
+    // scrollbar
+    if content_height > viewport_h {
+        let mut scrollbar_state = ScrollbarState::new(content_height as usize)
+            .position(scroll as usize)
+            .viewport_content_length(viewport_h as usize);
+        frame.render_stateful_widget(
+            Scrollbar::new(ScrollbarOrientation::VerticalRight)
+                .style(Style::default().fg(theme::DIM_GREEN)),
+            inner,
+            &mut scrollbar_state,
+        );
+    }
+}
+
+fn build_config_lines(config: &StrategyConfig) -> Vec<ratatui::text::Line<'static>> {
+    let mut lines: Vec<ratatui::text::Line<'static>> = Vec::new();
+
+    render_indicators_section(config, &mut lines);
+    lines.push(ratatui::text::Line::from(""));
+    render_actions_section(config, &mut lines);
+    lines.push(ratatui::text::Line::from(""));
+    render_scoring_section(config, &mut lines);
+    lines.push(ratatui::text::Line::from(""));
+    render_session_section(config, &mut lines);
+
+    lines
+}
+
+fn timescale_label(ts: &Timescale) -> &'static str {
+    match ts {
+        Timescale::OneMinute => "1min",
+        Timescale::FiveMinute => "5min",
+        Timescale::OneHour => "1hour",
+        Timescale::OneDay => "1day",
+        Timescale::OneMonth => "1month",
+    }
+}
+
+fn render_indicators_section(
+    config: &StrategyConfig,
+    lines: &mut Vec<ratatui::text::Line<'static>>,
+) {
+    lines.push(ratatui::text::Line::from(Span::styled(
+        " INDICATORS",
+        Style::default()
+            .fg(theme::CYAN)
+            .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+    )));
+    lines.push(ratatui::text::Line::from(""));
+
+    // group by timescale using BTreeMap for stable ordering
+    let mut by_timescale: BTreeMap<String, Vec<&types::IndicatorConfig>> = BTreeMap::new();
+    for ic in &config.indicators {
+        let key = timescale_label(&ic.timescale).to_string();
+        by_timescale.entry(key).or_default().push(ic);
+    }
+
+    for (ts_label, indicators) in &by_timescale {
+        lines.push(ratatui::text::Line::from(Span::styled(
+            format!("  [{ts_label}]"),
+            Style::default()
+                .fg(theme::AMBER)
+                .add_modifier(Modifier::BOLD),
+        )));
+
+        for ic in indicators {
+            let status = if ic.enabled {
+                Span::styled(
+                    "  [ON] ",
+                    Style::default()
+                        .fg(theme::NEON_GREEN)
+                        .add_modifier(Modifier::BOLD),
+                )
+            } else {
+                Span::styled(
+                    " [OFF] ",
+                    Style::default()
+                        .fg(theme::MAGENTA)
+                        .add_modifier(Modifier::BOLD),
+                )
+            };
+
+            lines.push(ratatui::text::Line::from(vec![
+                status,
+                Span::styled(
+                    ic.instance_id.clone(),
+                    Style::default().fg(theme::CYAN),
+                ),
+                Span::styled(
+                    format!("  ({})", ic.indicator_type),
+                    Style::default().fg(Color::DarkGray),
+                ),
+                Span::styled(
+                    format!("  w={:.2}", ic.weight),
+                    Style::default().fg(theme::NEON_GREEN),
+                ),
+            ]));
+
+            // sorted params
+            let mut sorted_params: Vec<_> = ic.params.iter().collect();
+            sorted_params.sort_by_key(|(k, _)| k.as_str());
+            for (k, v) in sorted_params {
+                lines.push(ratatui::text::Line::from(vec![
+                    Span::raw("         "),
+                    Span::styled(
+                        format!("{k}: "),
+                        Style::default().fg(theme::DIM_GREEN),
+                    ),
+                    Span::styled(
+                        format_json_value(v),
+                        Style::default().fg(theme::MATRIX_GREEN),
+                    ),
+                ]));
+            }
+
+            // modification tracking
+            if let Some(ref by) = ic.last_modified_by {
+                let at_str = ic
+                    .last_modified_at
+                    .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
+                    .unwrap_or_default();
+                let reason = ic
+                    .modification_reason
+                    .as_deref()
+                    .unwrap_or("");
+                lines.push(ratatui::text::Line::from(vec![
+                    Span::raw("         "),
+                    Span::styled(
+                        format!("modified by {by} {at_str}"),
+                        Style::default().fg(Color::DarkGray),
+                    ),
+                ]));
+                if !reason.is_empty() {
+                    lines.push(ratatui::text::Line::from(vec![
+                        Span::raw("         "),
+                        Span::styled(
+                            format!("reason: {reason}"),
+                            Style::default().fg(Color::DarkGray),
+                        ),
+                    ]));
+                }
+            }
+        }
+        lines.push(ratatui::text::Line::from(""));
+    }
+}
+
+fn render_actions_section(
+    config: &StrategyConfig,
+    lines: &mut Vec<ratatui::text::Line<'static>>,
+) {
+    lines.push(ratatui::text::Line::from(Span::styled(
+        " ACTIONS",
+        Style::default()
+            .fg(theme::CYAN)
+            .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+    )));
+    lines.push(ratatui::text::Line::from(""));
+
+    let phase_order = [
+        ActionPhase::Entry,
+        ActionPhase::Monitor,
+        ActionPhase::Exit,
+        ActionPhase::Sizing,
+    ];
+
+    for phase in &phase_order {
+        let phase_actions: Vec<&types::ActionConfig> = config
+            .actions
+            .iter()
+            .filter(|a| a.phase == *phase)
+            .collect();
+
+        if phase_actions.is_empty() {
+            continue;
+        }
+
+        let phase_label = match phase {
+            ActionPhase::Entry => "Entry",
+            ActionPhase::Monitor => "Monitor",
+            ActionPhase::Exit => "Exit",
+            ActionPhase::Sizing => "Sizing",
+        };
+
+        lines.push(ratatui::text::Line::from(Span::styled(
+            format!("  [{phase_label}]"),
+            Style::default()
+                .fg(theme::AMBER)
+                .add_modifier(Modifier::BOLD),
+        )));
+
+        for ac in &phase_actions {
+            let status = if ac.enabled {
+                Span::styled(
+                    "  [ON] ",
+                    Style::default()
+                        .fg(theme::NEON_GREEN)
+                        .add_modifier(Modifier::BOLD),
+                )
+            } else {
+                Span::styled(
+                    " [OFF] ",
+                    Style::default()
+                        .fg(theme::MAGENTA)
+                        .add_modifier(Modifier::BOLD),
+                )
+            };
+
+            lines.push(ratatui::text::Line::from(vec![
+                status,
+                Span::styled(
+                    ac.instance_id.clone(),
+                    Style::default().fg(theme::CYAN),
+                ),
+                Span::styled(
+                    format!("  ({})", ac.action_type),
+                    Style::default().fg(Color::DarkGray),
+                ),
+                Span::styled(
+                    format!("  pri={}", ac.priority),
+                    Style::default().fg(theme::NEON_GREEN),
+                ),
+            ]));
+
+            let mut sorted_params: Vec<_> = ac.params.iter().collect();
+            sorted_params.sort_by_key(|(k, _)| k.as_str());
+            for (k, v) in sorted_params {
+                lines.push(ratatui::text::Line::from(vec![
+                    Span::raw("         "),
+                    Span::styled(
+                        format!("{k}: "),
+                        Style::default().fg(theme::DIM_GREEN),
+                    ),
+                    Span::styled(
+                        format_json_value(v),
+                        Style::default().fg(theme::MATRIX_GREEN),
+                    ),
+                ]));
+            }
+
+            if let Some(ref by) = ac.last_modified_by {
+                let at_str = ac
+                    .last_modified_at
+                    .map(|dt| dt.format("%Y-%m-%d %H:%M").to_string())
+                    .unwrap_or_default();
+                let reason = ac.modification_reason.as_deref().unwrap_or("");
+                lines.push(ratatui::text::Line::from(vec![
+                    Span::raw("         "),
+                    Span::styled(
+                        format!("modified by {by} {at_str}"),
+                        Style::default().fg(Color::DarkGray),
+                    ),
+                ]));
+                if !reason.is_empty() {
+                    lines.push(ratatui::text::Line::from(vec![
+                        Span::raw("         "),
+                        Span::styled(
+                            format!("reason: {reason}"),
+                            Style::default().fg(Color::DarkGray),
+                        ),
+                    ]));
+                }
+            }
+        }
+        lines.push(ratatui::text::Line::from(""));
+    }
+}
+
+fn render_scoring_section(
+    config: &StrategyConfig,
+    lines: &mut Vec<ratatui::text::Line<'static>>,
+) {
+    lines.push(ratatui::text::Line::from(Span::styled(
+        " SCORING",
+        Style::default()
+            .fg(theme::CYAN)
+            .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+    )));
+    lines.push(ratatui::text::Line::from(""));
+
+    let agg_str = match config.scoring.aggregation {
+        AggregationMethod::WeightedSum => "WeightedSum",
+        AggregationMethod::WeightedSumWithGates => "WeightedSumWithGates",
+        AggregationMethod::MinScore => "MinScore",
+    };
+    lines.push(ratatui::text::Line::from(vec![
+        Span::styled("  aggregation: ", Style::default().fg(theme::DIM_GREEN)),
+        Span::styled(
+            agg_str.to_string(),
+            Style::default().fg(theme::MATRIX_GREEN),
+        ),
+    ]));
+
+    lines.push(ratatui::text::Line::from(vec![
+        Span::styled("  entry_threshold: ", Style::default().fg(theme::DIM_GREEN)),
+        Span::styled(
+            format!("{:.3}", config.scoring.entry_threshold),
+            Style::default()
+                .fg(theme::NEON_GREEN)
+                .add_modifier(Modifier::BOLD),
+        ),
+    ]));
+
+    lines.push(ratatui::text::Line::from(vec![
+        Span::styled("  exit_threshold: ", Style::default().fg(theme::DIM_GREEN)),
+        Span::styled(
+            format!("{:.3}", config.scoring.exit_threshold),
+            Style::default()
+                .fg(theme::MAGENTA)
+                .add_modifier(Modifier::BOLD),
+        ),
+    ]));
+
+    lines.push(ratatui::text::Line::from(""));
+    lines.push(ratatui::text::Line::from(Span::styled(
+        "  timescale weights:",
+        Style::default().fg(theme::DIM_GREEN),
+    )));
+
+    // sort timescale weights for stable display
+    let mut tw: Vec<_> = config.scoring.timescale_weights.iter().collect();
+    tw.sort_by_key(|(ts, _)| timescale_label(ts));
+    for (ts, w) in tw {
+        lines.push(ratatui::text::Line::from(vec![
+            Span::raw("    "),
+            Span::styled(
+                format!("{}: ", timescale_label(ts)),
+                Style::default().fg(theme::DIM_GREEN),
+            ),
+            Span::styled(
+                format!("{w:.3}"),
+                Style::default().fg(theme::MATRIX_GREEN),
+            ),
+        ]));
+    }
+
+    if !config.scoring.hard_gate_timescales.is_empty() {
+        lines.push(ratatui::text::Line::from(""));
+        let gates: Vec<&str> = config
+            .scoring
+            .hard_gate_timescales
+            .iter()
+            .map(|ts| timescale_label(ts))
+            .collect();
+        lines.push(ratatui::text::Line::from(vec![
+            Span::styled("  hard gates: ", Style::default().fg(theme::DIM_GREEN)),
+            Span::styled(
+                gates.join(", "),
+                Style::default()
+                    .fg(theme::MAGENTA)
+                    .add_modifier(Modifier::BOLD),
+            ),
+        ]));
+    }
+}
+
+fn render_session_section(
+    config: &StrategyConfig,
+    lines: &mut Vec<ratatui::text::Line<'static>>,
+) {
+    lines.push(ratatui::text::Line::from(Span::styled(
+        " SESSION",
+        Style::default()
+            .fg(theme::CYAN)
+            .add_modifier(Modifier::BOLD | Modifier::UNDERLINED),
+    )));
+    lines.push(ratatui::text::Line::from(""));
+
+    let s = &config.session;
+    let session_rows: Vec<(&str, String)> = vec![
+        ("no_new_entries_after", s.no_new_entries_after.clone()),
+        ("force_exit_by", s.force_exit_by.clone()),
+        ("avoid_first_minutes", s.avoid_first_minutes.to_string()),
+        (
+            "max_concurrent_positions",
+            s.max_concurrent_positions.to_string(),
+        ),
+        (
+            "max_capital_deployed_pct",
+            format!("{:.1}%", s.max_capital_deployed_pct * 100.0),
+        ),
+    ];
+
+    for (label, value) in session_rows {
+        lines.push(ratatui::text::Line::from(vec![
+            Span::styled(
+                format!("  {label}: "),
+                Style::default().fg(theme::DIM_GREEN),
+            ),
+            Span::styled(value, Style::default().fg(theme::MATRIX_GREEN)),
+        ]));
+    }
+}
+
+fn render_config_footer(frame: &mut Frame, area: Rect, state: &DashboardState) {
+    let version_str = match &state.strategy_config {
+        Some(config) => format!("v{}", config.config_id),
+        None => "---".to_string(),
+    };
+
+    let footer_line = ratatui::text::Line::from(vec![
+        Span::styled(
+            format!(" config {version_str} "),
+            Style::default().fg(theme::MATRIX_GREEN),
+        ),
+        Span::styled("\u{2500}\u{2500} ", Style::default().fg(theme::DIM_GREEN)),
+        Span::styled("[j/k]", Style::default().fg(theme::CYAN)),
+        Span::styled(" scroll  ", Style::default().fg(theme::DIM_GREEN)),
+        Span::styled("[PgUp/PgDn]", Style::default().fg(theme::CYAN)),
+        Span::styled(" page  ", Style::default().fg(theme::DIM_GREEN)),
+        Span::styled("[c]", Style::default().fg(theme::CYAN)),
+        Span::styled(" dashboard  ", Style::default().fg(theme::DIM_GREEN)),
+        Span::styled("[q]", Style::default().fg(theme::CYAN)),
+        Span::styled(" quit", Style::default().fg(theme::DIM_GREEN)),
+    ]);
+
+    let footer = Paragraph::new(footer_line).block(theme::neon_block(""));
+    frame.render_widget(footer, area);
+}
+
+fn format_json_value(v: &serde_json::Value) -> String {
+    match v {
+        serde_json::Value::String(s) => s.clone(),
+        serde_json::Value::Number(n) => n.to_string(),
+        serde_json::Value::Bool(b) => b.to_string(),
+        serde_json::Value::Null => "null".to_string(),
+        other => other.to_string(),
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -854,5 +1456,192 @@ mod tests {
             state.ticker_order,
             vec!["AAPL".to_string(), "QQQ".to_string(), "SPY".to_string()]
         );
+    }
+
+    // -----------------------------------------------------------------------
+    // config viewer tests
+    // -----------------------------------------------------------------------
+
+    fn make_test_strategy_config() -> StrategyConfig {
+        use types::action::ActionConfig;
+        use types::config::SessionConfig;
+        use types::indicator::IndicatorConfig;
+        use types::scoring::ScoringConfig;
+
+        StrategyConfig {
+            schema_version: "1.0".to_string(),
+            config_id: 42,
+            created_at: Utc::now(),
+            created_by: "test".to_string(),
+            parent_config_id: None,
+            tickers: vec!["SPY".to_string()],
+            indicators: vec![IndicatorConfig {
+                indicator_type: "rsi".to_string(),
+                instance_id: "rsi_14_5m".to_string(),
+                timescale: Timescale::FiveMinute,
+                enabled: true,
+                weight: 1.0,
+                params: [
+                    ("period".to_string(), serde_json::json!(14)),
+                    ("overbought".to_string(), serde_json::json!(70)),
+                ]
+                .into_iter()
+                .collect(),
+                last_modified_by: Some("pm_agent".to_string()),
+                last_modified_at: Some(Utc::now()),
+                modification_reason: Some("tune RSI period".to_string()),
+            }],
+            actions: vec![ActionConfig {
+                action_type: "atr_trailing_stop".to_string(),
+                instance_id: "atr_ts_1".to_string(),
+                phase: ActionPhase::Exit,
+                enabled: true,
+                priority: 1,
+                params: [
+                    ("atr_multiplier".to_string(), serde_json::json!(2.5)),
+                    ("atr_period".to_string(), serde_json::json!(14)),
+                ]
+                .into_iter()
+                .collect(),
+                last_modified_by: None,
+                last_modified_at: None,
+                modification_reason: None,
+            }],
+            scoring: ScoringConfig {
+                timescale_weights: [(Timescale::FiveMinute, 0.6), (Timescale::OneHour, 0.4)]
+                    .into_iter()
+                    .collect(),
+                entry_threshold: 0.5,
+                exit_threshold: -0.3,
+                aggregation: AggregationMethod::WeightedSumWithGates,
+                hard_gate_timescales: vec![Timescale::OneHour],
+            },
+            session: SessionConfig {
+                no_new_entries_after: "15:30".to_string(),
+                force_exit_by: "15:55".to_string(),
+                avoid_first_minutes: 5,
+                max_concurrent_positions: 3,
+                max_capital_deployed_pct: 0.8,
+            },
+        }
+    }
+
+    #[test]
+    fn page_toggle_cycles() {
+        let mut state = DashboardState::new(1);
+        assert_eq!(state.active_page, TuiPage::Dashboard);
+
+        state.toggle_page();
+        assert_eq!(state.active_page, TuiPage::ConfigViewer);
+        assert_eq!(state.config_scroll_offset, 0);
+
+        // set some scroll offset, then toggle back
+        state.config_scroll_offset = 10;
+        state.toggle_page();
+        assert_eq!(state.active_page, TuiPage::Dashboard);
+        assert_eq!(state.config_scroll_offset, 0); // reset on toggle
+
+        state.toggle_page();
+        assert_eq!(state.active_page, TuiPage::ConfigViewer);
+    }
+
+    #[test]
+    fn scroll_bounds() {
+        let mut state = DashboardState::new(1);
+
+        // scroll_up from 0 stays at 0
+        state.scroll_up();
+        assert_eq!(state.config_scroll_offset, 0);
+
+        // scroll_down clamps at max
+        state.scroll_down(5);
+        assert_eq!(state.config_scroll_offset, 1);
+        state.scroll_down(5);
+        state.scroll_down(5);
+        state.scroll_down(5);
+        state.scroll_down(5);
+        assert_eq!(state.config_scroll_offset, 5);
+        state.scroll_down(5);
+        assert_eq!(state.config_scroll_offset, 5); // clamped
+
+        // page scroll
+        state.config_scroll_offset = 3;
+        state.scroll_page_up(10);
+        assert_eq!(state.config_scroll_offset, 0); // 3 - 5 = saturates to 0
+
+        state.config_scroll_offset = 0;
+        state.scroll_page_down(10, 20);
+        assert_eq!(state.config_scroll_offset, 5); // 0 + 5 = 5
+
+        state.scroll_page_down(10, 6);
+        assert_eq!(state.config_scroll_offset, 6); // clamped to max
+    }
+
+    #[test]
+    fn set_strategy_config_updates_total_lines() {
+        let mut state = DashboardState::new(1);
+        assert_eq!(state.config_total_lines, 0);
+        assert!(state.strategy_config.is_none());
+
+        let config = make_test_strategy_config();
+        state.set_strategy_config(config);
+
+        assert!(state.strategy_config.is_some());
+        assert!(state.config_total_lines > 0);
+    }
+
+    #[test]
+    fn render_config_page_empty_does_not_panic() {
+        use ratatui::backend::TestBackend;
+
+        let backend = TestBackend::new(120, 40);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        let mut state = DashboardState::new(1);
+        state.active_page = TuiPage::ConfigViewer;
+
+        terminal
+            .draw(|frame| {
+                render_config_page(frame, &state);
+            })
+            .unwrap();
+    }
+
+    #[test]
+    fn render_config_page_with_data_does_not_panic() {
+        use ratatui::backend::TestBackend;
+
+        let backend = TestBackend::new(120, 40);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        let mut state = DashboardState::new(1);
+        state.active_page = TuiPage::ConfigViewer;
+        state.set_strategy_config(make_test_strategy_config());
+
+        terminal
+            .draw(|frame| {
+                render_config_page(frame, &state);
+            })
+            .unwrap();
+    }
+
+    #[test]
+    fn render_config_page_scrolled_does_not_panic() {
+        use ratatui::backend::TestBackend;
+
+        let backend = TestBackend::new(120, 40);
+        let mut terminal = Terminal::new(backend).unwrap();
+
+        let mut state = DashboardState::new(1);
+        state.active_page = TuiPage::ConfigViewer;
+        state.set_strategy_config(make_test_strategy_config());
+        // scroll near the end
+        state.config_scroll_offset = state.config_total_lines;
+
+        terminal
+            .draw(|frame| {
+                render_config_page(frame, &state);
+            })
+            .unwrap();
     }
 }

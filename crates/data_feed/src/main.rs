@@ -247,6 +247,11 @@ async fn main() {
     )));
     #[cfg(feature = "tui")]
     {
+        dashboard_state
+            .write()
+            .unwrap()
+            .set_strategy_config(strategy_config.clone());
+
         let state = Arc::clone(&dashboard_state);
         let shutdown = Arc::clone(&tui_shutdown);
         std::thread::spawn(move || {
@@ -467,6 +472,7 @@ async fn main() {
                         {
                             let mut dash = dashboard_state.write().unwrap();
                             dash.config_version = version_id;
+                            dash.set_strategy_config(new_config.clone());
                         }
                     }
                     Ok(None) => {
