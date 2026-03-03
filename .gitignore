@@ -12,6 +12,9 @@ dist/
 build/
 *.egg
 
+# node
+node_modules/
+
 # environment
 .env
 *.db
