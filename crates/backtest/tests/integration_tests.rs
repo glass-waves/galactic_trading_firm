@@ -76,7 +76,7 @@ fn full_pipeline_trend_reversal() {
             entry_threshold: 0.5,
             exit_threshold: -0.3,
             aggregation: AggregationMethod::WeightedSum,
-            hard_gate_timescales: vec![],
+            hard_gate_timescales: vec![], agreement: None, dynamic_fusion: None,
         },
     };
 
@@ -131,7 +131,7 @@ fn config_comparison_on_same_data() {
             entry_threshold: 0.5,
             exit_threshold: -0.3,
             aggregation: AggregationMethod::WeightedSum,
-            hard_gate_timescales: vec![],
+            hard_gate_timescales: vec![], agreement: None, dynamic_fusion: None,
         },
     };
 
@@ -211,7 +211,7 @@ fn csv_to_replay_pipeline() {
             entry_threshold: 0.5,
             exit_threshold: -0.3,
             aggregation: AggregationMethod::WeightedSum,
-            hard_gate_timescales: vec![],
+            hard_gate_timescales: vec![], agreement: None, dynamic_fusion: None,
         },
     };
 
@@ -238,7 +238,7 @@ fn very_short_data_does_not_panic() {
             entry_threshold: 0.5,
             exit_threshold: -0.3,
             aggregation: AggregationMethod::WeightedSum,
-            hard_gate_timescales: vec![],
+            hard_gate_timescales: vec![], agreement: None, dynamic_fusion: None,
         },
     };
 

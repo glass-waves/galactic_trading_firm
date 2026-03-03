@@ -38,7 +38,7 @@ fn make_scoring(
         entry_threshold: entry,
         exit_threshold: exit,
         aggregation: AggregationMethod::WeightedSum,
-        hard_gate_timescales: vec![],
+        hard_gate_timescales: vec![], agreement: None, dynamic_fusion: None,
     }
 }
 
@@ -213,4 +213,62 @@ fn unknown_action_type_returns_error() {
     let data = make_backtest_data(trending_up_ohlcv(20, 100.0, 1.0));
     let result = run_backtest(&config, &data);
     assert!(result.is_err());
+}
+
+#[test]
+fn trade_scores_length_matches_trades() {
+    let config = default_backtest_config();
+    let mut ohlcv = trending_up_ohlcv(40, 100.0, 1.0);
+    ohlcv.extend(trending_down_ohlcv(30, 140.0, 2.0));
+    let data = make_backtest_data(ohlcv);
+    let result = run_backtest(&config, &data).unwrap();
+
+    assert_eq!(
+        result.trade_scores.len(),
+        result.trades.len(),
+        "trade_scores must have one entry per completed trade"
+    );
+}
+
+#[test]
+fn trade_scores_contain_nonzero_values() {
+    let config = default_backtest_config();
+    let mut ohlcv = trending_up_ohlcv(40, 100.0, 1.0);
+    ohlcv.extend(trending_down_ohlcv(30, 140.0, 2.0));
+    let data = make_backtest_data(ohlcv);
+    let result = run_backtest(&config, &data).unwrap();
+
+    if !result.trades.is_empty() {
+        // at least one score pair should have non-zero values —
+        // this guards against the bug where all scores were hardcoded to 0
+        let has_nonzero = result.trade_scores.iter().any(|(entry, exit)| {
+            entry.composite != 0.0
+                || entry.five_minute.unwrap_or(0.0) != 0.0
+                || exit.composite != 0.0
+                || exit.five_minute.unwrap_or(0.0) != 0.0
+        });
+        assert!(
+            has_nonzero,
+            "trade_scores should contain non-zero values when trades exist"
+        );
+    }
+}
+
+#[test]
+fn trade_scores_empty_when_no_trades() {
+    let config = BacktestConfig {
+        action_configs: vec![
+            make_action_cfg("score_threshold_entry", "e1", ActionPhase::Entry, 0,
+                vec![("entry_threshold", json!(0.99)), ("short_threshold", json!(-0.99))]),
+        ],
+        ..default_backtest_config()
+    };
+    let data = make_backtest_data(ranging_ohlcv(50, 100.0, 0.5));
+    let result = run_backtest(&config, &data).unwrap();
+
+    assert!(result.trades.is_empty());
+    assert!(
+        result.trade_scores.is_empty(),
+        "trade_scores should be empty when there are no trades"
+    );
 }

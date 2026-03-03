@@ -16,6 +16,9 @@ build/
 .env
 *.db
 
+# logs
+logs/
+
 # os
 .DS_Store
 Thumbs.db

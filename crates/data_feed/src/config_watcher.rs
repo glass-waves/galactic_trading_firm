@@ -117,6 +117,7 @@ impl ConfigWatcher {
 pub fn try_build_engine(
     config: &StrategyConfig,
     ticker: &str,
+    capital: f64,
 ) -> Option<engine::TradingEngine> {
     let ind_reg = indicators::default_indicator_registry();
     let indicators = match indicators::build_indicators(&config.indicators, &ind_reg) {
@@ -145,6 +146,7 @@ pub fn try_build_engine(
         action_sets.exit,
         action_sets.sizing,
         ticker.to_string(),
+        capital,
     ))
 }
 
@@ -207,7 +209,7 @@ mod tests {
                 entry_threshold: 0.5,
                 exit_threshold: -0.3,
                 aggregation: AggregationMethod::WeightedSum,
-                hard_gate_timescales: vec![],
+                hard_gate_timescales: vec![], agreement: None, dynamic_fusion: None,
             },
             session: SessionConfig {
                 no_new_entries_after: "15:30".to_string(),
@@ -219,7 +221,7 @@ mod tests {
         };
 
         // should return None (fallback) for bad indicator
-        let result = try_build_engine(&config, "SPY");
+        let result = try_build_engine(&config, "SPY", 100_000.0);
         assert!(result.is_none());
     }
 
@@ -260,7 +262,7 @@ mod tests {
                 entry_threshold: 0.5,
                 exit_threshold: -0.3,
                 aggregation: AggregationMethod::WeightedSum,
-                hard_gate_timescales: vec![],
+                hard_gate_timescales: vec![], agreement: None, dynamic_fusion: None,
             },
             session: SessionConfig {
                 no_new_entries_after: "15:30".to_string(),
@@ -271,7 +273,7 @@ mod tests {
             },
         };
 
-        let result = try_build_engine(&config, "SPY");
+        let result = try_build_engine(&config, "SPY", 100_000.0);
         assert!(result.is_some());
     }
 

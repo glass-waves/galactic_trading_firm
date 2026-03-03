@@ -20,6 +20,7 @@ serde_json = { workspace = true }
 chrono = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
+tracing-appender = { workspace = true }
 async-trait = { workspace = true }
 num-decimal = { version = "0.2", default-features = false, features = ["num-v04"] }
 futures = "0.3"

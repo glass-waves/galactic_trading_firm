@@ -6,7 +6,7 @@ use std::sync::{Arc, RwLock};
 
 use tokio::sync::mpsc;
 use tracing::{error, info, warn};
-use tracing_subscriber::EnvFilter;
+use tracing_subscriber::{prelude::*, EnvFilter};
 
 fn log_shutdown_stats(
     sessions: &HashMap<String, LiveSession>,
@@ -25,6 +25,7 @@ fn log_shutdown_stats(
     );
 }
 
+use data_feed::account::resolve_capital;
 use data_feed::alpaca_feed::{AlpacaFeed, BarEvent};
 use data_feed::broker::SimulatedBroker;
 use data_feed::config_loader::load_config;
@@ -42,27 +43,44 @@ async fn main() {
     // 0. load .env file (ok if missing)
     let _ = dotenvy::dotenv();
 
-    // 1. init structured logging
-    // when TUI is active, skip logging to stdout (TUI owns the terminal).
-    // in headless mode, use JSON structured logging.
+    // 1. init structured logging (console + file layers)
+    let log_dir = std::env::var("LOG_DIR").unwrap_or_else(|_| "logs".to_string());
+    std::fs::create_dir_all(&log_dir).expect("failed to create log directory");
+
+    let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    let log_file = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(format!("{}/paper_trader_{}.log", log_dir, today))
+        .expect("failed to open log file");
+
+    let (non_blocking, _file_guard) = tracing_appender::non_blocking(log_file);
+    let file_layer = tracing_subscriber::fmt::layer()
+        .json()
+        .with_writer(non_blocking)
+        .with_filter(EnvFilter::new("info"));
+
+    // console layer: JSON stdout (headless) or stderr warn+ (TUI)
     #[cfg(not(feature = "tui"))]
-    {
+    let console_layer = {
         let filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
-        tracing_subscriber::fmt()
-            .with_env_filter(filter)
+        tracing_subscriber::fmt::layer()
             .json()
-            .init();
-    }
+            .with_filter(filter)
+    };
     #[cfg(feature = "tui")]
-    {
-        // with TUI enabled, only log warnings+ to stderr so the terminal isn't clobbered
+    let console_layer = {
         let filter =
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("warn"));
-        tracing_subscriber::fmt()
-            .with_env_filter(filter)
+        tracing_subscriber::fmt::layer()
             .with_writer(std::io::stderr)
-            .init();
-    }
+            .with_filter(filter)
+    };
+
+    tracing_subscriber::registry()
+        .with(file_layer)
+        .with(console_layer)
+        .init();
 
     info!("galactic trading firm — paper trading engine starting");
 
@@ -97,12 +115,19 @@ async fn main() {
         }
     };
 
-    // 5. build engine per ticker
+    // 5. resolve capital
+    let env_capital: f64 = std::env::var("INITIAL_CAPITAL")
+        .ok()
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(100_000.0);
+    let capital = resolve_capital(&broker_mode, &api_key, &api_secret, env_capital).await;
+
+    // 6. build engine per ticker
     let mut sessions: HashMap<String, LiveSession> = HashMap::new();
     let mut state_builders: HashMap<String, MarketStateBuilder> = HashMap::new();
 
     for ticker in &strategy_config.tickers {
-        match try_build_engine(&strategy_config, ticker) {
+        match try_build_engine(&strategy_config, ticker, capital) {
             Some(engine) => {
                 info!(ticker = %ticker, "engine built");
                 sessions.insert(ticker.clone(), LiveSession::new(engine));
@@ -450,7 +475,7 @@ async fn main() {
                         // rebuild engines
                         let mut new_sessions: HashMap<String, LiveSession> = HashMap::new();
                         for ticker in &new_config.tickers {
-                            match try_build_engine(&new_config, ticker) {
+                            match try_build_engine(&new_config, ticker, capital) {
                                 Some(new_engine) => {
                                     info!(ticker = %ticker, "engine rebuilt for new config");
                                     new_sessions.insert(ticker.clone(), LiveSession::new(new_engine));

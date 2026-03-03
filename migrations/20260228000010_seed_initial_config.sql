@@ -8,21 +8,67 @@ INSERT INTO config_versions (
     'promoted',
     now(),
     'orchestrator',
-    'initial seed config for phase 1',
+    'default v1 config — multi-timescale (1min/5min/1hr) with 13 indicators, 7 actions, hourly hard gate',
     '{
         "schema_version": "0.1",
         "config_id": 1,
-        "created_at": "2026-02-28T00:00:00Z",
-        "created_by": "orchestrator",
+        "created_at": "2026-03-01T00:00:00Z",
+        "created_by": "human",
         "parent_config_id": null,
         "tickers": ["SPY", "QQQ", "AAPL", "NVDA", "MSFT"],
+
         "indicators": [
+            {
+                "indicator_type": "rsi",
+                "instance_id": "rsi_14_1min",
+                "timescale": "OneMinute",
+                "enabled": true,
+                "weight": 0.30,
+                "params": {"period": 14, "overbought": 70, "oversold": 30},
+                "last_modified_by": null,
+                "last_modified_at": null,
+                "modification_reason": null
+            },
+            {
+                "indicator_type": "stochastic_fast",
+                "instance_id": "stoch_fast_14_1min",
+                "timescale": "OneMinute",
+                "enabled": true,
+                "weight": 0.25,
+                "params": {"period": 14},
+                "last_modified_by": null,
+                "last_modified_at": null,
+                "modification_reason": null
+            },
+            {
+                "indicator_type": "roc",
+                "instance_id": "roc_12_1min",
+                "timescale": "OneMinute",
+                "enabled": true,
+                "weight": 0.20,
+                "params": {"period": 12},
+                "last_modified_by": null,
+                "last_modified_at": null,
+                "modification_reason": null
+            },
+            {
+                "indicator_type": "macd",
+                "instance_id": "macd_1min",
+                "timescale": "OneMinute",
+                "enabled": true,
+                "weight": 0.25,
+                "params": {"fast_period": 12, "slow_period": 26, "signal_period": 9, "normalization_factor": 1.0},
+                "last_modified_by": null,
+                "last_modified_at": null,
+                "modification_reason": null
+            },
+
             {
                 "indicator_type": "rsi",
                 "instance_id": "rsi_14_5min",
                 "timescale": "FiveMinute",
                 "enabled": true,
-                "weight": 0.3,
+                "weight": 0.25,
                 "params": {"period": 14, "overbought": 70, "oversold": 30},
                 "last_modified_by": null,
                 "last_modified_at": null,
@@ -33,19 +79,8 @@ INSERT INTO config_versions (
                 "instance_id": "ema_20_5min",
                 "timescale": "FiveMinute",
                 "enabled": true,
-                "weight": 0.25,
+                "weight": 0.15,
                 "params": {"period": 20},
-                "last_modified_by": null,
-                "last_modified_at": null,
-                "modification_reason": null
-            },
-            {
-                "indicator_type": "atr",
-                "instance_id": "atr_14_5min",
-                "timescale": "FiveMinute",
-                "enabled": true,
-                "weight": 0.2,
-                "params": {"period": 14},
                 "last_modified_by": null,
                 "last_modified_at": null,
                 "modification_reason": null
@@ -55,13 +90,81 @@ INSERT INTO config_versions (
                 "instance_id": "bb_20_5min",
                 "timescale": "FiveMinute",
                 "enabled": true,
+                "weight": 0.15,
+                "params": {"period": 20, "std_dev": 2.0},
+                "last_modified_by": null,
+                "last_modified_at": null,
+                "modification_reason": null
+            },
+            {
+                "indicator_type": "macd",
+                "instance_id": "macd_5min",
+                "timescale": "FiveMinute",
+                "enabled": true,
                 "weight": 0.25,
+                "params": {"fast_period": 12, "slow_period": 26, "signal_period": 9, "normalization_factor": 1.0},
+                "last_modified_by": null,
+                "last_modified_at": null,
+                "modification_reason": null
+            },
+            {
+                "indicator_type": "stochastic_rsi",
+                "instance_id": "stoch_rsi_5min",
+                "timescale": "FiveMinute",
+                "enabled": true,
+                "weight": 0.20,
+                "params": {"rsi_period": 14, "stoch_period": 14},
+                "last_modified_by": null,
+                "last_modified_at": null,
+                "modification_reason": null
+            },
+
+            {
+                "indicator_type": "vwap_distance",
+                "instance_id": "vwap_dist_1hr",
+                "timescale": "OneHour",
+                "enabled": true,
+                "weight": 0.30,
+                "params": {},
+                "last_modified_by": null,
+                "last_modified_at": null,
+                "modification_reason": null
+            },
+            {
+                "indicator_type": "supertrend",
+                "instance_id": "supertrend_1hr",
+                "timescale": "OneHour",
+                "enabled": true,
+                "weight": 0.30,
+                "params": {"period": 10, "multiplier": 3.0},
+                "last_modified_by": null,
+                "last_modified_at": null,
+                "modification_reason": null
+            },
+            {
+                "indicator_type": "ema",
+                "instance_id": "ema_20_1hr",
+                "timescale": "OneHour",
+                "enabled": true,
+                "weight": 0.25,
+                "params": {"period": 20},
+                "last_modified_by": null,
+                "last_modified_at": null,
+                "modification_reason": null
+            },
+            {
+                "indicator_type": "bollinger_bandwidth",
+                "instance_id": "bb_bw_20_1hr",
+                "timescale": "OneHour",
+                "enabled": true,
+                "weight": 0.15,
                 "params": {"period": 20, "std_dev": 2.0},
                 "last_modified_by": null,
                 "last_modified_at": null,
                 "modification_reason": null
             }
         ],
+
         "actions": [
             {
                 "action_type": "score_threshold_entry",
@@ -69,7 +172,7 @@ INSERT INTO config_versions (
                 "phase": "Entry",
                 "enabled": true,
                 "priority": 0,
-                "params": {},
+                "params": {"entry_threshold": 0.45, "short_threshold": -0.45},
                 "last_modified_by": null,
                 "last_modified_at": null,
                 "modification_reason": null
@@ -80,18 +183,29 @@ INSERT INTO config_versions (
                 "phase": "Exit",
                 "enabled": true,
                 "priority": 0,
-                "params": {"atr_multiplier": 2.0, "tighten_after_profit_pct": 0.005},
+                "params": {"atr_period": 14, "multiplier": 2.0, "timescale": "FiveMinute"},
                 "last_modified_by": null,
                 "last_modified_at": null,
                 "modification_reason": null
             },
             {
-                "action_type": "fixed_fractional",
-                "instance_id": "sizing_fixed",
-                "phase": "Sizing",
+                "action_type": "fixed_pct_stop",
+                "instance_id": "hard_stop",
+                "phase": "Exit",
                 "enabled": true,
-                "priority": 0,
-                "params": {"fraction": 0.01},
+                "priority": 1,
+                "params": {"stop_loss_pct": 0.015},
+                "last_modified_by": null,
+                "last_modified_at": null,
+                "modification_reason": null
+            },
+            {
+                "action_type": "max_hold_timeout",
+                "instance_id": "max_hold",
+                "phase": "Exit",
+                "enabled": true,
+                "priority": 5,
+                "params": {"max_hold_ms": 2700000},
                 "last_modified_by": null,
                 "last_modified_at": null,
                 "modification_reason": null
@@ -106,21 +220,49 @@ INSERT INTO config_versions (
                 "last_modified_by": null,
                 "last_modified_at": null,
                 "modification_reason": null
+            },
+            {
+                "action_type": "breakeven_stop",
+                "instance_id": "breakeven",
+                "phase": "Monitor",
+                "enabled": true,
+                "priority": 0,
+                "params": {"trigger_pct": 0.008},
+                "last_modified_by": null,
+                "last_modified_at": null,
+                "modification_reason": null
+            },
+            {
+                "action_type": "fixed_fractional",
+                "instance_id": "sizing_fixed",
+                "phase": "Sizing",
+                "enabled": true,
+                "priority": 0,
+                "params": {"fraction": 0.01},
+                "last_modified_by": null,
+                "last_modified_at": null,
+                "modification_reason": null
             }
         ],
+
         "scoring": {
-            "timescale_weights": {"FiveMinute": 1.0},
-            "entry_threshold": 0.65,
-            "exit_threshold": -0.30,
-            "aggregation": "WeightedSum",
-            "hard_gate_timescales": []
+            "timescale_weights": {
+                "OneMinute": 0.20,
+                "FiveMinute": 0.50,
+                "OneHour": 0.30
+            },
+            "entry_threshold": 0.45,
+            "exit_threshold": -0.15,
+            "aggregation": "WeightedSumWithGates",
+            "hard_gate_timescales": ["OneHour"]
         },
+
         "session": {
             "no_new_entries_after": "15:30",
             "force_exit_by": "15:55",
             "avoid_first_minutes": 5,
-            "max_concurrent_positions": 3,
-            "max_capital_deployed_pct": 0.15
+            "max_concurrent_positions": 2,
+            "max_capital_deployed_pct": 0.10
         }
     }'::jsonb
 );

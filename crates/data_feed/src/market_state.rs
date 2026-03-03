@@ -53,6 +53,8 @@ impl MarketStateBuilder {
             spread,
             session_vwap,
             session_volume: self.cumulative_volume,
+            position_context: None,
+            session_progress: None,
         }
     }
 

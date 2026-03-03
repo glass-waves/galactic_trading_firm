@@ -1514,7 +1514,7 @@ mod tests {
                 entry_threshold: 0.5,
                 exit_threshold: -0.3,
                 aggregation: AggregationMethod::WeightedSumWithGates,
-                hard_gate_timescales: vec![Timescale::OneHour],
+                hard_gate_timescales: vec![Timescale::OneHour], agreement: None, dynamic_fusion: None,
             },
             session: SessionConfig {
                 no_new_entries_after: "15:30".to_string(),

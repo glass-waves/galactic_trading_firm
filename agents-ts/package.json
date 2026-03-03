@@ -1,0 +1,29 @@
+{
+  "name": "adaptive-trading-agents",
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "biome check src/ tests/",
+    "format": "biome format --write src/ tests/",
+    "start": "node dist/orchestrator.js --mode scheduled",
+    "walk-forward": "tsx src/walk-forward.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/claude-agent-sdk": "^0.2.0",
+    "@modelcontextprotocol/sdk": "^1.27.1",
+    "croner": "^9.0.0",
+    "dotenv": "^17.3.1",
+    "pg": "^8.13.0"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.0",
+    "@types/node": "^22.0.0",
+    "@types/pg": "^8.11.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

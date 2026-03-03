@@ -45,7 +45,7 @@ fn make_scoring(
         } else {
             AggregationMethod::WeightedSumWithGates
         },
-        hard_gate_timescales: gates,
+        hard_gate_timescales: gates, agreement: None, dynamic_fusion: None,
     }
 }
 
@@ -81,6 +81,7 @@ fn build_test_engine(
         actions.exit,
         actions.sizing,
         "SPY".to_string(),
+        100_000.0,
     )
 }
 
@@ -154,6 +155,7 @@ fn sideways_market_no_entry() {
         actions.exit,
         actions.sizing,
         "SPY".to_string(),
+        100_000.0,
     );
 
     let data = ranging_ohlcv(50, 100.0, 1.0);
@@ -197,6 +199,7 @@ fn hard_gate_blocks_entry() {
         actions.exit,
         actions.sizing,
         "SPY".to_string(),
+        100_000.0,
     );
 
     let data = trending_up_ohlcv(50, 100.0, 1.0);
@@ -346,6 +349,7 @@ fn broken_indicator_does_not_crash_loop() {
         actions.exit,
         actions.sizing,
         "SPY".to_string(),
+        100_000.0,
     );
 
     let data = trending_up_ohlcv(30, 100.0, 1.0);

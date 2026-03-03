@@ -1,3 +1,4 @@
+pub mod account;
 pub mod candle_aggregator;
 pub mod market_state;
 pub mod broker;

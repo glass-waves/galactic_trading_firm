@@ -11,6 +11,7 @@ use actions::exit::max_hold_timeout::MaxHoldTimeout;
 use actions::exit::session_close::SessionCloseExit;
 use actions::monitor::breakeven_stop::BreakevenStop;
 use actions::sizing::fixed_fractional::FixedFractionalSizing;
+use actions::sizing::volatility_scaled::VolatilityScaledSizing;
 
 fn default_scores(composite: f64) -> TimescaleScores {
     TimescaleScores {
@@ -283,5 +284,162 @@ fn fixed_fractional_calculates_correct_fraction() {
             assert!(matches!(direction, TradeDirection::Long));
         }
         other => panic!("expected Enter with fraction, got {other:?}"),
+    }
+}
+
+// ── VolatilityScaledSizing ──
+
+fn make_vol_sizer() -> VolatilityScaledSizing {
+    VolatilityScaledSizing::new(
+        0.01,  // base_fraction
+        14,    // atr_period
+        2.0,   // baseline_atr
+        0.03,  // max_fraction
+        0.002, // min_fraction
+        Timescale::FiveMinute,
+        "vol_sizer".into(),
+    )
+}
+
+#[test]
+fn vol_sizing_reduces_in_high_volatility() {
+    let action = make_vol_sizer();
+    // high ATR data: large range candles → ATR ~4.0 (2x baseline)
+    let ohlcv: Vec<_> = (0..20)
+        .map(|i| {
+            let base = 100.0 + i as f64;
+            (base, base + 4.0, base - 4.0, base + 0.5, 100_000.0)
+        })
+        .collect();
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &ohlcv);
+    let scores = default_scores(0.7);
+    match action.evaluate(None, &ms, &scores) {
+        ActionSignal::Enter { size_fraction, .. } => {
+            assert!(size_fraction < 0.01, "high vol should reduce below base, got {size_fraction}");
+        }
+        other => panic!("expected Enter, got {other:?}"),
+    }
+}
+
+#[test]
+fn vol_sizing_increases_in_low_volatility() {
+    let action = make_vol_sizer();
+    // low ATR data: tight range candles → ATR ~1.0 (0.5x baseline)
+    let ohlcv: Vec<_> = (0..20)
+        .map(|i| {
+            let base = 100.0 + i as f64 * 0.1;
+            (base, base + 0.5, base - 0.5, base + 0.1, 100_000.0)
+        })
+        .collect();
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &ohlcv);
+    let scores = default_scores(0.7);
+    match action.evaluate(None, &ms, &scores) {
+        ActionSignal::Enter { size_fraction, .. } => {
+            assert!(size_fraction > 0.01, "low vol should increase above base, got {size_fraction}");
+        }
+        other => panic!("expected Enter, got {other:?}"),
+    }
+}
+
+#[test]
+fn vol_sizing_clamped_at_max() {
+    let action = make_vol_sizer();
+    // very low ATR → fraction would be very large, should be clamped
+    let ohlcv: Vec<_> = (0..20)
+        .map(|i| {
+            let base = 100.0 + i as f64 * 0.001;
+            (base, base + 0.01, base - 0.01, base, 100_000.0)
+        })
+        .collect();
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &ohlcv);
+    let scores = default_scores(0.7);
+    match action.evaluate(None, &ms, &scores) {
+        ActionSignal::Enter { size_fraction, .. } => {
+            assert!(size_fraction <= 0.03 + f64::EPSILON, "should be clamped at max 0.03, got {size_fraction}");
+        }
+        other => panic!("expected Enter, got {other:?}"),
+    }
+}
+
+#[test]
+fn vol_sizing_clamped_at_min() {
+    let action = make_vol_sizer();
+    // very high ATR → fraction would be very small, should be floored
+    let ohlcv: Vec<_> = (0..20)
+        .map(|i| {
+            let base = 100.0 + i as f64 * 2.0;
+            (base, base + 50.0, base - 50.0, base + 10.0, 100_000.0)
+        })
+        .collect();
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &ohlcv);
+    let scores = default_scores(0.7);
+    match action.evaluate(None, &ms, &scores) {
+        ActionSignal::Enter { size_fraction, .. } => {
+            assert!(size_fraction >= 0.002 - f64::EPSILON, "should be floored at min 0.002, got {size_fraction}");
+        }
+        other => panic!("expected Enter, got {other:?}"),
+    }
+}
+
+#[test]
+fn vol_sizing_no_position_returns_enter() {
+    let action = make_vol_sizer();
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &trending_up_ohlcv(20, 100.0, 1.0));
+    let scores = default_scores(0.7);
+    assert!(matches!(action.evaluate(None, &ms, &scores), ActionSignal::Enter { .. }));
+}
+
+#[test]
+fn vol_sizing_with_position_returns_hold() {
+    let action = make_vol_sizer();
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &trending_up_ohlcv(20, 100.0, 1.0));
+    let pos = long_position(100.0, 101.0, 101.0);
+    let scores = default_scores(0.7);
+    assert!(matches!(action.evaluate(Some(&pos), &ms, &scores), ActionSignal::Hold));
+}
+
+#[test]
+fn vol_sizing_missing_atr_uses_base() {
+    let action = make_vol_sizer();
+    // only 5 candles, needs 15 → insufficient data
+    let ohlcv: Vec<_> = (0..5)
+        .map(|i| {
+            let base = 100.0 + i as f64;
+            (base, base + 1.0, base - 1.0, base, 100_000.0)
+        })
+        .collect();
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &ohlcv);
+    let scores = default_scores(0.7);
+    match action.evaluate(None, &ms, &scores) {
+        ActionSignal::Enter { size_fraction, .. } => {
+            assert!((size_fraction - 0.01).abs() < f64::EPSILON, "should use base fraction, got {size_fraction}");
+        }
+        other => panic!("expected Enter, got {other:?}"),
+    }
+}
+
+#[test]
+fn vol_sizing_factory_from_config() {
+    let registry = actions::default_action_registry();
+    assert!(registry.factories.contains_key("volatility_scaled"));
+}
+
+#[test]
+fn vol_sizing_direction_from_scores() {
+    let action = make_vol_sizer();
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &trending_up_ohlcv(20, 100.0, 1.0));
+
+    // positive composite → Long
+    let scores = default_scores(0.5);
+    match action.evaluate(None, &ms, &scores) {
+        ActionSignal::Enter { direction, .. } => assert_eq!(direction, TradeDirection::Long),
+        other => panic!("expected Enter, got {other:?}"),
+    }
+
+    // negative composite → Short
+    let scores = default_scores(-0.5);
+    match action.evaluate(None, &ms, &scores) {
+        ActionSignal::Enter { direction, .. } => assert_eq!(direction, TradeDirection::Short),
+        other => panic!("expected Enter, got {other:?}"),
     }
 }

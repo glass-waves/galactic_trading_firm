@@ -67,6 +67,8 @@ pub fn make_market_state(timescale: Timescale, prices: &[f64]) -> MarketState {
         spread: 0.02,
         session_vwap: last_price,
         session_volume: 1_000_000.0,
+        position_context: None,
+        session_progress: None,
     }
 }
 
@@ -96,6 +98,8 @@ pub fn make_market_state_ohlcv(
         spread: 0.02,
         session_vwap: last_price,
         session_volume: 1_000_000.0,
+        position_context: None,
+        session_progress: None,
     }
 }
 

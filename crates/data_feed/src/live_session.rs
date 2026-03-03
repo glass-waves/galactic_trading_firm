@@ -131,7 +131,7 @@ mod tests {
             entry_threshold: 0.5,
             exit_threshold: -0.3,
             aggregation: AggregationMethod::WeightedSum,
-            hard_gate_timescales: vec![],
+            hard_gate_timescales: vec![], agreement: None, dynamic_fusion: None,
         };
 
         let engine = TradingEngine::new(
@@ -143,6 +143,7 @@ mod tests {
             action_sets.exit,
             action_sets.sizing,
             "SPY".to_string(),
+            100_000.0,
         );
 
         LiveSession::new(engine)

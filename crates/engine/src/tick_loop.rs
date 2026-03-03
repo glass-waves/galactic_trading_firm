@@ -9,7 +9,7 @@ use types::scoring::ScoringConfig;
 use types::tick_result::{TickEvent, TickResult};
 
 use crate::position::{PositionManager, TradeRecord};
-use crate::scoring::compute_composite;
+use crate::scoring::compute_composite_with_indicators;
 use indicators::aggregation::compute_timescale_scores;
 
 /// the main trading engine that orchestrates the tick loop.
@@ -23,6 +23,7 @@ pub struct TradingEngine {
     sizing_actions: Vec<Box<dyn Action>>,
     position_manager: PositionManager,
     ticker: String,
+    capital: f64,
     completed_trades: Vec<TradeRecord>,
 }
 
@@ -37,6 +38,7 @@ impl TradingEngine {
         exit_actions: Vec<Box<dyn Action>>,
         sizing_actions: Vec<Box<dyn Action>>,
         ticker: String,
+        capital: f64,
     ) -> Self {
         Self {
             indicators,
@@ -48,6 +50,7 @@ impl TradingEngine {
             sizing_actions,
             position_manager: PositionManager::new(),
             ticker,
+            capital,
             completed_trades: Vec::new(),
         }
     }
@@ -77,8 +80,8 @@ impl TradingEngine {
         // 2. aggregate per-timescale scores
         let mut scores = compute_timescale_scores(&outputs, &self.indicator_configs);
 
-        // 3. compute composite score
-        compute_composite(&mut scores, &self.scoring_config);
+        // 3. compute composite score (pass indicator outputs for dynamic fusion)
+        compute_composite_with_indicators(&mut scores, &self.scoring_config, Some(&outputs));
 
         // 4. update position if exists
         self.position_manager
@@ -146,7 +149,7 @@ impl TradingEngine {
                         self.ticker.clone(),
                         direction,
                         market.last_price,
-                        size_fraction * 10_000.0, // example: $10k capital
+                        size_fraction * self.capital,
                         market.timestamp,
                     );
                     entry_event = TickEvent::PositionOpened;

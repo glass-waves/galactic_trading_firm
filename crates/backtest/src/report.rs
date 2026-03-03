@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use engine::TradeRecord;
 use types::action::ExitReason;
+use types::scoring::TimescaleScores;
 
 /// a point on the equity curve, captured after each trade closes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -54,6 +55,9 @@ pub struct BacktestResult {
     pub end_time: DateTime<Utc>,
     pub initial_capital: f64,
     pub trades: Vec<TradeRecord>,
+    /// entry and exit scores for each trade, parallel to `trades`.
+    #[serde(default)]
+    pub trade_scores: Vec<(TimescaleScores, TimescaleScores)>,
     pub equity_curve: Vec<EquityPoint>,
     pub metrics: BacktestMetrics,
 }

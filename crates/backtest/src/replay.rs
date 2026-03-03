@@ -7,7 +7,8 @@ use engine::TradingEngine;
 use types::action::ActionConfig;
 use types::indicator::IndicatorConfig;
 use types::market::{Candle, MarketState, Timescale};
-use types::scoring::ScoringConfig;
+use types::scoring::{ScoringConfig, TimescaleScores};
+use types::tick_result::TickEvent;
 
 use actions::{build_actions, default_action_registry};
 use indicators::{build_indicators, default_indicator_registry};
@@ -50,6 +51,7 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
         actions.exit,
         actions.sizing,
         config.ticker.clone(),
+        config.initial_capital,
     );
 
     let primary_candles = data
@@ -63,6 +65,10 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
 
     let start_time = primary_candles.first().unwrap().timestamp;
     let end_time = primary_candles.last().unwrap().timestamp;
+
+    // track entry scores per position so we can pair them with exit scores
+    let mut pending_entry_scores: Option<TimescaleScores> = None;
+    let mut trade_scores: Vec<(TimescaleScores, TimescaleScores)> = Vec::new();
 
     // replay tick by tick: at each tick, provide candles up to that point
     for i in 1..=primary_candles.len() {
@@ -97,9 +103,24 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
             spread: 0.02,
             session_vwap: last_candle.close,
             session_volume: 1_000_000.0,
+            position_context: None,
+            session_progress: None,
         };
 
-        let _result = engine.on_tick(&market);
+        let result = engine.on_tick(&market);
+
+        match &result.event {
+            TickEvent::PositionOpened => {
+                pending_entry_scores = Some(result.scores.clone());
+            }
+            TickEvent::PositionClosed => {
+                let entry_scores = pending_entry_scores
+                    .take()
+                    .unwrap_or_default();
+                trade_scores.push((entry_scores, result.scores.clone()));
+            }
+            TickEvent::Nothing => {}
+        }
     }
 
     let trades = engine.completed_trades().to_vec();
@@ -113,6 +134,7 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
         end_time,
         initial_capital: config.initial_capital,
         trades,
+        trade_scores,
         equity_curve,
         metrics,
     })

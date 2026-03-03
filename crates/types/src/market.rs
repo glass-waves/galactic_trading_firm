@@ -22,6 +22,19 @@ pub enum Timescale {
     OneMonth,
 }
 
+/// position context exposed to the indicator pipeline.
+#[derive(Debug, Clone)]
+pub struct PositionContext {
+    /// +1.0 = long, -1.0 = short, 0.0 = flat
+    pub direction: f64,
+    /// unrealized P&L as percentage of entry price
+    pub unrealized_pnl_pct: f64,
+    /// milliseconds since position entry
+    pub hold_duration_ms: i64,
+    /// configured maximum hold time in milliseconds
+    pub max_hold_ms: i64,
+}
+
 /// snapshot of current market state across all timescales.
 /// rebuilt every tick from the price feed.
 #[derive(Debug, Clone)]
@@ -41,4 +54,11 @@ pub struct MarketState {
     pub spread: f64,
     pub session_vwap: f64,
     pub session_volume: f64,
+
+    /// optional position context for meta-indicators
+    pub position_context: Option<PositionContext>,
+
+    /// session progress (0.0 = open, 1.0 = close).
+    /// set by the execution loop based on current time vs session hours.
+    pub session_progress: Option<f64>,
 }

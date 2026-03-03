@@ -27,23 +27,31 @@ services:
       APCA_API_KEY_ID: ${APCA_API_KEY_ID:-}
       APCA_API_SECRET_KEY: ${APCA_API_SECRET_KEY:-}
       BROKER_MODE: ${BROKER_MODE:-simulated}
+      INITIAL_CAPITAL: ${INITIAL_CAPITAL:-100000}
       RUST_LOG: ${RUST_LOG:-info}
+      LOG_DIR: /data/logs
+    volumes:
+      - logs:/data/logs
     stdin_open: true
     tty: true
     stop_grace_period: 30s
 
-  agents:
+  agents-ts:
     build:
       context: .
-      dockerfile: Dockerfile.agents
+      dockerfile: Dockerfile.agents-ts
     depends_on:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql+asyncpg://postgres:postgres@postgres:5432/adaptive_trading
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/adaptive_trading
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       BACKTEST_DATA_DIR: ${BACKTEST_DATA_DIR:-}
+      LOG_DIR: /data/logs
+    volumes:
+      - logs:/data/logs
     stop_grace_period: 15s
 
 volumes:
   pgdata:
+  logs:

@@ -2,7 +2,7 @@ pub mod aggregation;
 pub mod helpers;
 pub mod native;
 pub mod composable;
-pub mod custom {}      // phase 2c+: from-scratch
+pub mod custom;
 
 use std::collections::HashMap;
 
@@ -38,6 +38,13 @@ pub fn default_indicator_registry() -> IndicatorRegistry {
     reg.register("dema", composable::dema::dema_factory);
     reg.register("ttm_squeeze", composable::ttm_squeeze::ttm_squeeze_factory);
     reg.register("awesome_oscillator", composable::awesome_oscillator::awesome_oscillator_factory);
+    // custom
+    reg.register("ofi", custom::ofi::ofi_factory);
+    reg.register("vpin", custom::vpin::vpin_factory);
+    reg.register("position_direction", custom::position_context::position_direction_factory);
+    reg.register("unrealized_pnl", custom::position_context::unrealized_pnl_factory);
+    reg.register("hold_duration", custom::position_context::hold_duration_factory);
+    reg.register("session_remaining", custom::position_context::session_remaining_factory);
     reg
 }
 

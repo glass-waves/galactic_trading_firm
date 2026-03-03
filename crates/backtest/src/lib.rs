@@ -1,3 +1,5 @@
+pub mod alpaca_loader;
+pub mod config_loader;
 pub mod replay;
 pub mod report;
 

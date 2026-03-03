@@ -1,0 +1,17 @@
+# typescript agent layer (orchestrator + scheduled agents)
+
+FROM node:22-alpine
+
+WORKDIR /app
+
+# install dependencies first (layer caching)
+COPY agents-ts/package.json agents-ts/package-lock.json agents-ts/
+RUN cd agents-ts && npm ci --production=false
+
+# copy agent source code (includes prompts/)
+COPY agents-ts/ agents-ts/
+
+# build typescript
+RUN cd agents-ts && npx tsc
+
+CMD ["node", "agents-ts/dist/orchestrator.js", "--mode", "scheduled"]

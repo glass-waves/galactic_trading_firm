@@ -7,7 +7,7 @@ this file provides guidance to Claude Code (claude.ai/code) when working with co
 adaptive multi-timescale intraday trading system with two-layer architecture:
 
 - **fast layer (rust)**: execution engine processing ticks in real-time using `ta` crate (ta-rs v0.5) for indicator computation. targets sub-ms latency per tick.
-- **slow layer (python)**: evolution agents via claude agent sdk. sonnet 4.5 for full PM cycles (1-3x daily), haiku 4.5 for lightweight check-ins (more frequent). orchestrator enforces a $5/day budget cap under anthropic tier 1 ($100/month).
+- **slow layer (typescript)**: evolution agents via claude agent sdk. opus 4.6 for full PM cycles and recommendations (1x daily), sonnet 4.6 for check-ins (3x daily). orchestrator enforces a $5/day budget cap under anthropic tier 1 ($100/month).
 
 instruments: SPY, QQQ, 3-5 liquid mega-caps. intraday only, no overnight holds.
 
@@ -16,7 +16,7 @@ instruments: SPY, QQQ, 3-5 liquid mega-caps. intraday only, no overnight holds.
 ```
 galactic_trading_firm/
 ├── Cargo.toml                    # rust workspace root
-├── docker-compose.yml            # postgres 16 for local dev
+├── docker-compose.yml            # postgres 16 + paper_trader + agents-ts
 ├── crates/
 │   ├── types/                    # shared types — Candle, Indicator/Action traits, StrategyConfig
 │   ├── indicators/               # indicator implementations (phase 2)
@@ -25,13 +25,16 @@ galactic_trading_firm/
 │   │   └── src/{entry/, exit/, monitor/, sizing/}
 │   ├── engine/                   # execution engine binary
 │   │   └── src/{main.rs, config.rs, scoring.rs, position.rs}
-│   └── backtest/                 # historical replay + reports (phase 4)
-├── agents/                       # python agent layer (phase 5+)
-│   ├── pyproject.toml
-│   ├── orchestrator.py           # scheduler, budget tracking
-│   ├── agent_base.py             # shared agent sdk invocation
+│   ├── backtest/                 # historical replay + reports (phase 4)
+│   └── data_feed/                # paper trading binary (phase 7)
+├── agents-ts/                    # typescript agent layer
+│   ├── src/
+│   │   ├── orchestrator.ts       # scheduler, budget tracking
+│   │   ├── agent-base.ts         # shared agent sdk invocation
+│   │   ├── models.ts             # type definitions
+│   │   └── tools/                # agent tools (sql queries, config ops, memo writer)
 │   ├── prompts/                  # system prompts per agent/timescale
-│   └── tools/                    # agent tools (sql queries, config ops, memo writer)
+│   └── tests/
 ├── migrations/                   # sqlx migrations (from data_model.sql)
 └── docs/                         # design artifacts and reference docs
 ```
@@ -50,9 +53,10 @@ cargo clippy --workspace -- -D warnings
 docker-compose up -d
 sqlx migrate run
 
-# python agents
-cd agents && pip install -e ".[dev]"
-python -c "from agents import orchestrator, agent_base"
+# typescript agents
+cd agents-ts && npm install
+npx vitest run                       # run tests
+npx tsc                              # type check
 ```
 
 ## implementation phases
@@ -61,8 +65,8 @@ python -c "from agents import orchestrator, agent_base"
 2. **indicator engine** — wrap 22 native ta-rs indicators, build ~30 composable indicators, implement registry
 3. **action engine & scoring** — scoring pipeline (weighted sum + hard gates), core actions (entry/exit/sizing), tick loop
 4. **backtest engine** — historical replay, report generation, config comparison
-5. **agent layer** — python orchestrator, check-in agents (haiku), agent tools
-6. **full evolution loop** — PM agent with config mutation authority, backtest validation gates, hot-reload
+5. **agent layer** — typescript orchestrator, check-in agents (sonnet 4.6), agent tools
+6. **full evolution loop** — PM agent (opus 4.6) with config mutation authority, backtest validation gates, hot-reload
 7. **paper trading** — live market data, simulated broker, observability
 8. **proposal system** — agents propose new tool types via human-gated github PRs
 
@@ -88,8 +92,8 @@ immutable append-only model. every config change creates a new `config_versions`
 
 ### two-tier evolution cycles
 
-- **full PM cycle** (sonnet 4.5): all 5 timescale agents produce recommendation memos → PM agent reads memos + trade data + changelog → proposes config mutations → backtest validates → promote or reject
-- **check-in cycle** (haiku 4.5): 1min/5min/hourly agents produce observation-only memos with zero config authority. builds evidence base for next full PM cycle.
+- **full PM cycle** (opus 4.6): 3 recommendation agents produce parameter change suggestions → PM agent reads memos + trade data + changelog → proposes config mutations → backtest validates → promote or reject
+- **check-in cycle** (sonnet 4.6): 1min/5min/hourly agents produce observation-only memos with zero config authority. builds evidence base for next full PM cycle.
 
 ### proposal system (phase 8)
 
