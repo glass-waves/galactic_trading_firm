@@ -48,7 +48,7 @@ fn default_period() -> (chrono::DateTime<Utc>, chrono::DateTime<Utc>) {
 #[test]
 fn empty_trades_returns_zero_metrics() {
     let (start, end) = default_period();
-    let (metrics, equity_curve) = compute_metrics(&[], 10_000.0, start, end);
+    let (metrics, equity_curve) = compute_metrics(&[], 10_000.0, start, end, &[]);
     assert_eq!(metrics.total_trades, 0);
     assert!((metrics.total_pnl - 0.0).abs() < f64::EPSILON);
     assert!((metrics.win_rate - 0.0).abs() < f64::EPSILON);
@@ -64,7 +64,7 @@ fn total_pnl_sums_correctly() {
         make_trade(-20.0, -0.002, ExitReason::HardStop, 30_000, 1),
         make_trade(100.0, 0.01, ExitReason::TakeProfit, 120_000, 2),
     ];
-    let (metrics, _) = compute_metrics(&trades, 10_000.0, start, end);
+    let (metrics, _) = compute_metrics(&trades, 10_000.0, start, end, &[]);
     assert!((metrics.total_pnl - 130.0).abs() < f64::EPSILON);
     assert!((metrics.total_pnl_pct - 0.013).abs() < 1e-9);
 }
@@ -77,7 +77,7 @@ fn win_rate_computed_correctly() {
         make_trade(-20.0, -0.002, ExitReason::HardStop, 30_000, 1),
         make_trade(100.0, 0.01, ExitReason::TakeProfit, 120_000, 2),
     ];
-    let (metrics, _) = compute_metrics(&trades, 10_000.0, start, end);
+    let (metrics, _) = compute_metrics(&trades, 10_000.0, start, end, &[]);
     assert_eq!(metrics.winning_trades, 2);
     assert_eq!(metrics.losing_trades, 1);
     assert!((metrics.win_rate - 2.0 / 3.0).abs() < 1e-9);
@@ -91,7 +91,7 @@ fn avg_win_and_loss_computed_correctly() {
         make_trade(-20.0, -0.002, ExitReason::HardStop, 30_000, 1),
         make_trade(40.0, 0.004, ExitReason::TakeProfit, 120_000, 2),
     ];
-    let (metrics, _) = compute_metrics(&trades, 10_000.0, start, end);
+    let (metrics, _) = compute_metrics(&trades, 10_000.0, start, end, &[]);
     assert!((metrics.avg_win - 50.0).abs() < f64::EPSILON);
     assert!((metrics.avg_loss - (-20.0)).abs() < f64::EPSILON);
 }
@@ -103,7 +103,7 @@ fn profit_factor_computed_correctly() {
         make_trade(100.0, 0.01, ExitReason::TrailingStop, 60_000, 0),
         make_trade(-50.0, -0.005, ExitReason::HardStop, 30_000, 1),
     ];
-    let (metrics, _) = compute_metrics(&trades, 10_000.0, start, end);
+    let (metrics, _) = compute_metrics(&trades, 10_000.0, start, end, &[]);
     assert!((metrics.profit_factor - 2.0).abs() < 1e-9);
 }
 
@@ -114,7 +114,7 @@ fn profit_factor_all_winners_is_infinite() {
         make_trade(50.0, 0.005, ExitReason::TrailingStop, 60_000, 0),
         make_trade(100.0, 0.01, ExitReason::TakeProfit, 120_000, 1),
     ];
-    let (metrics, _) = compute_metrics(&trades, 10_000.0, start, end);
+    let (metrics, _) = compute_metrics(&trades, 10_000.0, start, end, &[]);
     assert!((metrics.profit_factor - f64::MAX).abs() < f64::EPSILON);
 }
 
@@ -128,7 +128,7 @@ fn max_drawdown_tracked_correctly() {
         make_trade(-50.0, -0.005, ExitReason::HardStop, 30_000, 1),
         make_trade(-30.0, -0.003, ExitReason::HardStop, 30_000, 2),
     ];
-    let (metrics, _) = compute_metrics(&trades, 10_000.0, start, end);
+    let (metrics, _) = compute_metrics(&trades, 10_000.0, start, end, &[]);
     assert!((metrics.max_drawdown - 80.0).abs() < f64::EPSILON);
 }
 
@@ -140,7 +140,7 @@ fn max_drawdown_pct_correct() {
         make_trade(-50.0, -0.005, ExitReason::HardStop, 30_000, 1),
         make_trade(-30.0, -0.003, ExitReason::HardStop, 30_000, 2),
     ];
-    let (metrics, _) = compute_metrics(&trades, 10_000.0, start, end);
+    let (metrics, _) = compute_metrics(&trades, 10_000.0, start, end, &[]);
     // peak = 10100, dd = 80, pct = 80/10100
     let expected_pct = 80.0 / 10100.0;
     assert!((metrics.max_drawdown_pct - expected_pct).abs() < 1e-9);
@@ -154,7 +154,7 @@ fn equity_curve_tracks_cumulative() {
         make_trade(-20.0, -0.002, ExitReason::HardStop, 30_000, 1),
         make_trade(30.0, 0.003, ExitReason::TakeProfit, 120_000, 2),
     ];
-    let (_, equity_curve) = compute_metrics(&trades, 10_000.0, start, end);
+    let (_, equity_curve) = compute_metrics(&trades, 10_000.0, start, end, &[]);
     assert_eq!(equity_curve.len(), 3);
     assert!((equity_curve[0].equity - 10_050.0).abs() < f64::EPSILON);
     assert!((equity_curve[1].equity - 10_030.0).abs() < f64::EPSILON);
@@ -168,7 +168,7 @@ fn avg_hold_duration_computed() {
         make_trade(50.0, 0.005, ExitReason::TrailingStop, 60_000, 0),
         make_trade(-20.0, -0.002, ExitReason::HardStop, 120_000, 1),
     ];
-    let (metrics, _) = compute_metrics(&trades, 10_000.0, start, end);
+    let (metrics, _) = compute_metrics(&trades, 10_000.0, start, end, &[]);
     assert_eq!(metrics.avg_hold_duration_ms, 90_000);
 }
 
@@ -182,7 +182,7 @@ fn trades_per_day_computed() {
         make_trade(10.0, 0.001, ExitReason::SessionClose, 60_000, 3),
         make_trade(-15.0, -0.0015, ExitReason::MaxHoldTimeout, 60_000, 4),
     ];
-    let (metrics, _) = compute_metrics(&trades, 10_000.0, start, end);
+    let (metrics, _) = compute_metrics(&trades, 10_000.0, start, end, &[]);
     assert!((metrics.trades_per_day - 0.5).abs() < 1e-9); // 5 trades / 10 days
 }
 
@@ -195,21 +195,24 @@ fn sharpe_ratio_positive_for_consistent_wins() {
         make_trade(60.0, 0.006, ExitReason::TrailingStop, 60_000, 2),
         make_trade(45.0, 0.0045, ExitReason::TrailingStop, 60_000, 3),
     ];
-    let (metrics, _) = compute_metrics(&trades, 10_000.0, start, end);
+    let (metrics, _) = compute_metrics(&trades, 10_000.0, start, end, &[]);
     assert!(metrics.sharpe_ratio > 0.0, "consistent wins should produce positive sharpe");
 }
 
 #[test]
-fn sharpe_ratio_zero_for_identical_returns() {
+fn trade_sharpe_zero_for_identical_returns() {
     let (start, end) = default_period();
-    // all same return → std = 0 → sharpe = 0 (division by zero guarded)
+    // all same per-trade return → std = 0 → trade_sharpe = 0
     let trades = vec![
         make_trade(50.0, 0.005, ExitReason::TrailingStop, 60_000, 0),
         make_trade(50.0, 0.005, ExitReason::TrailingStop, 60_000, 1),
         make_trade(50.0, 0.005, ExitReason::TrailingStop, 60_000, 2),
     ];
-    let (metrics, _) = compute_metrics(&trades, 10_000.0, start, end);
-    assert!((metrics.sharpe_ratio - 0.0).abs() < f64::EPSILON);
+    let (metrics, _) = compute_metrics(&trades, 10_000.0, start, end, &[]);
+    // per-trade sharpe should be 0 (identical returns)
+    assert!((metrics.trade_sharpe_ratio - 0.0).abs() < f64::EPSILON);
+    // daily sharpe may be non-zero since daily returns differ slightly
+    // (equity changes between days, so return = pnl/equity changes)
 }
 
 #[test]
@@ -220,7 +223,7 @@ fn exit_reason_breakdown() {
         make_trade(-20.0, -0.002, ExitReason::HardStop, 30_000, 1),
         make_trade(100.0, 0.01, ExitReason::TrailingStop, 120_000, 2),
     ];
-    let (metrics, _) = compute_metrics(&trades, 10_000.0, start, end);
+    let (metrics, _) = compute_metrics(&trades, 10_000.0, start, end, &[]);
 
     let trailing = metrics.by_exit_reason.get(&ExitReason::TrailingStop).unwrap();
     assert_eq!(trailing.count, 2);
@@ -241,7 +244,7 @@ fn backtest_result_serializes_to_json() {
         make_trade(50.0, 0.005, ExitReason::TrailingStop, 60_000, 0),
         make_trade(-10.0, -0.001, ExitReason::HardStop, 30_000, 1),
     ];
-    let (metrics, equity_curve) = compute_metrics(&trades, 10_000.0, start, end);
+    let (metrics, equity_curve) = compute_metrics(&trades, 10_000.0, start, end, &[]);
     let result = backtest::BacktestResult {
         config_id: "test_v1".to_string(),
         ticker: "SPY".to_string(),

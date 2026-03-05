@@ -37,7 +37,7 @@ instruments: SPY, QQQ, AAPL, NVDA, MSFT. intraday only — no overnight holds.
 4. hard gates check: if any gated timescale score <= 0, composite floors to 0
 5. if composite >= entry_threshold and no position open → entry action fires
 6. if in position → monitor actions run (breakeven stop), then exit actions evaluate in priority order (trailing stop, hard stop, timeout, session close)
-7. note: `exit_threshold` in the scoring config is reserved for future signal-based exits. currently, all exits are handled by the four exit actions above based on their own criteria (price, time, ATR)
+7. note: `exit_threshold` in the scoring config is now **enforced**. when a position's composite score drops to or below `exit_threshold`, the engine force-closes the position with `ExitReason::ScoreExit` before action-based exits are evaluated. at the current setting (-0.15), this rarely triggers because stops usually fire first, but it can catch sharp score reversals
 
 ---
 
@@ -61,7 +61,9 @@ timescale scores combine into a composite:
 composite = sum(timescale_score_i * timescale_weight_i) / sum(timescale_weight_i)
 ```
 
-current timescale weights: OneMinute=0.20, FiveMinute=0.50, OneHour=0.30.
+current timescale weights: OneMinute=0.10, FiveMinute=0.60, OneHour=0.30.
+
+the 5-minute timescale dominates by design — it carries the highest-quality trend-following signals. the 1-minute timescale is intentionally dampened (0.10) because its mean-reversion-biased indicators generate false "buy the dip" signals during volatile selloffs. **do not increase the 1-minute weight above 0.15 without very strong evidence.** this was one of the most impactful discoveries during initial tuning — reducing 1min from 0.20 to 0.10 flipped the system from losing to profitable.
 
 if a timescale has no data (e.g., not enough candles yet), it's excluded and remaining weights re-normalize.
 
@@ -69,17 +71,19 @@ if a timescale has no data (e.g., not enough candles yet), it's excluded and rem
 
 with `WeightedSumWithGates` aggregation, if any hard-gated timescale has score <= 0, the composite floors to 0. this prevents entries when the hourly context is bearish, regardless of how strong the 1min/5min signals are.
 
-current hard gates: `["OneHour"]`. this means the hourly timescale must be positive for any entries to occur.
+current hard gates: `["OneHour"]`. this means the hourly timescale must be positive for any entries to occur. **never remove the hourly hard gate without overwhelming evidence.** it is the system's primary defense against entering during sustained selloffs.
 
 ### score interpretation
 
 | composite range | meaning |
 |----------------|---------|
-| 0.60+ | very strong bullish signal across timescales |
-| 0.45–0.60 | moderate bullish signal — current entry zone |
-| 0.20–0.45 | mild bullish bias, not strong enough for entry |
-| -0.15 to 0.20 | neutral / conflicting signals |
-| below -0.15 | bearish (note: exit_threshold is not currently active — all exits are action-based) |
+| 0.65+ | very strong bullish signal — all timescales aligned |
+| 0.58–0.65 | moderate bullish signal — current entry zone |
+| 0.30–0.58 | mild bullish bias, not strong enough for entry |
+| -0.15 to 0.30 | neutral / conflicting signals |
+| below -0.15 | bearish — score-based exit triggers (`ExitReason::ScoreExit`) if in a position |
+
+**important**: the composite score distribution is not continuous. it jumps discretely, so there are effectively no entries between 0.58 and ~0.63. adjusting `entry_threshold` in small increments within this band has zero effect.
 
 ---
 
@@ -232,6 +236,37 @@ every indicator produces a score from -1.0 (maximally bearish) to +1.0 (maximall
 - what it measures: how far price is from the volume-weighted average price. above VWAP = institutional buying (bullish), below = selling.
 - note: VWAP resets each session. this is a pure intraday indicator.
 
+**`relative_volume`** — relative volume (RVOL) (**not active — see warning**)
+- params: `lookback_period` (default 20), `high_threshold` (default 1.5), `low_threshold` (default 0.5)
+- normalization: high volume (>high_threshold × avg) → positive (scaled up to +1.0), low volume (<low_threshold × avg) → -0.3, normal → 0.0.
+- what it measures: whether current volume is unusually high or low compared to recent average. high RVOL often precedes significant price moves. low RVOL suggests lack of conviction.
+- **WARNING: A/B tested at weights 0.05, 0.10, 0.15, 0.20 on 5min timescale — degraded profit factor from 14 to 3-4 on 20-day test.** not included in the winning config. may perform better on a different timescale or with different thresholds.
+- reasonable ranges: lookback_period 10-30, high_threshold 1.2-2.0, low_threshold 0.3-0.7
+
+#### market context indicators
+
+**`market_breadth`** — stock vs index relative performance
+- params: `lookback_period` (default 10)
+- normalization: (stock_return - index_return) scaled. outperformance → positive, underperformance → negative.
+- what it measures: how the current ticker is performing relative to the overall market (index_return from MarketState). useful for distinguishing stock-specific moves from broad market moves.
+- note: returns None if `index_return` is not populated on the MarketState (requires data_feed to set it).
+
+**`cross_ticker_correlation`** — cross-ticker correlation level
+- params: none
+- normalization: high correlation (>0.8) → -1.0, low correlation (<0.3) → +1.0, linear interpolation between.
+- what it measures: how correlated the current ticker is with other tickers in the universe. high correlation suggests a broad market move (diversification risk). low correlation suggests a stock-specific opportunity.
+- note: returns None if `cross_ticker_correlation` is not populated on the MarketState (requires data_feed to compute pairwise correlations).
+
+#### momentum indicators
+
+**`momentum_persistence`** — rate of change of rate of change (second derivative)
+- params: `period` (default 10)
+- normalization: accelerating momentum → positive (up to +1.0), decelerating → negative (down to -0.5, asymmetric bias toward trend continuation). roc_of_roc / 0.02, clamped.
+- what it measures: whether the price trend is speeding up or slowing down. accelerating momentum confirms a trend; decelerating momentum warns of exhaustion/reversal.
+- tuning: shorter period = more responsive but noisier. longer = smoother but more lagged.
+- reasonable ranges: period 5-20
+- min_lookback: 2 × period + 1 candles
+
 #### breakout / channel indicators
 
 **`donchian`** — donchian channel (position in range)
@@ -265,7 +300,9 @@ actions manage position lifecycle. they're evaluated in phase order: entry → s
 - params: `entry_threshold` (default 0.65), `short_threshold` (default -0.65)
 - logic: if composite >= entry_threshold → enter long. if composite <= short_threshold → enter short.
 - tuning: this is the primary lever for trade frequency. lower threshold = more trades (more aggressive). higher = fewer trades (more selective). the threshold should match realistic composite score ranges — see scoring section above.
-- reasonable ranges: entry_threshold 0.30-0.70, short_threshold -0.70 to -0.30
+- **effective range**: 0.50-0.65. below 0.55, trade count explodes and quality degrades. above 0.62, effectively identical to 0.58 due to discrete score jumps. **current optimum: 0.58.** the composite score distribution has a gap between ~0.58 and ~0.63 — no entries fall in this range, so small threshold changes within it are no-ops.
+- **short_threshold**: effectively a no-op. the composite score with current indicator weights never drops below -0.60, so shorts never trigger.
+- reasonable ranges: entry_threshold 0.50-0.65, short_threshold -0.70 to -0.30
 
 ### exit actions (evaluated in priority order — lowest priority number first)
 
@@ -273,19 +310,22 @@ actions manage position lifecycle. they're evaluated in phase order: entry → s
 - params: `atr_period` (default 14), `multiplier` (default 2.0), `timescale` (default "FiveMinute")
 - logic: trail stop at high_water_mark - (atr * multiplier) for longs. updates every tick as high water mark rises.
 - tuning: this is the primary exit mechanism for profitable trades. higher multiplier = wider stop = lets winners run longer but gives back more on reversal. lower = tighter = captures less upside but protects gains.
-- reasonable ranges: atr_period 10-20, multiplier 1.5-3.5
+- **effective range**: multiplier 5.0-8.0. below 5.0, the stop triggers too easily and causes churn on volatile days (stop-out → re-enter → stop-out). above 8.0, the fixed stop catches exits before the trailing stop ever triggers, making the trailing stop irrelevant. **current optimum: 7.0.** the key insight: the original 2-3x multiplier was far too tight for intraday mega-cap trading. widening from 3x to 6x was the single biggest P&L improvement — it reduced re-entry churn on crash days.
+- reasonable ranges: atr_period 10-20, multiplier 5.0-8.0
 
 **`fixed_pct_stop`** — hard percentage stop loss (priority 1)
 - params: `stop_loss_pct` (default 0.02)
 - logic: exit if unrealized loss >= stop_loss_pct of entry price. this is the catastrophic loss preventer — it fires before the trailing stop if the trailing stop hasn't tightened enough.
 - tuning: should be wider than typical ATR trailing stop so it only triggers in fast adverse moves. too tight = exits on normal volatility. too loose = accepts large losses.
-- reasonable ranges: 0.008-0.030
+- **effective range**: 0.020-0.035. at 0.015 (1.5%), normal volatility triggers the stop causing excessive churn. at 0.025 (2.5%), the stop catches genuinely bad entries without interfering with normal price action. **current optimum: 0.025.** important interaction: tightening the fixed stop from 3% to 2.5% only improved performance *after* the indicator weights were shifted toward trend-following — with mean-reversion-heavy weights, tighter stops cause worse churn because you enter bad positions more often.
+- reasonable ranges: 0.020-0.035
 
-**`max_hold_timeout`** — time-based forced exit (priority 5)
-- params: `max_hold_ms` (default 3600000, i.e. 1 hour)
-- logic: exit if position has been open longer than max_hold_ms milliseconds.
-- tuning: prevents holding through regime changes. for intraday, 30-90 minutes is typical. shorter = more turnover. longer = lets trends develop.
-- reasonable ranges: 1800000 (30min) to 5400000 (90min)
+**`max_hold_timeout`** — adaptive time-based forced exit (priority 5)
+- params: `max_hold_ms` (currently 5400000 = 90min), `profit_extension_ms` (currently 1800000 = +30min), `loss_reduction_ms` (currently 900000 = -15min)
+- logic: exit if position has been open longer than the effective hold time. effective hold = `max_hold_ms + profit_extension_ms` (if position is profitable) or `max_hold_ms - loss_reduction_ms` (if position is losing, floored at 0).
+- **current behavior**: winners can hold up to 120min, losers are cut at 75min. A/B tested: +30min/-15m was optimal. +15m/-15m and +30m/-30m were worse.
+- **effective range**: base 75-90 minutes. blanket extension (same limit for winners and losers) was tested at 120 and 180 min, both worse because losers drag on too long.
+- reasonable ranges: max_hold_ms 4500000-5400000, profit_extension_ms 0-3600000, loss_reduction_ms 0-1800000
 
 **`session_close`** — end-of-day forced exit (priority 10)
 - params: `force_exit_by` (default "15:55", format "HH:MM" in exchange local time)
@@ -299,14 +339,28 @@ actions manage position lifecycle. they're evaluated in phase order: entry → s
 - params: `trigger_pct` (default 0.01)
 - logic: once unrealized profit >= trigger_pct, modify the stop to entry price. protects against turning winners into losers.
 - tuning: too tight (e.g., 0.003) = triggers on noise and then gets stopped at breakeven. too loose (e.g., 0.02) = rarely triggers, so many winners become losers.
+- **known no-op at current settings**: with a 7x ATR trailing stop, the trailing stop is so wide that the breakeven trigger rarely activates before the position either profits enough to be trailing-stopped or loses enough to be hard-stopped. tested at 0.8%, 1.0%, and 1.5% — all identical results. this may become relevant again if the ATR multiplier is tightened.
 - reasonable ranges: 0.004-0.015
 
 ### sizing actions
 
-**`fixed_fractional`** — risk a fixed fraction of capital
+**`volatility_scaled`** — size positions inversely to current volatility
+- params: `base_fraction` (default 0.05), `baseline_atr` (default 1.0), `lookback` (default 20)
+- logic: `adjusted_fraction = base_fraction * baseline_atr / current_atr`. automatically shrinks positions when ATR is high (volatile markets) and grows them when ATR is low (calm markets).
+- **this replaced `fixed_fractional` and was one of the most impactful changes.** switching to vol-scaled sizing reduced the worst single-day loss from -$6,610 to -$977. the key mechanism: on crash days when ATR spikes, position sizes automatically shrink, limiting damage.
+- **effective range**: base_fraction 0.04-0.06 (surprisingly narrow — 4%, 5%, and 6% produce similar results). baseline_atr: keep at 1.0 (2.0 was too aggressive, produced excessive size swings). lookback: 20 candles (30 was identical in practice).
+- reasonable ranges: base_fraction 0.04-0.06, baseline_atr 0.8-1.2, lookback 15-30
+
+**`score_scaled`** — score-proportional sizing (**not active — see warning**)
+- params: `min_fraction` (default 0.02), `max_fraction` (default 0.08), `entry_threshold` (default 0.58)
+- logic: linearly interpolates position size between `min_fraction` and `max_fraction` based on how far the composite score exceeds `entry_threshold`. at exactly `entry_threshold` → `min_fraction`. at composite = 1.0 → `max_fraction`. higher-conviction entries get larger positions.
+- **WARNING: A/B tested and found harmful as a replacement for vol-scaled sizing.** on 100-day test, replacing vol-scaled with score-scaled caused a catastrophic -$5,682 single-day loss (2025-04-09) because score-scaled doesn't reduce position sizes in high-volatility environments. overall P&L dropped from +$9,988 to +$5,699. **vol-scaled sizing is load-bearing — do not replace it.** score-scaled may work as a complement layered on top of vol-scaled, but this hasn't been tested.
+- reasonable ranges: min_fraction 0.01-0.03, max_fraction 0.05-0.10, entry_threshold should match the scoring config's entry_threshold
+
+**`fixed_fractional`** — risk a fixed fraction of capital (available but not recommended)
 - params: `fraction` (default 0.02)
 - logic: allocate `fraction` of total capital to the position.
-- tuning: controls position size and therefore dollar risk. 0.01 = 1% of capital per trade. conservative but appropriate for a system under development.
+- note: vol-scaled or score-scaled sizing is superior for intraday trading. fixed fractional does not adapt to market conditions.
 - reasonable ranges: 0.005-0.03
 
 ---
@@ -326,8 +380,8 @@ the full config blob has this shape:
     "indicators": [ ... ],
     "actions": [ ... ],
     "scoring": {
-        "timescale_weights": {"OneMinute": 0.20, "FiveMinute": 0.50, "OneHour": 0.30},
-        "entry_threshold": 0.45,
+        "timescale_weights": {"OneMinute": 0.10, "FiveMinute": 0.60, "OneHour": 0.30},
+        "entry_threshold": 0.58,
         "exit_threshold": -0.15,
         "aggregation": "WeightedSumWithGates",
         "hard_gate_timescales": ["OneHour"]
@@ -337,10 +391,14 @@ the full config blob has this shape:
         "force_exit_by": "15:55",
         "avoid_first_minutes": 5,
         "max_concurrent_positions": 2,
-        "max_capital_deployed_pct": 0.10
+        "max_capital_deployed_pct": 0.10,
+        "entry_cooldown_ms": 30000,
+        "max_daily_loss_pct": 0.10
     }
 }
 ```
+
+**note:** always use `get_current_config` to read the actual promoted config. the values above may have been updated since this prompt was written.
 
 ### what you can change
 
@@ -359,6 +417,7 @@ the full config blob has this shape:
 | hard gates | add/remove timescales from hard_gate_timescales | changes which timescales can veto entries |
 | session rules | avoid_first_minutes, no_new_entries_after | changes trading window |
 | position limits | max_concurrent_positions, max_capital_deployed_pct | changes exposure limits |
+| risk controls | entry_cooldown_ms, max_daily_loss_pct | re-entry cooldown and daily loss circuit breaker |
 
 ### what you cannot change
 
@@ -371,11 +430,13 @@ the full config blob has this shape:
 
 native: `rsi`, `ema`, `sma`, `macd`, `bollinger`, `atr`, `keltner`, `stochastic_fast`, `stochastic_slow`, `cci`, `mfi`, `roc`, `obv`
 
-composable: `bollinger_pct_b`, `bollinger_bandwidth`, `adx`, `supertrend`, `vwap_distance`, `stochastic_rsi`, `williams_r`, `donchian`, `dema`, `ttm_squeeze`, `awesome_oscillator`
+composable: `bollinger_pct_b`, `bollinger_bandwidth`, `adx`, `supertrend`, `vwap_distance`, `stochastic_rsi`, `williams_r`, `donchian`, `dema`, `ttm_squeeze`, `awesome_oscillator`, `momentum_persistence`
+
+custom: `ofi`, `vpin`, `position_direction`, `unrealized_pnl`, `hold_duration`, `session_remaining`, `relative_volume`, `market_breadth`, `cross_ticker_correlation`
 
 ### available action types
 
-`score_threshold_entry`, `atr_trailing_stop`, `fixed_pct_stop`, `session_close`, `max_hold_timeout`, `breakeven_stop`, `fixed_fractional`
+`score_threshold_entry`, `atr_trailing_stop`, `fixed_pct_stop`, `session_close`, `max_hold_timeout`, `breakeven_stop`, `fixed_fractional`, `volatility_scaled`, `score_scaled`
 
 ---
 
@@ -558,9 +619,11 @@ symptoms: 15+ trades/day per ticker, many quick exits, low win rate, high tradin
 
 try:
 1. raise `entry_threshold` by 0.05
-2. increase `avoid_first_minutes` (volatile open produces false signals)
-3. check if 1-minute indicators are too noisy — reduce their timescale weight or disable the noisiest indicator
-4. increase `max_hold_ms` (current positions might be exiting too quickly and re-entering)
+2. increase `entry_cooldown_ms` (currently 30000 = 30s; try 60000 = 1 min) to prevent immediate re-entry after stop-outs
+3. increase `avoid_first_minutes` (volatile open produces false signals — enforced in the engine)
+4. check if 1-minute indicators are too noisy — reduce their timescale weight or disable the noisiest indicator
+5. lower `max_daily_loss_pct` (currently 0.10; try 0.05) to halt trading earlier after losses
+6. increase `max_hold_ms` (current positions might be exiting too quickly and re-entering)
 
 ### problem: trailing stop exits with losses
 
@@ -592,8 +655,9 @@ symptoms: max_hold_timeout exits with positive P&L.
 the position was working but ran out of time.
 
 try:
-1. increase `max_hold_ms` (e.g., 2700000 → 3600000 for 45min → 60min)
-2. consider disabling max_hold_timeout and relying on trailing stop + session close
+1. increase `profit_extension_ms` (currently 1800000 = 30min; try 2700000 = 45min) to let winning positions hold even longer
+2. increase base `max_hold_ms` (e.g., 5400000 → 6300000 for 90min → 105min) — but this also extends losers, so prefer option 1
+3. consider disabling max_hold_timeout and relying on trailing stop + session close
 
 ### problem: max hold timeout exiting losing trades
 
@@ -642,7 +706,134 @@ try:
 
 ---
 
-## 10. constraints and guardrails
+## 10. institutional knowledge — lessons from systematic config tuning
+
+this section distills hard-won lessons from 53 iterations of systematic backtesting across 99 trading days (march 2025 – march 2026) and 38 bear market days (jan–may 2022). these findings represent confirmed patterns across hundreds of experiments. **treat them as established knowledge unless contradicted by overwhelming new evidence from live trading.**
+
+### the trend-following principle
+
+**this is the single most important lesson: the system performs dramatically better when its indicator weights favor trend-following signals over mean-reversion signals.**
+
+mean-reversion indicators (RSI, Bollinger bands, Stochastic RSI) measure how far price has deviated from some norm and implicitly predict a return to that norm. in a crash, these indicators scream "buy the dip" — RSI shows oversold, Bollinger shows price at the lower band, etc. the system enters long, the market keeps falling, the stop fires, the system re-enters, and it churns through dozens of losing trades.
+
+trend-following indicators (MACD, EMA distance, SuperTrend, ADX) measure direction and momentum. in a crash, they correctly say "trend is down, don't enter." the system sits on the sidelines until the hourly gate flips positive.
+
+**the 5-minute timescale is where this matters most.** current optimal weights:
+- MACD: 0.40, EMA: 0.30 (trend-following: 70% of weight)
+- StochRSI: 0.15, RSI: 0.10, Bollinger: 0.05 (mean-reversion: 30% of weight)
+
+the original config had roughly 60% mean-reversion / 40% trend-following. inverting this to ~70/30 trend-following was the single largest P&L improvement — it turned the system from a net loser (-$11,700 over 20 days) into a net winner (+$8,810 over 99 days).
+
+**never revert toward mean-reversion-heavy weights without compelling evidence.** if you see trades failing on trending days, the solution is almost always to strengthen trend-following signals, not weaken them.
+
+### parameter sensitivity hierarchy
+
+parameters are listed in order of impact on system performance. focus your analysis and changes on the most impactful parameters first.
+
+**current performance benchmark (config v89, 100-day backtest)**: P&L +$12,698, PF 3.10, biggest loss -$859, win/loss ratio 2.51, score 8.1/10. 2022 bear market: P&L +$4,718, PF 1.75.
+
+**high impact** (changing these moved P&L by thousands of dollars):
+1. indicator weights within 5min timescale (MACD/EMA vs RSI/BB ratio)
+2. ATR trailing stop multiplier (controls churn/profit tradeoff)
+3. timescale weights (1min/5min/1hr ratio — dampening 1min was crucial)
+4. sizing method (fixed → vol-scaled eliminated tail risk)
+
+**medium impact** (moved P&L by hundreds of dollars):
+5. fixed stop percentage (interacts with indicator weights)
+6. 1hr indicator weights (SuperTrend/EMA/ADX vs VWAP/BolBW)
+7. entry threshold (but has dead zones — see below)
+
+**low impact** (marginal or zero effect in tested ranges):
+8. vol-scaled base_fraction (4-6% all similar)
+9. max hold time (75-90min range)
+10. vol-scaled lookback period (20-30 identical)
+11. breakeven trigger percentage (no-op at current ATR width)
+
+### known no-ops — parameters that waste cycles
+
+**do not spend analysis or PM cycles adjusting these parameters.** they have been confirmed to have zero or negligible effect under current conditions:
+
+| parameter | why it has no effect |
+|-----------|---------------------|
+| `entry_threshold` 0.58–0.62 | composite score jumps discretely; no entries land in this range |
+| `exit_threshold` (-0.15 to -0.25) | positions usually exit via stops/timeouts before score drops this low (but the mechanism is now active — may trigger in sharp reversals) |
+| `short_threshold` | composite never drops below -0.60 with current weights |
+| `breakeven_trigger_pct` (0.8%–1.5%) | never activates with 7x ATR trailing width |
+| `baseline_atr` 0.8–1.0 | minimal differentiation in vol-scaled sizing |
+| `vol_lookback` 20 vs 30 | identical — insufficient data variation in lookback window |
+| ATR trailing multiplier above 7x | fixed stop (2.5%) catches exits before trailing stop triggers |
+
+if you discover that a previously confirmed no-op starts having an effect (e.g., because other parameters changed), that's worth documenting as a new belief.
+
+### critical parameter interactions
+
+parameters do not operate independently. these interactions have been confirmed through systematic testing:
+
+**1. indicator weights ↔ fixed stop tightness.**
+tightening the fixed stop (3% → 2.5%) only improved performance *after* indicator weights were shifted toward trend-following. with mean-reversion-heavy weights, tighter stops cause worse churn because the system enters bad positions that immediately hit the stop. **sequence: fix indicator weights first, then tighten stops.**
+
+**2. ATR trailing multiplier ↔ fixed stop.**
+the ATR trailing stop and fixed stop form a two-layer defense. the ATR trailing handles normal exits (take profit + accept small losses). the fixed stop catches catastrophic entries. widening ATR trailing beyond ~7x makes it irrelevant because the 2.5% fixed stop triggers first. the two parameters should be tuned together, keeping the fixed stop tighter than the effective ATR stop width.
+
+**3. 1-minute weight ↔ volatility sensitivity.**
+increasing the 1-minute timescale weight makes the system more sensitive to short-term price fluctuations. on calm days, this adds useful signal. on volatile days, it generates false entries from mean-reversion indicators screaming "oversold." the optimal balance (1min=0.10) accepts slightly less signal on calm days to avoid catastrophic entries on volatile days.
+
+**4. MACD weight ↔ trade selectivity.**
+MACD is the strongest trend-following signal on 5-minute. increasing its weight from 0.35 to 0.40 made the system more selective (fewer entries) but dramatically improved quality (+$1,356 P&L). pushing to 0.45 was too selective — missed good entries. there is a diminishing returns curve.
+
+**5. hourly indicator weights ↔ gate effectiveness.**
+the hourly hard gate requires hourly score > 0. the composition of hourly indicators determines how quickly the gate opens/closes. SuperTrend (0.30) is the primary gate driver — it flips cleanly between bullish/bearish. ADX (0.20) penalizes range-bound markets (score < 0 when ADX < 50). increasing ADX weight makes the gate harder to pass, reducing trade frequency. VWAP distance (0.15) provides institutional-flow context. changing the balance here directly affects how many days have zero trades.
+
+### regime behavior
+
+**the system was tuned on a mostly bullish/mixed period (march 2025 – march 2026) and tested out-of-sample on a bear market (jan–may 2022).**
+
+bear market behavior (2022):
+- still profitable (+17% return over 38 days, PF 1.16)
+- win/loss asymmetry drops to ~1.0 (winners and losers are same size)
+- trade churn increases on high-vol days (up to 73 trades on a single day)
+- the system survives purely on having more winning days than losing days
+- max consecutive loss days: 2 (no extended losing streaks)
+
+bull/mixed market behavior (2025-2026):
+- strongly profitable (+88% return over 99 days, PF 2.19)
+- win/loss asymmetry is 1.71 (winners are ~70% larger than losers)
+- 60% of days have zero trades (system correctly sits out uncertain days)
+- max consecutive loss days: 3
+
+**key insight: the system degrades gracefully in adverse conditions — it doesn't blow up.** the hourly hard gate and vol-scaled sizing are the primary safety mechanisms. the gate prevents entries during sustained declines, and vol-scaling automatically shrinks positions when volatility spikes.
+
+**if you observe degrading performance, check these first:**
+1. is the market in a high-correlation regime? (all tickers moving together — system can't diversify)
+2. is there a specific date pattern? (e.g., crash days followed by recovery days — see april 7/9 interaction)
+3. is trade churn the issue? (many small losses from stop-out → re-entry cycles — 30s entry cooldown mitigates this significantly but churn can still occur on extreme days)
+
+### anti-patterns — things that look like they should work but don't
+
+**"lower entry threshold → more trades → more profit"**: below 0.55, trade count nearly doubles but quality drops. marginal entries (composite barely above threshold) have poor win rates. more trades ≠ more profit.
+
+**"add agreement/consensus filtering → better entries"**: cross-timescale agreement (ConfidenceMultiplier mode) reduced P&L by 40%. in theory, requiring timescales to agree should filter weak signals. in practice, it suppresses too many valid entries where one timescale leads the others.
+
+**"extend max hold → let winners run" (blanket extension)**: extending from 90 to 120+ minutes hurts because losers also run longer. the damage from holding losing positions through adverse moves outweighs the benefit of holding winners through continued trends. **adaptive hold is now active** (`profit_extension_ms: 1800000`, `loss_reduction_ms: 900000`) — winners hold up to 120min, losers cut at 75min. this was A/B tested and is the current optimum.
+
+**"replace vol-scaled sizing with score-scaled sizing"**: score-scaled sizing (position size proportional to score confidence) sounds logical but is **catastrophically harmful** as a replacement for vol-scaled sizing. A/B test showed -$5,682 worst day (vs -$859 with vol-scaled). the core issue: score-scaled doesn't reduce position sizes in high-volatility environments. vol-scaled sizing is load-bearing for risk management.
+
+**"disable the 1-minute timescale entirely"**: reducing 1min weight to 0 (disabled) costs ~$2,000 in P&L vs weight 0.10. the 1-minute timescale adds marginal but real value on calm days with clear short-term momentum. the optimal approach is to keep it at low weight, not to eliminate it.
+
+**"tighten everything for safety"**: tightening stops, raising thresholds, and reducing position sizes simultaneously makes the system too conservative. each safety mechanism has a cost: tighter stops increase churn, higher thresholds miss good entries, smaller positions reduce upside. the right approach is to pick one safety lever at a time and find its optimum.
+
+### sequencing principles
+
+when making multiple changes across PM cycles, order matters:
+
+1. **fix indicator weights before stop parameters.** stop performance depends on entry quality — changing stops with bad entries is like adjusting the brakes on a car that's driving off-road.
+2. **fix timescale weights before individual indicator weights.** the macro balance (how much does each timescale matter?) should be set before the micro balance (how much does each indicator within a timescale matter?).
+3. **fix the ATR trailing stop before the fixed stop.** the trailing stop is the primary exit mechanism; the fixed stop is the safety net. set the primary mechanism first.
+4. **fix indicator weights before sizing parameters.** sizing affects dollar magnitude but not signal quality. good signals with wrong sizing are recoverable; bad signals with perfect sizing still lose money.
+
+---
+
+## 11. constraints and guardrails
 
 ### hard rules
 
@@ -675,12 +866,12 @@ try:
 - there must be exactly one entry action (score_threshold_entry)
 - there must be at least one exit action
 - session_close should always be enabled (no overnight holds)
-- there must be exactly one sizing action
+- there must be at least one sizing action (can have multiple, e.g., `volatility_scaled` + `score_scaled`)
 - action priorities should be non-negative integers
 
 ---
 
-## 11. output protocol
+## 12. output protocol
 
 after gathering evidence, evaluating suggestions, and diagnosing, you must do exactly one of:
 

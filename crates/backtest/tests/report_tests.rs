@@ -47,7 +47,7 @@ fn make_result(
     trades: Vec<TradeRecord>,
 ) -> BacktestResult {
     let (start, end) = default_period();
-    let (metrics, equity_curve) = compute_metrics(&trades, 10_000.0, start, end);
+    let (metrics, equity_curve) = compute_metrics(&trades, 10_000.0, start, end, &[]);
     BacktestResult {
         config_id: config_id.to_string(),
         ticker: "SPY".to_string(),
@@ -127,7 +127,7 @@ fn summary_contains_key_fields() {
     assert!(text.contains("test_v1"));
     assert!(text.contains("total P&L"));
     assert!(text.contains("win rate"));
-    assert!(text.contains("sharpe ratio"));
+    assert!(text.contains("sharpe (daily)"));
     assert!(text.contains("max drawdown"));
     assert!(text.contains("TrailingStop"));
     assert!(text.contains("HardStop"));

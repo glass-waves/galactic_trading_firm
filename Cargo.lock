@@ -647,6 +647,7 @@ version = "0.1.0"
 dependencies = [
  "actions",
  "chrono",
+ "chrono-tz",
  "indicators",
  "serde",
  "serde_json",

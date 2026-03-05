@@ -9,6 +9,8 @@ use engine::TradeRecord;
 use types::action::ExitReason;
 use types::scoring::TimescaleScores;
 
+use crate::replay::TickEquityPoint;
+
 /// a point on the equity curve, captured after each trade closes.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct EquityPoint {
@@ -38,9 +40,19 @@ pub struct BacktestMetrics {
     pub avg_win: f64,
     pub avg_loss: f64,
     pub profit_factor: f64,
+    /// daily-return sharpe ratio (annualized, sqrt(252)).
     pub sharpe_ratio: f64,
+    /// per-trade return sharpe ratio (legacy metric for comparison).
+    #[serde(default)]
+    pub trade_sharpe_ratio: f64,
+    /// max drawdown from trade-exit-level equity curve.
     pub max_drawdown: f64,
     pub max_drawdown_pct: f64,
+    /// max drawdown from tick-level equity curve (captures intra-trade drawdowns).
+    #[serde(default)]
+    pub max_tick_drawdown: f64,
+    #[serde(default)]
+    pub max_tick_drawdown_pct: f64,
     pub avg_hold_duration_ms: i64,
     pub trades_per_day: f64,
     pub by_exit_reason: HashMap<ExitReason, ExitReasonBreakdown>,
@@ -65,11 +77,13 @@ pub struct BacktestResult {
 /// compute metrics from a list of completed trades.
 /// `initial_capital` is used for P&L percentage and drawdown calculations.
 /// `start_time` and `end_time` define the backtest period for trades_per_day.
+/// `tick_equity` provides tick-level equity points for intra-trade drawdown calculation.
 pub fn compute_metrics(
     trades: &[TradeRecord],
     initial_capital: f64,
     start_time: DateTime<Utc>,
     end_time: DateTime<Utc>,
+    tick_equity: &[TickEquityPoint],
 ) -> (BacktestMetrics, Vec<EquityPoint>) {
     if trades.is_empty() {
         return (
@@ -84,8 +98,11 @@ pub fn compute_metrics(
                 avg_loss: 0.0,
                 profit_factor: 0.0,
                 sharpe_ratio: 0.0,
+                trade_sharpe_ratio: 0.0,
                 max_drawdown: 0.0,
                 max_drawdown_pct: 0.0,
+                max_tick_drawdown: 0.0,
+                max_tick_drawdown_pct: 0.0,
                 avg_hold_duration_ms: 0,
                 trades_per_day: 0.0,
                 by_exit_reason: HashMap::new(),
@@ -127,7 +144,7 @@ pub fn compute_metrics(
         0.0
     };
 
-    // equity curve and drawdown
+    // trade-exit-level equity curve and drawdown
     let mut equity = initial_capital;
     let mut peak_equity = initial_capital;
     let mut max_drawdown = 0.0_f64;
@@ -158,7 +175,25 @@ pub fn compute_metrics(
         });
     }
 
-    // sharpe ratio: mean(pnl_pcts) / std(pnl_pcts), annualized
+    // tick-level drawdown (captures intra-trade drawdowns)
+    let mut max_tick_drawdown = 0.0_f64;
+    let mut max_tick_drawdown_pct = 0.0_f64;
+    let mut tick_peak = initial_capital;
+    for point in tick_equity {
+        if point.equity > tick_peak {
+            tick_peak = point.equity;
+        }
+        let dd = tick_peak - point.equity;
+        let dd_pct = if tick_peak > 0.0 { dd / tick_peak } else { 0.0 };
+        if dd > max_tick_drawdown {
+            max_tick_drawdown = dd;
+        }
+        if dd_pct > max_tick_drawdown_pct {
+            max_tick_drawdown_pct = dd_pct;
+        }
+    }
+
+    // per-trade sharpe ratio (legacy metric)
     let pnl_pcts: Vec<f64> = trades.iter().map(|t| t.pnl_pct).collect();
     let mean_return = pnl_pcts.iter().sum::<f64>() / pnl_pcts.len() as f64;
     let variance = pnl_pcts
@@ -175,9 +210,29 @@ pub fn compute_metrics(
         0.0
     };
 
-    let sharpe_ratio = if std_return > 0.0 {
+    let trade_sharpe_ratio = if std_return > 0.0 {
         let annualization = (252.0 * trades_per_day).sqrt();
         mean_return / std_return * annualization
+    } else {
+        0.0
+    };
+
+    // daily-return sharpe ratio: build daily P&L series from trades
+    let daily_returns = compute_daily_returns(trades, initial_capital);
+    let sharpe_ratio = if daily_returns.len() > 1 {
+        let n = daily_returns.len() as f64;
+        let mean_daily = daily_returns.iter().sum::<f64>() / n;
+        let var_daily = daily_returns
+            .iter()
+            .map(|r| (r - mean_daily).powi(2))
+            .sum::<f64>()
+            / (n - 1.0); // sample variance (n-1)
+        let std_daily = var_daily.sqrt();
+        if std_daily > 0.0 {
+            mean_daily / std_daily * 252.0_f64.sqrt()
+        } else {
+            0.0
+        }
     } else {
         0.0
     };
@@ -223,14 +278,52 @@ pub fn compute_metrics(
             avg_loss,
             profit_factor,
             sharpe_ratio,
+            trade_sharpe_ratio,
             max_drawdown,
             max_drawdown_pct,
+            max_tick_drawdown,
+            max_tick_drawdown_pct,
             avg_hold_duration_ms,
             trades_per_day,
             by_exit_reason,
         },
         equity_curve,
     )
+}
+
+/// build a daily P&L return series from trades.
+/// each calendar day gets the sum of trade P&L that closed on that day,
+/// divided by the running equity at start of day.
+/// days with no trade closings get 0.0 return.
+fn compute_daily_returns(trades: &[TradeRecord], initial_capital: f64) -> Vec<f64> {
+    if trades.is_empty() {
+        return vec![];
+    }
+
+    // find date range
+    let first_date = trades.iter().map(|t| t.exit_time.date_naive()).min().unwrap();
+    let last_date = trades.iter().map(|t| t.exit_time.date_naive()).max().unwrap();
+
+    // build daily pnl map
+    let mut daily_pnl: HashMap<chrono::NaiveDate, f64> = HashMap::new();
+    for trade in trades {
+        let date = trade.exit_time.date_naive();
+        *daily_pnl.entry(date).or_insert(0.0) += trade.pnl;
+    }
+
+    // iterate over all calendar days in range, compute returns
+    let mut returns = Vec::new();
+    let mut equity = initial_capital;
+    let mut date = first_date;
+    while date <= last_date {
+        let pnl = daily_pnl.get(&date).copied().unwrap_or(0.0);
+        let daily_return = if equity > 0.0 { pnl / equity } else { 0.0 };
+        returns.push(daily_return);
+        equity += pnl;
+        date = date.succ_opt().unwrap_or(date);
+    }
+
+    returns
 }
 
 /// serialize a BacktestResult to JSON string.
@@ -301,10 +394,14 @@ pub fn summary(result: &BacktestResult) -> String {
     writeln!(s, "avg win:          ${:.2}", m.avg_win).unwrap();
     writeln!(s, "avg loss:         ${:.2}", m.avg_loss).unwrap();
     writeln!(s, "profit factor:    {:.2}", m.profit_factor).unwrap();
-    writeln!(s, "sharpe ratio:     {:.3}", m.sharpe_ratio).unwrap();
+    writeln!(s, "sharpe (daily):   {:.3}", m.sharpe_ratio).unwrap();
+    writeln!(s, "sharpe (trade):   {:.3}", m.trade_sharpe_ratio).unwrap();
     writeln!(s).unwrap();
     writeln!(s, "--- risk ---").unwrap();
-    writeln!(s, "max drawdown:     ${:.2} ({:.2}%)", m.max_drawdown, m.max_drawdown_pct * 100.0).unwrap();
+    writeln!(s, "max drawdown:     ${:.2} ({:.2}%) [trade-level]", m.max_drawdown, m.max_drawdown_pct * 100.0).unwrap();
+    if m.max_tick_drawdown > 0.0 {
+        writeln!(s, "max tick dd:      ${:.2} ({:.2}%) [tick-level]", m.max_tick_drawdown, m.max_tick_drawdown_pct * 100.0).unwrap();
+    }
     writeln!(s, "avg hold:         {:.0}s", m.avg_hold_duration_ms as f64 / 1000.0).unwrap();
     writeln!(s, "trades/day:       {:.1}", m.trades_per_day).unwrap();
 

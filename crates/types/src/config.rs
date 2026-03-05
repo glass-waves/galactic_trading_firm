@@ -41,6 +41,7 @@ pub struct SessionConfig {
     pub no_new_entries_after: String,
 
     /// force close all positions by this time.
+    #[serde(default)]
     pub force_exit_by: String,
 
     /// skip the first N minutes of the session (opening volatility).
@@ -51,6 +52,39 @@ pub struct SessionConfig {
 
     /// maximum capital deployed as fraction of total.
     pub max_capital_deployed_pct: f64,
+
+    /// minimum milliseconds between closing a position and opening a new one.
+    #[serde(default)]
+    pub entry_cooldown_ms: i64,
+
+    /// if cumulative realized losses exceed this fraction of initial capital,
+    /// block new entries for the rest of the session.
+    #[serde(default)]
+    pub max_daily_loss_pct: Option<f64>,
+}
+
+impl SessionConfig {
+    /// parse "HH:MM" string to minutes since midnight.
+    pub fn parse_hm_to_minutes(s: &str) -> Option<u32> {
+        let parts: Vec<&str> = s.split(':').collect();
+        if parts.len() == 2 {
+            let h: u32 = parts[0].parse().ok()?;
+            let m: u32 = parts[1].parse().ok()?;
+            Some(h * 60 + m)
+        } else {
+            None
+        }
+    }
+
+    /// parse no_new_entries_after to minutes since midnight.
+    pub fn no_new_entries_after_minutes(&self) -> Option<u32> {
+        Self::parse_hm_to_minutes(&self.no_new_entries_after)
+    }
+
+    /// parse force_exit_by to minutes since midnight.
+    pub fn force_exit_by_minutes(&self) -> Option<u32> {
+        Self::parse_hm_to_minutes(&self.force_exit_by)
+    }
 }
 
 #[cfg(test)]
@@ -113,12 +147,21 @@ mod tests {
                 avoid_first_minutes: 5,
                 max_concurrent_positions: 3,
                 max_capital_deployed_pct: 0.15,
+                entry_cooldown_ms: 0,
+                max_daily_loss_pct: None,
             },
         };
 
         let json = serde_json::to_string(&config).expect("serialize");
         let deserialized: StrategyConfig = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(config, deserialized);
+    }
+
+    #[test]
+    fn test_parse_hm_to_minutes() {
+        assert_eq!(SessionConfig::parse_hm_to_minutes("15:30"), Some(930));
+        assert_eq!(SessionConfig::parse_hm_to_minutes("09:30"), Some(570));
+        assert_eq!(SessionConfig::parse_hm_to_minutes("bad"), None);
     }
 
     /// load the v2 seed config JSON and verify differentiated 1-min params.

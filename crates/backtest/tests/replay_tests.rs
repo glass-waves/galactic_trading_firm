@@ -57,6 +57,8 @@ fn default_backtest_config() -> BacktestConfig {
                 vec![("atr_period", json!(14)), ("multiplier", json!(2.0))]),
         ],
         scoring_config: make_scoring(vec![(Timescale::FiveMinute, 1.0)], 0.5, -0.3),
+        cost_config: None,
+        session_config: None,
     }
 }
 

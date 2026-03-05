@@ -51,6 +51,8 @@ pub enum ExitReason {
     FilterAlignment,
     ManualOverride,
     ConfigChange,
+    ScoreExit,
+    DailyLossLimit,
 }
 
 /// current state of an open position.

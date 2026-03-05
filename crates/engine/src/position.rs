@@ -126,6 +126,17 @@ impl PositionManager {
             low_water_mark: pos.low_water_mark,
         })
     }
+
+    /// remove the current position without creating a trade record.
+    /// used by backtest replay to undo same-bar fills for next-bar execution.
+    pub fn cancel_position(&mut self) -> Option<Position> {
+        self.position.take()
+    }
+
+    /// restore a previously cancelled position.
+    pub fn restore_position(&mut self, position: Position) {
+        self.position = Some(position);
+    }
 }
 
 impl Default for PositionManager {

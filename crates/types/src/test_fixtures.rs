@@ -69,6 +69,11 @@ pub fn make_market_state(timescale: Timescale, prices: &[f64]) -> MarketState {
         session_volume: 1_000_000.0,
         position_context: None,
         session_progress: None,
+        entries_blocked: false,
+        total_deployed_capital: None,
+        total_initial_capital: None,
+        index_return: None,
+        cross_ticker_correlation: None,
     }
 }
 
@@ -100,6 +105,11 @@ pub fn make_market_state_ohlcv(
         session_volume: 1_000_000.0,
         position_context: None,
         session_progress: None,
+        entries_blocked: false,
+        total_deployed_capital: None,
+        total_initial_capital: None,
+        index_return: None,
+        cross_ticker_correlation: None,
     }
 }
 

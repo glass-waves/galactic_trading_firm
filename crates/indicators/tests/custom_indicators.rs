@@ -221,3 +221,116 @@ fn meta_indicator_no_context_returns_none() {
     let indicator2 = session_remaining_factory(&config2);
     assert!(indicator2.compute(&ms).is_none(), "no session progress → None");
 }
+
+// ── RvolIndicator ──
+
+use indicators::custom::rvol::RvolIndicator;
+
+#[test]
+fn rvol_high_volume_positive_score() {
+    let ind = RvolIndicator::new(5, 1.5, 0.5, Timescale::FiveMinute, "rvol_5".into());
+    // 5 candles with 100k volume, then 1 candle with 200k (2x avg → RVOL=2.0 > 1.5)
+    let mut ohlcv: Vec<(f64, f64, f64, f64, f64)> = (0..5)
+        .map(|i| (100.0 + i as f64, 102.0, 98.0, 101.0, 100_000.0))
+        .collect();
+    ohlcv.push((105.0, 107.0, 103.0, 106.0, 200_000.0));
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &ohlcv);
+    let out = ind.compute(&ms).expect("should compute");
+    assert!(out.score > 0.0, "high rvol should give positive score, got {}", out.score);
+}
+
+#[test]
+fn rvol_low_volume_negative_score() {
+    let ind = RvolIndicator::new(5, 1.5, 0.5, Timescale::FiveMinute, "rvol_5".into());
+    // 5 candles with 100k volume, then 1 candle with 30k (0.3x avg → RVOL=0.3 < 0.5)
+    let mut ohlcv: Vec<(f64, f64, f64, f64, f64)> = (0..5)
+        .map(|i| (100.0 + i as f64, 102.0, 98.0, 101.0, 100_000.0))
+        .collect();
+    ohlcv.push((105.0, 107.0, 103.0, 106.0, 30_000.0));
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &ohlcv);
+    let out = ind.compute(&ms).expect("should compute");
+    assert!(out.score < 0.0, "low rvol should give negative score, got {}", out.score);
+}
+
+#[test]
+fn rvol_insufficient_data_returns_none() {
+    let ind = RvolIndicator::new(20, 1.5, 0.5, Timescale::FiveMinute, "rvol_20".into());
+    let ms = make_market_state(Timescale::FiveMinute, &[100.0; 5]);
+    assert!(ind.compute(&ms).is_none());
+}
+
+#[test]
+fn rvol_normal_volume_zero_score() {
+    let ind = RvolIndicator::new(5, 1.5, 0.5, Timescale::FiveMinute, "rvol_5".into());
+    let ohlcv: Vec<(f64, f64, f64, f64, f64)> = (0..6)
+        .map(|i| (100.0 + i as f64, 102.0, 98.0, 101.0, 100_000.0))
+        .collect();
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &ohlcv);
+    let out = ind.compute(&ms).expect("should compute");
+    assert!((out.score - 0.0).abs() < 0.01, "normal volume should give ~0 score, got {}", out.score);
+}
+
+// ── MarketBreadthIndicator ──
+
+use indicators::custom::market_breadth::MarketBreadthIndicator;
+
+#[test]
+fn market_breadth_outperformance_positive() {
+    let ind = MarketBreadthIndicator::new(5, 0.02, Timescale::FiveMinute, "mb_5".into());
+    // stock up 5% over 5 candles, index up 1%
+    let ohlcv: Vec<(f64, f64, f64, f64, f64)> = (0..6)
+        .map(|i| {
+            let c = 100.0 + i as f64;
+            (c, c + 1.0, c - 1.0, c, 100_000.0)
+        })
+        .collect();
+    let mut ms = make_market_state_ohlcv(Timescale::FiveMinute, &ohlcv);
+    ms.index_return = Some(0.01); // index up 1%
+    let out = ind.compute(&ms).expect("should compute");
+    assert!(out.score > 0.0, "outperformance should give positive score, got {}", out.score);
+}
+
+#[test]
+fn market_breadth_no_index_returns_none() {
+    let ind = MarketBreadthIndicator::new(5, 0.02, Timescale::FiveMinute, "mb_5".into());
+    let ms = make_market_state(Timescale::FiveMinute, &[100.0; 10]);
+    assert!(ind.compute(&ms).is_none(), "no index_return → None");
+}
+
+// ── CrossCorrelationIndicator ──
+
+use indicators::custom::cross_correlation::CrossCorrelationIndicator;
+
+#[test]
+fn cross_corr_high_gives_negative() {
+    let ind = CrossCorrelationIndicator::new(0.8, 0.3, Timescale::FiveMinute, "cc_5".into());
+    let mut ms = make_market_state(Timescale::FiveMinute, &[100.0]);
+    ms.cross_ticker_correlation = Some(0.9);
+    let out = ind.compute(&ms).expect("should compute");
+    assert_eq!(out.score, -1.0);
+}
+
+#[test]
+fn cross_corr_low_gives_positive() {
+    let ind = CrossCorrelationIndicator::new(0.8, 0.3, Timescale::FiveMinute, "cc_5".into());
+    let mut ms = make_market_state(Timescale::FiveMinute, &[100.0]);
+    ms.cross_ticker_correlation = Some(0.2);
+    let out = ind.compute(&ms).expect("should compute");
+    assert_eq!(out.score, 1.0);
+}
+
+#[test]
+fn cross_corr_mid_interpolates() {
+    let ind = CrossCorrelationIndicator::new(0.8, 0.3, Timescale::FiveMinute, "cc_5".into());
+    let mut ms = make_market_state(Timescale::FiveMinute, &[100.0]);
+    ms.cross_ticker_correlation = Some(0.55); // midpoint
+    let out = ind.compute(&ms).expect("should compute");
+    assert!((out.score - 0.0).abs() < 0.01, "midpoint should give ~0, got {}", out.score);
+}
+
+#[test]
+fn cross_corr_no_data_returns_none() {
+    let ind = CrossCorrelationIndicator::new(0.8, 0.3, Timescale::FiveMinute, "cc_5".into());
+    let ms = make_market_state(Timescale::FiveMinute, &[100.0]);
+    assert!(ind.compute(&ms).is_none());
+}

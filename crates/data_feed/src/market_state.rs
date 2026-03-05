@@ -55,6 +55,11 @@ impl MarketStateBuilder {
             session_volume: self.cumulative_volume,
             position_context: None,
             session_progress: None,
+            entries_blocked: false,
+            total_deployed_capital: None,
+            total_initial_capital: None,
+            index_return: None,
+            cross_ticker_correlation: None,
         }
     }
 

@@ -350,3 +350,35 @@ fn ao_factory_works() {
     let ind = awesome_oscillator_factory(&cfg);
     assert_eq!(ind.name(), "awesome_oscillator");
 }
+
+// ── MomentumPersistence ──
+
+use indicators::composable::momentum_persistence::{
+    momentum_persistence_factory, MomentumPersistenceIndicator,
+};
+
+#[test]
+fn momentum_persistence_accelerating_positive() {
+    let ind = MomentumPersistenceIndicator::new(5, Timescale::FiveMinute, "mp_5".into());
+    // steadily accelerating trend
+    let prices: Vec<f64> = (0..25)
+        .map(|i| 100.0 + (i as f64).powi(2) * 0.1) // quadratic acceleration
+        .collect();
+    let ms = make_market_state(Timescale::FiveMinute, &prices);
+    let out = ind.compute(&ms).expect("should compute");
+    assert!(out.score > 0.0, "accelerating should give positive, got {}", out.score);
+}
+
+#[test]
+fn momentum_persistence_insufficient_data_none() {
+    let ind = MomentumPersistenceIndicator::new(10, Timescale::FiveMinute, "mp_10".into());
+    let ms = make_market_state(Timescale::FiveMinute, &[100.0; 5]);
+    assert!(ind.compute(&ms).is_none());
+}
+
+#[test]
+fn momentum_persistence_factory_works() {
+    let cfg = make_indicator_config("momentum_persistence", "mp_1", Timescale::FiveMinute, 1.0, vec![]);
+    let ind = momentum_persistence_factory(&cfg);
+    assert_eq!(ind.name(), "momentum_persistence");
+}

@@ -7,6 +7,7 @@ pub mod stochastic_rsi;
 pub mod williams_r;
 pub mod donchian;
 pub mod dema;
+pub mod momentum_persistence;
 pub mod ttm_squeeze;
 pub mod awesome_oscillator;
 

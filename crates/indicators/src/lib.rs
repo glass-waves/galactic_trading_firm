@@ -38,6 +38,8 @@ pub fn default_indicator_registry() -> IndicatorRegistry {
     reg.register("dema", composable::dema::dema_factory);
     reg.register("ttm_squeeze", composable::ttm_squeeze::ttm_squeeze_factory);
     reg.register("awesome_oscillator", composable::awesome_oscillator::awesome_oscillator_factory);
+    // composable (additional)
+    reg.register("momentum_persistence", composable::momentum_persistence::momentum_persistence_factory);
     // custom
     reg.register("ofi", custom::ofi::ofi_factory);
     reg.register("vpin", custom::vpin::vpin_factory);
@@ -45,6 +47,9 @@ pub fn default_indicator_registry() -> IndicatorRegistry {
     reg.register("unrealized_pnl", custom::position_context::unrealized_pnl_factory);
     reg.register("hold_duration", custom::position_context::hold_duration_factory);
     reg.register("session_remaining", custom::position_context::session_remaining_factory);
+    reg.register("relative_volume", custom::rvol::rvol_factory);
+    reg.register("market_breadth", custom::market_breadth::market_breadth_factory);
+    reg.register("cross_ticker_correlation", custom::cross_correlation::cross_correlation_factory);
     reg
 }
 

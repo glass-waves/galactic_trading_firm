@@ -78,6 +78,8 @@ fn full_pipeline_trend_reversal() {
             aggregation: AggregationMethod::WeightedSum,
             hard_gate_timescales: vec![], agreement: None, dynamic_fusion: None,
         },
+        cost_config: None,
+        session_config: None,
     };
 
     // bullish then bearish data to force entry + exit
@@ -133,6 +135,8 @@ fn config_comparison_on_same_data() {
             aggregation: AggregationMethod::WeightedSum,
             hard_gate_timescales: vec![], agreement: None, dynamic_fusion: None,
         },
+        cost_config: None,
+        session_config: None,
     };
 
     // config B: tighter trailing stop (lower multiplier)
@@ -213,6 +217,8 @@ fn csv_to_replay_pipeline() {
             aggregation: AggregationMethod::WeightedSum,
             hard_gate_timescales: vec![], agreement: None, dynamic_fusion: None,
         },
+        cost_config: None,
+        session_config: None,
     };
 
     let result = run_backtest(&config, &data).unwrap();
@@ -240,6 +246,8 @@ fn very_short_data_does_not_panic() {
             aggregation: AggregationMethod::WeightedSum,
             hard_gate_timescales: vec![], agreement: None, dynamic_fusion: None,
         },
+        cost_config: None,
+        session_config: None,
     };
 
     // only 3 candles — way less than RSI period of 14

@@ -144,6 +144,7 @@ mod tests {
             action_sets.sizing,
             "SPY".to_string(),
             100_000.0,
+            None,
         );
 
         LiveSession::new(engine)

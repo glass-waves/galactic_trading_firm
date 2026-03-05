@@ -147,6 +147,7 @@ pub fn try_build_engine(
         action_sets.sizing,
         ticker.to_string(),
         capital,
+        Some(config.session.clone()),
     ))
 }
 
@@ -217,6 +218,8 @@ mod tests {
                 avoid_first_minutes: 5,
                 max_concurrent_positions: 3,
                 max_capital_deployed_pct: 0.15,
+                entry_cooldown_ms: 0,
+                max_daily_loss_pct: None,
             },
         };
 
@@ -270,6 +273,8 @@ mod tests {
                 avoid_first_minutes: 5,
                 max_concurrent_positions: 3,
                 max_capital_deployed_pct: 0.15,
+                entry_cooldown_ms: 0,
+                max_daily_loss_pct: None,
             },
         };
 

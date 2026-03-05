@@ -61,4 +61,20 @@ pub struct MarketState {
     /// session progress (0.0 = open, 1.0 = close).
     /// set by the execution loop based on current time vs session hours.
     pub session_progress: Option<f64>,
+
+    /// set to true when entries are blocked (e.g., max concurrent positions reached).
+    #[allow(dead_code)]
+    pub entries_blocked: bool,
+
+    /// total capital deployed across all tickers (for correlation-aware sizing).
+    pub total_deployed_capital: Option<f64>,
+
+    /// total initial capital across all tickers (for correlation-aware sizing).
+    pub total_initial_capital: Option<f64>,
+
+    /// index return (e.g., SPY daily return) for market breadth indicator.
+    pub index_return: Option<f64>,
+
+    /// cross-ticker correlation coefficient for cross-correlation indicator.
+    pub cross_ticker_correlation: Option<f64>,
 }

@@ -11,6 +11,7 @@ use actions::exit::max_hold_timeout::MaxHoldTimeout;
 use actions::exit::session_close::SessionCloseExit;
 use actions::monitor::breakeven_stop::BreakevenStop;
 use actions::sizing::fixed_fractional::FixedFractionalSizing;
+use actions::sizing::score_scaled::ScoreScaledSizing;
 use actions::sizing::volatility_scaled::VolatilityScaledSizing;
 
 fn default_scores(composite: f64) -> TimescaleScores {
@@ -223,7 +224,7 @@ fn session_close_holds_before_time() {
 
 #[test]
 fn max_hold_exits_after_timeout() {
-    let action = MaxHoldTimeout::new(3_600_000, "mh1".into());
+    let action = MaxHoldTimeout::new(3_600_000, 0, 0, "mh1".into());
     let ms = make_market_state(Timescale::FiveMinute, &[100.0]);
     let mut pos = long_position(100.0, 100.5, 100.5);
     pos.hold_duration_ms = 3_700_000; // over 1 hour
@@ -236,7 +237,7 @@ fn max_hold_exits_after_timeout() {
 
 #[test]
 fn max_hold_holds_within_limit() {
-    let action = MaxHoldTimeout::new(3_600_000, "mh1".into());
+    let action = MaxHoldTimeout::new(3_600_000, 0, 0, "mh1".into());
     let ms = make_market_state(Timescale::FiveMinute, &[100.0]);
     let mut pos = long_position(100.0, 100.5, 100.5);
     pos.hold_duration_ms = 1_800_000; // 30 minutes
@@ -441,5 +442,89 @@ fn vol_sizing_direction_from_scores() {
     match action.evaluate(None, &ms, &scores) {
         ActionSignal::Enter { direction, .. } => assert_eq!(direction, TradeDirection::Short),
         other => panic!("expected Enter, got {other:?}"),
+    }
+}
+
+// ── ScoreScaledSizing ──
+
+#[test]
+fn score_scaled_min_at_threshold() {
+    let action = ScoreScaledSizing::new(0.02, 0.08, 0.5, "ss1".into());
+    let ms = make_market_state(Timescale::FiveMinute, &[100.0]);
+    let scores = default_scores(0.5); // exactly at threshold
+    match action.evaluate(None, &ms, &scores) {
+        ActionSignal::Enter { size_fraction, .. } => {
+            assert!((size_fraction - 0.02).abs() < 1e-6, "at threshold should give min_fraction");
+        }
+        other => panic!("expected Enter, got {other:?}"),
+    }
+}
+
+#[test]
+fn score_scaled_max_at_1() {
+    let action = ScoreScaledSizing::new(0.02, 0.08, 0.5, "ss1".into());
+    let ms = make_market_state(Timescale::FiveMinute, &[100.0]);
+    let scores = default_scores(1.0); // max score
+    match action.evaluate(None, &ms, &scores) {
+        ActionSignal::Enter { size_fraction, .. } => {
+            assert!((size_fraction - 0.08).abs() < 1e-6, "at 1.0 should give max_fraction");
+        }
+        other => panic!("expected Enter, got {other:?}"),
+    }
+}
+
+#[test]
+fn score_scaled_interpolation() {
+    let action = ScoreScaledSizing::new(0.02, 0.08, 0.5, "ss1".into());
+    let ms = make_market_state(Timescale::FiveMinute, &[100.0]);
+    let scores = default_scores(0.75); // midpoint between 0.5 and 1.0
+    match action.evaluate(None, &ms, &scores) {
+        ActionSignal::Enter { size_fraction, .. } => {
+            // t = (0.75 - 0.5) / (1.0 - 0.5) = 0.5, fraction = 0.02 + 0.06*0.5 = 0.05
+            assert!((size_fraction - 0.05).abs() < 1e-6, "midpoint should give interpolated fraction");
+        }
+        other => panic!("expected Enter, got {other:?}"),
+    }
+}
+
+// ── Adaptive MaxHoldTimeout ──
+
+#[test]
+fn adaptive_hold_extends_profit() {
+    let action = MaxHoldTimeout::new(3_600_000, 1_800_000, 0, "mh1".into());
+    let ms = make_market_state(Timescale::FiveMinute, &[100.0]);
+    let mut pos = long_position(100.0, 101.0, 101.0);
+    pos.unrealized_pnl = 100.0; // profitable
+    pos.hold_duration_ms = 4_000_000; // over base but under extended (base + 1.8M = 5.4M)
+    let scores = default_scores(0.5);
+    assert!(matches!(action.evaluate(Some(&pos), &ms, &scores), ActionSignal::Hold));
+}
+
+#[test]
+fn adaptive_hold_reduces_loss() {
+    let action = MaxHoldTimeout::new(3_600_000, 0, 1_800_000, "mh1".into());
+    let ms = make_market_state(Timescale::FiveMinute, &[100.0]);
+    let mut pos = long_position(100.0, 99.0, 100.0);
+    pos.unrealized_pnl = -100.0; // losing
+    pos.hold_duration_ms = 2_000_000; // over reduced (base - 1.8M = 1.8M)
+    let scores = default_scores(0.5);
+    match action.evaluate(Some(&pos), &ms, &scores) {
+        ActionSignal::Exit { reason } => assert_eq!(reason, ExitReason::MaxHoldTimeout),
+        other => panic!("expected Exit MaxHoldTimeout, got {other:?}"),
+    }
+}
+
+#[test]
+fn adaptive_hold_backward_compatible() {
+    // zero extension/reduction = original behavior
+    let action = MaxHoldTimeout::new(3_600_000, 0, 0, "mh1".into());
+    let ms = make_market_state(Timescale::FiveMinute, &[100.0]);
+    let mut pos = long_position(100.0, 101.0, 101.0);
+    pos.unrealized_pnl = 100.0;
+    pos.hold_duration_ms = 3_700_000;
+    let scores = default_scores(0.5);
+    match action.evaluate(Some(&pos), &ms, &scores) {
+        ActionSignal::Exit { reason } => assert_eq!(reason, ExitReason::MaxHoldTimeout),
+        other => panic!("expected Exit MaxHoldTimeout, got {other:?}"),
     }
 }

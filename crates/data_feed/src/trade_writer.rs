@@ -26,6 +26,8 @@ fn exit_reason_to_str(r: &ExitReason) -> &'static str {
         ExitReason::FilterAlignment => "filter_alignment",
         ExitReason::ManualOverride => "manual_override",
         ExitReason::ConfigChange => "config_change",
+        ExitReason::ScoreExit => "score_exit",
+        ExitReason::DailyLossLimit => "daily_loss_limit",
     }
 }
 
