@@ -58,6 +58,10 @@ fn make_result(
         trade_scores: vec![],
         equity_curve,
         metrics,
+        max_composite: 0.0,
+        max_composite_time: None,
+        positive_score_ticks: 0,
+        total_ticks: 0,
     }
 }
 

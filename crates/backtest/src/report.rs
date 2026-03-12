@@ -72,6 +72,18 @@ pub struct BacktestResult {
     pub trade_scores: Vec<(TimescaleScores, TimescaleScores)>,
     pub equity_curve: Vec<EquityPoint>,
     pub metrics: BacktestMetrics,
+    /// max composite score seen during replay (for no-trade day diagnostics).
+    #[serde(default)]
+    pub max_composite: f64,
+    /// timestamp of the max composite score.
+    #[serde(default)]
+    pub max_composite_time: Option<DateTime<Utc>>,
+    /// number of ticks where composite > 0 (signal activity).
+    #[serde(default)]
+    pub positive_score_ticks: usize,
+    /// total ticks processed during replay.
+    #[serde(default)]
+    pub total_ticks: usize,
 }
 
 /// compute metrics from a list of completed trades.

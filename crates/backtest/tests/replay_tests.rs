@@ -39,6 +39,7 @@ fn make_scoring(
         exit_threshold: exit,
         aggregation: AggregationMethod::WeightedSum,
         hard_gate_timescales: vec![], agreement: None, dynamic_fusion: None,
+        hard_gate_indicators: HashMap::new(),
     }
 }
 

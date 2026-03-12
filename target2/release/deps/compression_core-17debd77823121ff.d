@@ -1,0 +1,10 @@
+/Users/dylanwhite/galactic_trading_firm/target2/release/deps/compression_core-17debd77823121ff.d: /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/compression-core-0.4.31/src/lib.rs /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/compression-core-0.4.31/src/level.rs /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/compression-core-0.4.31/src/unshared.rs /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/compression-core-0.4.31/src/util.rs
+
+/Users/dylanwhite/galactic_trading_firm/target2/release/deps/libcompression_core-17debd77823121ff.rlib: /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/compression-core-0.4.31/src/lib.rs /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/compression-core-0.4.31/src/level.rs /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/compression-core-0.4.31/src/unshared.rs /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/compression-core-0.4.31/src/util.rs
+
+/Users/dylanwhite/galactic_trading_firm/target2/release/deps/libcompression_core-17debd77823121ff.rmeta: /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/compression-core-0.4.31/src/lib.rs /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/compression-core-0.4.31/src/level.rs /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/compression-core-0.4.31/src/unshared.rs /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/compression-core-0.4.31/src/util.rs
+
+/Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/compression-core-0.4.31/src/lib.rs:
+/Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/compression-core-0.4.31/src/level.rs:
+/Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/compression-core-0.4.31/src/unshared.rs:
+/Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/compression-core-0.4.31/src/util.rs:

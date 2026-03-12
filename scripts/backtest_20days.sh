@@ -31,10 +31,15 @@ CAPITAL=10000
 LOOKBACK=3
 COST_ARGS="--slippage-bps 2.0 --half-spread 0.005"
 
-BACKTEST="cargo run -p backtest --"
+BACKTEST="cargo run -p backtest --release --"
+
+EXTRA_ARGS=("$@")
 
 echo "=== 20-day backtest sweep ==="
 echo "capital: \$${CAPITAL}  lookback: ${LOOKBACK} days  costs: ${COST_ARGS}"
+if [[ ${#EXTRA_ARGS[@]} -gt 0 ]]; then
+    echo "overrides: ${EXTRA_ARGS[*]}"
+fi
 echo ""
 
 total_pnl=0
@@ -53,9 +58,19 @@ sum_win_pnl=0
 sum_loss_pnl=0
 max_consec_loss=0
 cur_consec_loss=0
+rate_limit_warnings=0
+data_quality_warnings=0
 
 for date in "${DATES[@]}"; do
-    output=$($BACKTEST --date "$date" --capital "$CAPITAL" --lookback-days "$LOOKBACK" $COST_ARGS 2>&1) || true
+    output=$($BACKTEST --date "$date" --capital "$CAPITAL" --lookback-days "$LOOKBACK" $COST_ARGS ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} 2>&1) || true
+
+    # check for rate limiting / data quality issues
+    if echo "$output" | grep -q "rate limited"; then
+        rate_limit_warnings=$(( rate_limit_warnings + 1 ))
+    fi
+    if echo "$output" | grep -q "WARNING.*candles"; then
+        data_quality_warnings=$(( data_quality_warnings + 1 ))
+    fi
 
     total_line=$(echo "$output" | grep -E "^\s+total\s" || true)
 
@@ -274,4 +289,17 @@ if [[ "$metric_count" -gt 0 ]]; then
     max_score=$(( metric_count * 5 ))
     composite=$(echo "scale=1; $score_total * 10 / $max_score" | bc -l)
     printf "\n  COMPOSITE SCORE:    %s / 10.0\n" "$composite"
+fi
+
+# data quality warnings
+if [[ "$rate_limit_warnings" -gt 0 ]] || [[ "$data_quality_warnings" -gt 0 ]]; then
+    echo ""
+    echo "=== DATA QUALITY WARNING ==="
+    if [[ "$rate_limit_warnings" -gt 0 ]]; then
+        printf "  rate limit retries detected on %d/%d days — results may be unreliable\n" "$rate_limit_warnings" "$day_count"
+    fi
+    if [[ "$data_quality_warnings" -gt 0 ]]; then
+        printf "  low candle counts on %d/%d days — possible data gaps or rate limiting\n" "$data_quality_warnings" "$day_count"
+    fi
+    echo "  consider re-running with delays between dates or reducing parallelism"
 fi

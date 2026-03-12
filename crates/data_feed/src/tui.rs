@@ -1515,6 +1515,7 @@ mod tests {
                 exit_threshold: -0.3,
                 aggregation: AggregationMethod::WeightedSumWithGates,
                 hard_gate_timescales: vec![Timescale::OneHour], agreement: None, dynamic_fusion: None,
+                hard_gate_indicators: std::collections::HashMap::new(),
             },
             session: SessionConfig {
                 no_new_entries_after: "15:30".to_string(),
@@ -1522,7 +1523,10 @@ mod tests {
                 avoid_first_minutes: 5,
                 max_concurrent_positions: 3,
                 max_capital_deployed_pct: 0.8,
+                entry_cooldown_ms: 0,
+                max_daily_loss_pct: None,
             },
+            ticker_overrides: std::collections::HashMap::new(),
         }
     }
 

@@ -1,0 +1,17 @@
+# lightweight migration runner — runs sqlx migrations then exits
+FROM rust:1.85-bookworm AS builder
+
+RUN cargo install sqlx-cli --no-default-features --features postgres
+
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /usr/local/cargo/bin/sqlx /usr/local/bin/sqlx
+COPY migrations/ /app/migrations/
+
+WORKDIR /app
+
+CMD ["sqlx", "migrate", "run", "--source", "migrations"]

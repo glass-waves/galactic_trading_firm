@@ -6,9 +6,28 @@ use types::market::{Candle, Timescale};
 
 use crate::replay::BacktestData;
 
+/// max retries for alpaca API requests (handles rate limiting / transient errors).
+const MAX_RETRIES: u32 = 3;
+/// base delay between retries in milliseconds (doubles each attempt).
+const RETRY_BASE_MS: u64 = 1000;
+
 /// convert an apca bar Num to f64, defaulting to 0.0 on failure.
 fn num_to_f64(n: &num_decimal::Num) -> f64 {
     n.to_f64().unwrap_or(0.0)
+}
+
+/// check if an error string looks like a rate limit (HTTP 429) or transient server error.
+fn is_retryable_error(err: &str) -> bool {
+    let lower = err.to_lowercase();
+    lower.contains("429")
+        || lower.contains("rate limit")
+        || lower.contains("too many requests")
+        || lower.contains("500")
+        || lower.contains("502")
+        || lower.contains("503")
+        || lower.contains("504")
+        || lower.contains("timeout")
+        || lower.contains("connection")
 }
 
 /// fetch 1-minute bars for a single ticker on a specific date from alpaca.
@@ -56,25 +75,43 @@ pub async fn fetch_day_bars(
     }
     .init(symbol, start_utc, end_utc, bars::TimeFrame::OneMinute);
 
-    let response = client
-        .issue::<bars::List>(&req)
-        .await
-        .map_err(|e| format!("alpaca bars request failed: {e}"))?;
+    let mut last_err = String::new();
+    for attempt in 0..=MAX_RETRIES {
+        match client.issue::<bars::List>(&req).await {
+            Ok(response) => {
+                let candles: Vec<Candle> = response
+                    .bars
+                    .iter()
+                    .map(|bar| Candle {
+                        timestamp: bar.time,
+                        open: num_to_f64(&bar.open),
+                        high: num_to_f64(&bar.high),
+                        low: num_to_f64(&bar.low),
+                        close: num_to_f64(&bar.close),
+                        volume: bar.volume as f64,
+                    })
+                    .collect();
+                return Ok(candles);
+            }
+            Err(e) => {
+                last_err = format!("{e}");
+                if attempt < MAX_RETRIES && is_retryable_error(&last_err) {
+                    let delay_ms = RETRY_BASE_MS * 2u64.pow(attempt);
+                    eprintln!(
+                        "  {:<6} rate limited (attempt {}/{}), retrying in {}ms...",
+                        symbol,
+                        attempt + 1,
+                        MAX_RETRIES + 1,
+                        delay_ms
+                    );
+                    tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+                    continue;
+                }
+            }
+        }
+    }
 
-    let candles: Vec<Candle> = response
-        .bars
-        .iter()
-        .map(|bar| Candle {
-            timestamp: bar.time,
-            open: num_to_f64(&bar.open),
-            high: num_to_f64(&bar.high),
-            low: num_to_f64(&bar.low),
-            close: num_to_f64(&bar.close),
-            volume: bar.volume as f64,
-        })
-        .collect();
-
-    Ok(candles)
+    Err(format!("alpaca bars request failed after {} attempts: {last_err}", MAX_RETRIES + 1))
 }
 
 /// return (market_open_utc, market_close_utc) for a given date.
@@ -129,25 +166,43 @@ pub async fn fetch_bars_range(
     }
     .init(symbol, start_utc, end_utc, bars::TimeFrame::OneMinute);
 
-    let response = client
-        .issue::<bars::List>(&req)
-        .await
-        .map_err(|e| format!("alpaca bars request failed: {e}"))?;
+    let mut last_err = String::new();
+    for attempt in 0..=MAX_RETRIES {
+        match client.issue::<bars::List>(&req).await {
+            Ok(response) => {
+                let candles: Vec<Candle> = response
+                    .bars
+                    .iter()
+                    .map(|bar| Candle {
+                        timestamp: bar.time,
+                        open: num_to_f64(&bar.open),
+                        high: num_to_f64(&bar.high),
+                        low: num_to_f64(&bar.low),
+                        close: num_to_f64(&bar.close),
+                        volume: bar.volume as f64,
+                    })
+                    .collect();
+                return Ok(candles);
+            }
+            Err(e) => {
+                last_err = format!("{e}");
+                if attempt < MAX_RETRIES && is_retryable_error(&last_err) {
+                    let delay_ms = RETRY_BASE_MS * 2u64.pow(attempt);
+                    eprintln!(
+                        "  {:<6} rate limited (attempt {}/{}), retrying in {}ms...",
+                        symbol,
+                        attempt + 1,
+                        MAX_RETRIES + 1,
+                        delay_ms
+                    );
+                    tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+                    continue;
+                }
+            }
+        }
+    }
 
-    let candles: Vec<Candle> = response
-        .bars
-        .iter()
-        .map(|bar| Candle {
-            timestamp: bar.time,
-            open: num_to_f64(&bar.open),
-            high: num_to_f64(&bar.high),
-            low: num_to_f64(&bar.low),
-            close: num_to_f64(&bar.close),
-            volume: bar.volume as f64,
-        })
-        .collect();
-
-    Ok(candles)
+    Err(format!("alpaca bars request failed after {} attempts: {last_err}", MAX_RETRIES + 1))
 }
 
 /// aggregate 1-minute candles into a coarser timescale using clock-aligned boundaries.

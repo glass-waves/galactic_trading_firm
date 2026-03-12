@@ -40,6 +40,11 @@ pub struct ScoringConfig {
     /// dynamic fusion gate configuration.
     #[serde(default)]
     pub dynamic_fusion: Option<DynamicFusionConfig>,
+
+    /// per-indicator hard gates: if an indicator's score falls below its threshold,
+    /// composite is floored to 0 (blocking entry). maps instance_id → minimum score.
+    #[serde(default)]
+    pub hard_gate_indicators: HashMap<String, f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

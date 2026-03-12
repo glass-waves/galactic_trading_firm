@@ -146,6 +146,8 @@ sum_win_pnl=0
 sum_loss_pnl=0
 max_consec_loss=0
 cur_consec_loss=0
+rate_limit_warnings=0
+data_quality_warnings=0
 
 current_capital=$CAPITAL
 for date in "${DATES[@]}"; do
@@ -161,6 +163,14 @@ for date in "${DATES[@]}"; do
         if [[ -n "$equity_line" ]]; then
             current_capital=$(echo "$equity_line" | sed 's/ENDING_EQUITY=//')
         fi
+    fi
+
+    # check for rate limiting / data quality issues
+    if echo "$output" | grep -q "rate limited"; then
+        rate_limit_warnings=$(( rate_limit_warnings + 1 ))
+    fi
+    if echo "$output" | grep -q "WARNING.*candles"; then
+        data_quality_warnings=$(( data_quality_warnings + 1 ))
     fi
 
     total_line=$(echo "$output" | grep -E "^\s+total\s" || true)
@@ -381,4 +391,17 @@ if [[ "$metric_count" -gt 0 ]]; then
     max_score=$(( metric_count * 5 ))
     composite=$(echo "scale=1; $score_total * 10 / $max_score" | bc -l)
     printf "\n  COMPOSITE SCORE:    %s / 10.0\n" "$composite"
+fi
+
+# data quality warnings
+if [[ "$rate_limit_warnings" -gt 0 ]] || [[ "$data_quality_warnings" -gt 0 ]]; then
+    echo ""
+    echo "=== DATA QUALITY WARNING ==="
+    if [[ "$rate_limit_warnings" -gt 0 ]]; then
+        printf "  rate limit retries detected on %d/%d days — results may be unreliable\n" "$rate_limit_warnings" "$day_count"
+    fi
+    if [[ "$data_quality_warnings" -gt 0 ]]; then
+        printf "  low candle counts on %d/%d days — possible data gaps or rate limiting\n" "$data_quality_warnings" "$day_count"
+    fi
+    echo "  consider re-running with delays between dates or reducing parallelism"
 fi

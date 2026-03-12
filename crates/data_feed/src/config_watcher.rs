@@ -114,13 +114,27 @@ impl ConfigWatcher {
 /// attempt to build a new engine from a config.
 /// returns None if the config fails to build (bad indicator type, etc.).
 /// on failure, logs a warning and the caller should keep the old engine.
+/// applies per-ticker overrides from `config.ticker_overrides` if present.
 pub fn try_build_engine(
     config: &StrategyConfig,
     ticker: &str,
     capital: f64,
 ) -> Option<engine::TradingEngine> {
+    // apply per-ticker overrides if present
+    let owned;
+    let cfg = if let Some(overrides) = config.ticker_overrides.get(ticker) {
+        owned = {
+            let mut c = config.clone();
+            overrides.apply(&mut c);
+            c
+        };
+        &owned
+    } else {
+        config
+    };
+
     let ind_reg = indicators::default_indicator_registry();
-    let indicators = match indicators::build_indicators(&config.indicators, &ind_reg) {
+    let indicators = match indicators::build_indicators(&cfg.indicators, &ind_reg) {
         Ok(i) => i,
         Err(e) => {
             warn!(error = %e, "failed to build indicators from new config, keeping old config");
@@ -129,7 +143,7 @@ pub fn try_build_engine(
     };
 
     let act_reg = actions::default_action_registry();
-    let action_sets = match actions::build_actions(&config.actions, &act_reg) {
+    let action_sets = match actions::build_actions(&cfg.actions, &act_reg) {
         Ok(a) => a,
         Err(e) => {
             warn!(error = %e, "failed to build actions from new config, keeping old config");
@@ -139,15 +153,15 @@ pub fn try_build_engine(
 
     Some(engine::TradingEngine::new(
         indicators,
-        config.indicators.clone(),
-        config.scoring.clone(),
+        cfg.indicators.clone(),
+        cfg.scoring.clone(),
         action_sets.entry,
         action_sets.monitor,
         action_sets.exit,
         action_sets.sizing,
         ticker.to_string(),
         capital,
-        Some(config.session.clone()),
+        Some(cfg.session.clone()),
     ))
 }
 
@@ -211,6 +225,7 @@ mod tests {
                 exit_threshold: -0.3,
                 aggregation: AggregationMethod::WeightedSum,
                 hard_gate_timescales: vec![], agreement: None, dynamic_fusion: None,
+                hard_gate_indicators: std::collections::HashMap::new(),
             },
             session: SessionConfig {
                 no_new_entries_after: "15:30".to_string(),
@@ -221,6 +236,7 @@ mod tests {
                 entry_cooldown_ms: 0,
                 max_daily_loss_pct: None,
             },
+            ticker_overrides: std::collections::HashMap::new(),
         };
 
         // should return None (fallback) for bad indicator
@@ -266,6 +282,7 @@ mod tests {
                 exit_threshold: -0.3,
                 aggregation: AggregationMethod::WeightedSum,
                 hard_gate_timescales: vec![], agreement: None, dynamic_fusion: None,
+                hard_gate_indicators: std::collections::HashMap::new(),
             },
             session: SessionConfig {
                 no_new_entries_after: "15:30".to_string(),
@@ -276,6 +293,7 @@ mod tests {
                 entry_cooldown_ms: 0,
                 max_daily_loss_pct: None,
             },
+            ticker_overrides: std::collections::HashMap::new(),
         };
 
         let result = try_build_engine(&config, "SPY", 100_000.0);

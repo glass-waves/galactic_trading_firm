@@ -122,7 +122,7 @@ the foundation crate. defines all traits, types, and configs used by every other
 | `src/indicator.rs` | `Indicator` trait, `IndicatorOutput`, `IndicatorConfig` | indicator interface. `compute(market: &MarketState) → Option<IndicatorOutput>`. output: score in [-1.0, +1.0], raw_value, metadata map |
 | `src/action.rs` | `Action` trait, `ActionSignal`, `ActionPhase`, `Position`, `ExitReason`, `ActionConfig` | action interface. `evaluate(position, market, scores) → ActionSignal`. phases: Entry, Exit, Monitor, Sizing. signals: Hold, Enter, Exit, ModifyStop, ScalePosition |
 | `src/scoring.rs` | `TimescaleScores`, `ScoringConfig`, `AggregationMethod`, `AgreementConfig`, `DynamicFusionConfig` | scoring pipeline types. methods: WeightedSum, WeightedSumWithGates, MinScore, DynamicFusion. hard gates, agreement modes, dynamic fusion config |
-| `src/config.rs` | `StrategyConfig`, `SessionConfig` | top-level config: tickers, indicator/action configs, scoring config, session rules (no_new_entries_after, force_exit_by, max_concurrent_positions) |
+| `src/config.rs` | `StrategyConfig`, `SessionConfig`, `TickerOverrides` | top-level config: tickers, indicator/action configs, scoring config, session rules, per-ticker overrides (entry_threshold, exit_threshold, indicator_weights, stop_loss_pct, atr_multiplier, sizing_fraction, max_hold_ms) |
 | `src/registry.rs` | `IndicatorRegistry`, `ActionRegistry`, `ToolBelt` | factory pattern: config → boxed trait object. pluggable module loading at runtime |
 | `src/adapter.rs` | `DataItem` conversion | ta-rs integration: `Candle` → ta-rs `DataItem` |
 | `src/tick_result.rs` | `TickResult`, `TickEvent` | engine output per tick: scores + event (Nothing, PositionOpened, PositionClosed) |
@@ -252,7 +252,7 @@ validates strategy configs against historical data. both a library and a CLI bin
 | `src/report.rs` | `BacktestResult`, `BacktestMetrics` (P&L, sharpe, win_rate, max_drawdown, profit_factor), `compute_metrics()`, JSON/CSV export, `compare_configs()` |
 | `src/alpaca_loader.rs` | `fetch_bars_range()` — async historical bar fetch from alpaca API |
 | `src/config_loader.rs` | `load_promoted_config_with_id()`, `write_backtest_trades()` — postgres integration |
-| `src/main.rs` | CLI: `--date YYYY-MM-DD [--lookback-days N] [--write-db]` or legacy `--config X --data Y --ticker Z`. supports walk-forward mode |
+| `src/main.rs` | CLI: `--date YYYY-MM-DD [--lookback-days N] [--write-db]` or legacy `--config X --data Y --ticker Z`. supports walk-forward mode, per-ticker overrides (`--ticker-override "NVDA:entry_threshold=0.35"`), and `ConfigOverrides` for A/B testing |
 
 **tests:** 40 (15 metrics, 13 replay, 8 report/serialization, 4 integration)
 
@@ -272,7 +272,7 @@ live market data ingestion, candle aggregation, simulated broker, trade recordin
 | `src/account.rs` | account state: cash, margin, equity. reads `INITIAL_CAPITAL` env var or queries alpaca |
 | `src/live_session.rs` | `LiveSession` (per ticker) — single intraday position lifecycle. stashes entry scores, pairs with exit scores on close |
 | `src/trade_writer.rs` | `TradeWriter` — async writes completed trades to postgres |
-| `src/config_watcher.rs` | `ConfigWatcher` — polls postgres for promoted config changes. `try_build_engine()` rebuilds with fallback to previous config |
+| `src/config_watcher.rs` | `ConfigWatcher` — polls postgres for promoted config changes. `try_build_engine()` applies per-ticker overrides from `config.ticker_overrides`, then rebuilds with fallback to previous config |
 | `src/config_loader.rs` | config loading from database or JSON file |
 | `src/tui.rs` | (feature-gated: `--features tui`) ratatui terminal UI: live positions, P&L, recent trades, market state |
 | `src/lib.rs` | module tree and re-exports |

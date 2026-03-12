@@ -319,7 +319,7 @@ async fn main() {
                 let candle_for_tui = bar_event.candle.clone();
 
                 // build market state from candle
-                let market = if let Some(builder) = state_builders.get_mut(ticker) {
+                let mut market = if let Some(builder) = state_builders.get_mut(ticker) {
                     let bid = bar_event.candle.close - 0.01;
                     let ask = bar_event.candle.close + 0.01;
                     builder.on_bar(bar_event.candle, bid, ask)
@@ -339,7 +339,7 @@ async fn main() {
                         continue;
                     }
 
-                    let (result, trade_with_scores) = session.on_tick(&market);
+                    let (result, trade_with_scores) = session.on_tick(&mut market);
 
                     if let TickEvent::PositionOpened = &result.event {
                         info!(

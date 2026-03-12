@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::io::Read;
 
-use chrono::DateTime;
+use chrono::{DateTime, Utc};
 use chrono::Timelike;
 
 use engine::TradingEngine;
@@ -154,6 +154,16 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
         config.session_config.clone(),
     );
 
+    // extract max_hold_ms from action configs for position context meta-indicators
+    let max_hold_ms = config
+        .action_configs
+        .iter()
+        .find(|a| a.action_type == "max_hold_timeout")
+        .and_then(|a| a.params.get("max_hold_ms"))
+        .and_then(|v| v.as_i64())
+        .unwrap_or(2_700_000);
+    engine.set_max_hold_ms(max_hold_ms);
+
     let cost = config.cost_config.clone().unwrap_or_default();
 
     let primary_candles = data
@@ -192,6 +202,12 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
     // tick-level equity tracking for drawdown
     let mut tick_equity_curve: Vec<TickEquityPoint> = Vec::new();
     let mut realized_pnl = 0.0_f64;
+
+    // score diagnostics for no-trade day analysis
+    let mut max_composite = f64::NEG_INFINITY;
+    let mut max_composite_time: Option<DateTime<Utc>> = None;
+    let mut positive_score_ticks: usize = 0;
+    let mut total_ticks: usize = 0;
 
     // replay tick by tick: at each tick, provide candles up to that point
     for i in 1..=primary_candles.len() {
@@ -250,7 +266,7 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
             }
         }
 
-        let market = MarketState {
+        let mut market = MarketState {
             last_price: last_candle.close,
             bid: last_candle.close - 0.01,
             ask: last_candle.close + 0.01,
@@ -268,7 +284,17 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
             cross_ticker_correlation: None,
         };
 
-        let result = engine.on_tick(&market);
+        let result = engine.on_tick(&mut market);
+
+        // track score diagnostics
+        total_ticks += 1;
+        if result.scores.composite > max_composite {
+            max_composite = result.scores.composite;
+            max_composite_time = Some(last_candle.timestamp);
+        }
+        if result.scores.composite > 0.0 {
+            positive_score_ticks += 1;
+        }
 
         match &result.event {
             TickEvent::PositionOpened => {
@@ -332,6 +358,11 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
     let (metrics, equity_curve) =
         compute_metrics(&trades, config.initial_capital, start_time, end_time, &tick_equity_curve);
 
+    // normalize max_composite if no ticks processed
+    if max_composite == f64::NEG_INFINITY {
+        max_composite = 0.0;
+    }
+
     Ok(BacktestResult {
         config_id: "backtest".to_string(),
         ticker: config.ticker.clone(),
@@ -342,6 +373,10 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
         trade_scores,
         equity_curve,
         metrics,
+        max_composite,
+        max_composite_time,
+        positive_score_ticks,
+        total_ticks,
     })
 }
 

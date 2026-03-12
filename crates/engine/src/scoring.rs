@@ -116,6 +116,19 @@ pub fn compute_composite_with_indicators(
         }
     };
 
+    // apply per-indicator hard gates
+    if let Some(outputs) = indicator_outputs {
+        for (instance_id, &min_score) in &config.hard_gate_indicators {
+            match outputs.get(instance_id).and_then(|v| *v) {
+                Some(score) if score < min_score => {
+                    scores.composite = 0.0;
+                    return;
+                }
+                _ => {} // indicator missing or above threshold — pass
+            }
+        }
+    }
+
     // apply cross-timescale agreement adjustment
     let composite = match &config.agreement {
         Some(ac) if ac.enabled => {

@@ -1,0 +1,14 @@
+/Users/dylanwhite/galactic_trading_firm/target2/release/deps/thiserror-97cce7c6e3c0efc9.d: /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/lib.rs /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/aserror.rs /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/display.rs /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/var.rs /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/private.rs /Users/dylanwhite/galactic_trading_firm/target2/release/build/thiserror-fe846bb29e958ccb/out/private.rs
+
+/Users/dylanwhite/galactic_trading_firm/target2/release/deps/libthiserror-97cce7c6e3c0efc9.rlib: /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/lib.rs /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/aserror.rs /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/display.rs /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/var.rs /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/private.rs /Users/dylanwhite/galactic_trading_firm/target2/release/build/thiserror-fe846bb29e958ccb/out/private.rs
+
+/Users/dylanwhite/galactic_trading_firm/target2/release/deps/libthiserror-97cce7c6e3c0efc9.rmeta: /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/lib.rs /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/aserror.rs /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/display.rs /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/var.rs /Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/private.rs /Users/dylanwhite/galactic_trading_firm/target2/release/build/thiserror-fe846bb29e958ccb/out/private.rs
+
+/Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/lib.rs:
+/Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/aserror.rs:
+/Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/display.rs:
+/Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/var.rs:
+/Users/dylanwhite/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.18/src/private.rs:
+/Users/dylanwhite/galactic_trading_firm/target2/release/build/thiserror-fe846bb29e958ccb/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/dylanwhite/galactic_trading_firm/target2/release/build/thiserror-fe846bb29e958ccb/out

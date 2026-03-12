@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use chrono::{DateTime, Utc};
 use serde::{Deserialize, Serialize};
 
@@ -33,6 +35,99 @@ pub struct StrategyConfig {
 
     /// session-level rules.
     pub session: SessionConfig,
+
+    /// per-ticker parameter overrides. each ticker inherits the base config
+    /// and can override specific knobs. missing tickers use the base config as-is.
+    #[serde(default)]
+    pub ticker_overrides: HashMap<String, TickerOverrides>,
+}
+
+/// per-ticker parameter overrides. all fields are optional — `None` means
+/// inherit from the base config. applied via `apply()` before engine construction.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, Default)]
+pub struct TickerOverrides {
+    /// override the entry threshold (both scoring config and action param).
+    #[serde(default)]
+    pub entry_threshold: Option<f64>,
+
+    /// override the exit threshold.
+    #[serde(default)]
+    pub exit_threshold: Option<f64>,
+
+    /// override specific indicator weights by instance_id.
+    #[serde(default)]
+    pub indicator_weights: HashMap<String, f64>,
+
+    /// override max hold time in ms.
+    #[serde(default)]
+    pub max_hold_ms: Option<i64>,
+
+    /// override fixed_pct_stop stop_loss_pct.
+    #[serde(default)]
+    pub stop_loss_pct: Option<f64>,
+
+    /// override atr_trailing_stop multiplier.
+    #[serde(default)]
+    pub atr_multiplier: Option<f64>,
+
+    /// override sizing fraction (fixed_fractional or volatility_scaled base).
+    #[serde(default)]
+    pub sizing_fraction: Option<f64>,
+}
+
+impl TickerOverrides {
+    /// apply overrides to a mutable strategy config.
+    pub fn apply(&self, config: &mut StrategyConfig) {
+        if let Some(thresh) = self.entry_threshold {
+            config.scoring.entry_threshold = thresh;
+            for action in &mut config.actions {
+                if action.action_type == "score_threshold_entry" {
+                    action.params.insert("entry_threshold".to_string(), serde_json::json!(thresh));
+                }
+            }
+        }
+        if let Some(thresh) = self.exit_threshold {
+            config.scoring.exit_threshold = thresh;
+        }
+        for (instance_id, &weight) in &self.indicator_weights {
+            for indicator in &mut config.indicators {
+                if indicator.instance_id == *instance_id {
+                    indicator.weight = weight;
+                }
+            }
+        }
+        if let Some(ms) = self.max_hold_ms {
+            for action in &mut config.actions {
+                if action.action_type == "max_hold_timeout" {
+                    action.params.insert("max_hold_ms".to_string(), serde_json::json!(ms));
+                }
+            }
+        }
+        if let Some(pct) = self.stop_loss_pct {
+            for action in &mut config.actions {
+                if action.action_type == "fixed_pct_stop" {
+                    action.params.insert("stop_loss_pct".to_string(), serde_json::json!(pct));
+                }
+            }
+        }
+        if let Some(mult) = self.atr_multiplier {
+            for action in &mut config.actions {
+                if action.action_type == "atr_trailing_stop" {
+                    action.params.insert("multiplier".to_string(), serde_json::json!(mult));
+                }
+            }
+        }
+        if let Some(frac) = self.sizing_fraction {
+            for action in &mut config.actions {
+                if action.action_type == "fixed_fractional" {
+                    action.params.insert("fraction".to_string(), serde_json::json!(frac));
+                }
+                if action.action_type == "volatility_scaled" {
+                    action.params.insert("base_fraction".to_string(), serde_json::json!(frac));
+                }
+            }
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -140,6 +235,7 @@ mod tests {
                 exit_threshold: -0.30,
                 aggregation: AggregationMethod::WeightedSum,
                 hard_gate_timescales: vec![Timescale::OneMinute], agreement: None, dynamic_fusion: None,
+                hard_gate_indicators: HashMap::new(),
             },
             session: SessionConfig {
                 no_new_entries_after: "15:30".to_string(),
@@ -150,6 +246,7 @@ mod tests {
                 entry_cooldown_ms: 0,
                 max_daily_loss_pct: None,
             },
+            ticker_overrides: HashMap::new(),
         };
 
         let json = serde_json::to_string(&config).expect("serialize");

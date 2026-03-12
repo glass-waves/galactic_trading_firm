@@ -255,6 +255,10 @@ fn backtest_result_serializes_to_json() {
         trade_scores: vec![],
         equity_curve,
         metrics,
+        max_composite: 0.0,
+        max_composite_time: None,
+        positive_score_ticks: 0,
+        total_ticks: 0,
     };
     let json = serde_json::to_string_pretty(&result).unwrap();
     assert!(json.contains("\"config_id\""));

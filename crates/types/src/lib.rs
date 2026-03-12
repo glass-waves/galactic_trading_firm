@@ -13,6 +13,6 @@ pub use market::{Candle, MarketState, Timescale};
 pub use indicator::{Indicator, IndicatorConfig, IndicatorOutput};
 pub use action::{Action, ActionConfig, ActionPhase, ActionSignal, ExitReason, Position, TradeDirection};
 pub use scoring::{AggregationMethod, ScoringConfig, TimescaleScores};
-pub use config::{SessionConfig, StrategyConfig};
+pub use config::{SessionConfig, StrategyConfig, TickerOverrides};
 pub use registry::{ActionRegistry, IndicatorRegistry, ToolBelt};
 pub use tick_result::{TickEvent, TickResult};

@@ -28,7 +28,7 @@ impl LiveSession {
     }
 
     /// process a tick and return the TickResult plus any completed trade with scores.
-    pub fn on_tick(&mut self, market: &MarketState) -> (TickResult, Option<TradeWithScores>) {
+    pub fn on_tick(&mut self, market: &mut MarketState) -> (TickResult, Option<TradeWithScores>) {
         let result = self.engine.on_tick(market);
 
         let trade_with_scores = match &result.event {
@@ -132,6 +132,7 @@ mod tests {
             exit_threshold: -0.3,
             aggregation: AggregationMethod::WeightedSum,
             hard_gate_timescales: vec![], agreement: None, dynamic_fusion: None,
+            hard_gate_indicators: std::collections::HashMap::new(),
         };
 
         let engine = TradingEngine::new(
@@ -156,8 +157,8 @@ mod tests {
         // ranging data with high threshold → no entry
         let data = ranging_ohlcv(5, 100.0, 0.5);
         for i in 1..=data.len() {
-            let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data[..i]);
-            let (_result, trade) = session.on_tick(&ms);
+            let mut ms = make_market_state_ohlcv(Timescale::FiveMinute, &data[..i]);
+            let (_result, trade) = session.on_tick(&mut ms);
             assert!(trade.is_none());
         }
     }
@@ -169,8 +170,8 @@ mod tests {
 
         let mut entered = false;
         for i in 1..=data.len() {
-            let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data[..i]);
-            let (result, _trade) = session.on_tick(&ms);
+            let mut ms = make_market_state_ohlcv(Timescale::FiveMinute, &data[..i]);
+            let (result, _trade) = session.on_tick(&mut ms);
             if matches!(result.event, TickEvent::PositionOpened) {
                 entered = true;
                 assert!(session.entry_scores.is_some());
@@ -192,8 +193,8 @@ mod tests {
 
         let mut trade_captured = false;
         for i in 1..=data.len() {
-            let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data[..i]);
-            let (_result, trade) = session.on_tick(&ms);
+            let mut ms = make_market_state_ohlcv(Timescale::FiveMinute, &data[..i]);
+            let (_result, trade) = session.on_tick(&mut ms);
             if let Some(tws) = trade {
                 assert!(!tws.trade.ticker.is_empty());
                 // entry scores should have been stashed
@@ -221,8 +222,8 @@ mod tests {
 
         let mut trade_count = 0;
         for i in 1..=data.len() {
-            let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data[..i]);
-            let (_result, trade) = session.on_tick(&ms);
+            let mut ms = make_market_state_ohlcv(Timescale::FiveMinute, &data[..i]);
+            let (_result, trade) = session.on_tick(&mut ms);
             if trade.is_some() {
                 trade_count += 1;
             }
@@ -235,8 +236,8 @@ mod tests {
     fn tick_result_has_scores() {
         let mut session = build_test_session();
         let data = trending_up_ohlcv(20, 100.0, 1.0);
-        let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
-        let (result, _trade) = session.on_tick(&ms);
+        let mut ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+        let (result, _trade) = session.on_tick(&mut ms);
         // should always have a score computed
         // (composite might be 0 if no indicators fire, but it's present)
         let _ = result.scores.composite;

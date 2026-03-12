@@ -46,6 +46,7 @@ fn make_scoring(
             AggregationMethod::WeightedSumWithGates
         },
         hard_gate_timescales: gates, agreement: None, dynamic_fusion: None,
+        hard_gate_indicators: HashMap::new(),
     }
 }
 
@@ -90,8 +91,8 @@ fn build_test_engine(
 fn simulate_ticks(engine: &mut TradingEngine, ohlcv: &[(f64, f64, f64, f64, f64)]) {
     for i in 1..=ohlcv.len() {
         let window = &ohlcv[..i];
-        let ms = make_market_state_ohlcv(Timescale::FiveMinute, window);
-        let _result = engine.on_tick(&ms);
+        let mut ms = make_market_state_ohlcv(Timescale::FiveMinute, window);
+        let _result = engine.on_tick(&mut ms);
     }
 }
 
@@ -232,7 +233,7 @@ fn session_close_forces_exit() {
         let mut ms = make_market_state_ohlcv(Timescale::FiveMinute, &trending_up_ohlcv(30, 100.0, 1.0));
         ms.timestamp = Utc.with_ymd_and_hms(2024, 1, 15, 15, 56, 0).unwrap();
         ms.last_price = 130.0;
-        let _result = engine.on_tick(&ms);
+        let _result = engine.on_tick(&mut ms);
 
         let trades = engine.completed_trades();
         if let Some(last) = trades.last() {
@@ -256,8 +257,8 @@ fn max_hold_timeout_fires() {
     if engine.has_position() {
         // the timestamps in our fixtures are 60s apart, so after 2 more ticks we exceed 1min
         let extended = trending_up_ohlcv(35, 100.0, 1.0);
-        let ms = make_market_state_ohlcv(Timescale::FiveMinute, &extended);
-        engine.on_tick(&ms);
+        let mut ms = make_market_state_ohlcv(Timescale::FiveMinute, &extended);
+        engine.on_tick(&mut ms);
 
         // check if max hold fired
         for trade in engine.completed_trades() {
@@ -461,7 +462,7 @@ fn no_new_entries_after_blocks_entry() {
         let last_ts = window.last().unwrap().timestamp;
         let mut candle_map = std::collections::HashMap::new();
         candle_map.insert(Timescale::FiveMinute, window);
-        let ms = types::market::MarketState {
+        let mut ms = types::market::MarketState {
             last_price,
             bid: last_price - 0.01,
             ask: last_price + 0.01,
@@ -478,7 +479,7 @@ fn no_new_entries_after_blocks_entry() {
             index_return: None,
             cross_ticker_correlation: None,
         };
-        engine.on_tick(&ms);
+        engine.on_tick(&mut ms);
     }
 
     assert!(
@@ -562,8 +563,8 @@ fn cooldown_blocks_immediate_reentry() {
     // happens within the next few ticks (which are < 5 min apart)
     if initial_trade_count > 0 && !engine.has_position() {
         let extended = trending_up_ohlcv(43, 100.0, 1.0);
-        let ms = make_market_state_ohlcv(Timescale::FiveMinute, &extended);
-        engine.on_tick(&ms);
+        let mut ms = make_market_state_ohlcv(Timescale::FiveMinute, &extended);
+        engine.on_tick(&mut ms);
 
         // within cooldown, should still not have a position
         // (this test is probabilistic based on when timeout fires)
@@ -630,7 +631,7 @@ fn entries_blocked_prevents_entry_allows_exit() {
         let window = &data[..i];
         let mut ms = make_market_state_ohlcv(Timescale::FiveMinute, window);
         ms.entries_blocked = true;
-        engine.on_tick(&ms);
+        engine.on_tick(&mut ms);
     }
 
     assert!(

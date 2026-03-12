@@ -8,6 +8,7 @@ use backtest::alpaca_loader::{build_backtest_data, fetch_bars_range, market_hour
 use backtest::config_loader::{load_promoted_config_with_id, write_backtest_trades};
 use backtest::replay::{BacktestConfig, BacktestCostConfig, BacktestData};
 use backtest::{compute_metrics, load_candles_from_csv, run_backtest, to_json};
+use types::scoring::TimescaleScores;
 use chrono::{Duration, NaiveDate};
 use engine::TradeRecord;
 use types::action::{ActionConfig, ActionPhase};
@@ -26,6 +27,45 @@ struct ConfigOverrides {
     score_scaled_min: Option<f64>,
     score_scaled_max: Option<f64>,
     add_rvol_weight: Option<f64>,
+    // phase 4 optimization overrides
+    avoid_first_minutes: Option<u32>,
+    max_concurrent_positions: Option<u32>,
+    entry_threshold: Option<f64>,
+    exit_threshold: Option<f64>,
+    /// override indicator weights by instance_id (e.g. "macd_5min=0.35")
+    indicator_weights: Vec<(String, f64)>,
+    /// override timescale weights (1min, 5min, 1hr)
+    timescale_weight_1m: Option<f64>,
+    timescale_weight_5m: Option<f64>,
+    timescale_weight_1h: Option<f64>,
+    /// enable cross-timescale agreement (ConfidenceMultiplier mode)
+    enable_agreement: bool,
+    agreement_exponent: Option<f64>,
+    /// add OFI indicator to 5-min timescale
+    add_ofi_weight: Option<f64>,
+    /// enable dynamic fusion
+    enable_dynamic_fusion: bool,
+    fusion_vol_weight: Option<f64>,
+    fusion_trend_weight: Option<f64>,
+    fusion_adjustment: Option<f64>,
+    fusion_bias: Option<f64>,
+    // phase 5 — new alpha indicators
+    add_vpin_weight: Option<f64>,
+    /// VPIN hard gate: block entries when raw VPIN > threshold (e.g., 0.85).
+    /// adds VPIN at weight 0.0 and uses hard_gate_indicators to block.
+    add_vpin_gate: Option<f64>,
+    add_position_direction: Option<f64>,
+    add_unrealized_pnl: Option<f64>,
+    add_hold_duration: Option<f64>,
+    add_session_remaining: Option<f64>,
+    add_momentum_persistence: Option<f64>,
+    // generic indicator addition: --add-indicator TYPE:TIMESCALE:WEIGHT
+    extra_indicators: Vec<(String, String, f64)>,
+    // session overrides
+    tickers_override: Option<String>,
+    no_new_entries_after: Option<String>,
+    // per-ticker overrides: --ticker-override "NVDA:entry_threshold=0.35,stop_loss_pct=0.03"
+    ticker_overrides: HashMap<String, types::config::TickerOverrides>,
 }
 
 impl ConfigOverrides {
@@ -38,6 +78,27 @@ impl ConfigOverrides {
             || self.score_scaled_min.is_some()
             || self.score_scaled_max.is_some()
             || self.add_rvol_weight.is_some()
+            || self.avoid_first_minutes.is_some()
+            || self.max_concurrent_positions.is_some()
+            || self.entry_threshold.is_some()
+            || self.exit_threshold.is_some()
+            || !self.indicator_weights.is_empty()
+            || self.timescale_weight_1m.is_some()
+            || self.timescale_weight_5m.is_some()
+            || self.timescale_weight_1h.is_some()
+            || self.enable_agreement
+            || self.agreement_exponent.is_some()
+            || self.add_ofi_weight.is_some()
+            || self.enable_dynamic_fusion
+            || self.add_vpin_weight.is_some()
+            || self.add_vpin_gate.is_some()
+            || self.add_position_direction.is_some()
+            || self.add_unrealized_pnl.is_some()
+            || self.add_hold_duration.is_some()
+            || self.add_session_remaining.is_some()
+            || self.add_momentum_persistence.is_some()
+            || !self.extra_indicators.is_empty()
+            || !self.ticker_overrides.is_empty()
     }
 
     fn apply(&self, config: &mut StrategyConfig) {
@@ -103,10 +164,238 @@ impl ConfigOverrides {
                 modification_reason: Some("CLI override for testing".to_string()),
             });
         }
+        // phase 4 optimization overrides
+        if let Some(mins) = self.avoid_first_minutes {
+            config.session.avoid_first_minutes = mins;
+        }
+        if let Some(max_pos) = self.max_concurrent_positions {
+            config.session.max_concurrent_positions = max_pos;
+        }
+        if let Some(thresh) = self.entry_threshold {
+            config.scoring.entry_threshold = thresh;
+            // also update the entry action's threshold param
+            for action in &mut config.actions {
+                if action.action_type == "score_threshold_entry" {
+                    action.params.insert("entry_threshold".to_string(), serde_json::json!(thresh));
+                }
+            }
+        }
+        if let Some(thresh) = self.exit_threshold {
+            config.scoring.exit_threshold = thresh;
+        }
+        // override specific indicator weights
+        for (instance_id, weight) in &self.indicator_weights {
+            for ind in &mut config.indicators {
+                if ind.instance_id == *instance_id {
+                    ind.weight = *weight;
+                }
+            }
+        }
+        // override timescale weights
+        if let Some(w) = self.timescale_weight_1m {
+            config.scoring.timescale_weights.insert(Timescale::OneMinute, w);
+        }
+        if let Some(w) = self.timescale_weight_5m {
+            config.scoring.timescale_weights.insert(Timescale::FiveMinute, w);
+        }
+        if let Some(w) = self.timescale_weight_1h {
+            config.scoring.timescale_weights.insert(Timescale::OneHour, w);
+        }
+        // agreement config
+        if self.enable_agreement {
+            let exponent = self.agreement_exponent.unwrap_or(0.5);
+            config.scoring.agreement = Some(types::scoring::AgreementConfig {
+                enabled: true,
+                mode: types::scoring::AgreementMode::ConfidenceMultiplier,
+                exponent,
+                gate_threshold: 0.0,
+            });
+        }
+        // add OFI indicator
+        if let Some(weight) = self.add_ofi_weight {
+            config.indicators.push(IndicatorConfig {
+                indicator_type: "ofi".to_string(),
+                instance_id: "ofi_5min".to_string(),
+                timescale: Timescale::FiveMinute,
+                enabled: true,
+                weight,
+                params: HashMap::new(),
+                last_modified_by: Some("backtest_cli".to_string()),
+                last_modified_at: None,
+                modification_reason: Some("CLI override: OFI indicator".to_string()),
+            });
+        }
+        // dynamic fusion
+        if self.enable_dynamic_fusion {
+            config.scoring.aggregation = types::scoring::AggregationMethod::DynamicFusion;
+            config.scoring.dynamic_fusion = Some(types::scoring::DynamicFusionConfig {
+                volatility_weight: self.fusion_vol_weight.unwrap_or(0.3),
+                trend_weight: self.fusion_trend_weight.unwrap_or(0.2),
+                bias: self.fusion_bias.unwrap_or(0.0),
+                adjustment: self.fusion_adjustment.unwrap_or(0.15),
+                volatility_indicator_id: "bb_bw_20_1hr".to_string(),
+                trend_indicator_id: "adx_14_1hr".to_string(),
+            });
+        }
+        // VPIN indicator (order flow toxicity — negative score when toxic)
+        if let Some(weight) = self.add_vpin_weight {
+            config.indicators.push(IndicatorConfig {
+                indicator_type: "vpin".to_string(),
+                instance_id: "vpin_5min".to_string(),
+                timescale: Timescale::FiveMinute,
+                enabled: true,
+                weight,
+                params: HashMap::new(),
+                last_modified_by: Some("backtest_cli".to_string()),
+                last_modified_at: None,
+                modification_reason: Some("CLI override: VPIN indicator".to_string()),
+            });
+        }
+        // VPIN hard gate: block entries when raw VPIN > threshold.
+        // raw VPIN → score = 1 - 2*raw, so score_threshold = 1 - 2*raw_threshold.
+        if let Some(raw_threshold) = self.add_vpin_gate {
+            let score_threshold = 1.0 - 2.0 * raw_threshold;
+            // add VPIN at weight 0.0 (no score contribution, purely a gate)
+            config.indicators.push(IndicatorConfig {
+                indicator_type: "vpin".to_string(),
+                instance_id: "vpin_gate_5min".to_string(),
+                timescale: Timescale::FiveMinute,
+                enabled: true,
+                weight: 0.0,
+                params: HashMap::new(),
+                last_modified_by: Some("backtest_cli".to_string()),
+                last_modified_at: None,
+                modification_reason: Some(format!("CLI override: VPIN hard gate at {}", raw_threshold)),
+            });
+            config.scoring.hard_gate_indicators.insert(
+                "vpin_gate_5min".to_string(),
+                score_threshold,
+            );
+        }
+        // position context meta-indicators
+        if let Some(weight) = self.add_position_direction {
+            config.indicators.push(IndicatorConfig {
+                indicator_type: "position_direction".to_string(),
+                instance_id: "pos_dir_5min".to_string(),
+                timescale: Timescale::FiveMinute,
+                enabled: true,
+                weight,
+                params: HashMap::new(),
+                last_modified_by: Some("backtest_cli".to_string()),
+                last_modified_at: None,
+                modification_reason: Some("CLI override: position direction".to_string()),
+            });
+        }
+        if let Some(weight) = self.add_unrealized_pnl {
+            config.indicators.push(IndicatorConfig {
+                indicator_type: "unrealized_pnl".to_string(),
+                instance_id: "upnl_5min".to_string(),
+                timescale: Timescale::FiveMinute,
+                enabled: true,
+                weight,
+                params: HashMap::new(),
+                last_modified_by: Some("backtest_cli".to_string()),
+                last_modified_at: None,
+                modification_reason: Some("CLI override: unrealized P&L".to_string()),
+            });
+        }
+        if let Some(weight) = self.add_hold_duration {
+            config.indicators.push(IndicatorConfig {
+                indicator_type: "hold_duration".to_string(),
+                instance_id: "hold_dur_5min".to_string(),
+                timescale: Timescale::FiveMinute,
+                enabled: true,
+                weight,
+                params: HashMap::new(),
+                last_modified_by: Some("backtest_cli".to_string()),
+                last_modified_at: None,
+                modification_reason: Some("CLI override: hold duration".to_string()),
+            });
+        }
+        if let Some(weight) = self.add_session_remaining {
+            config.indicators.push(IndicatorConfig {
+                indicator_type: "session_remaining".to_string(),
+                instance_id: "sess_rem_5min".to_string(),
+                timescale: Timescale::FiveMinute,
+                enabled: true,
+                weight,
+                params: HashMap::new(),
+                last_modified_by: Some("backtest_cli".to_string()),
+                last_modified_at: None,
+                modification_reason: Some("CLI override: session remaining".to_string()),
+            });
+        }
+        // momentum persistence (ROC of ROC — second derivative)
+        if let Some(weight) = self.add_momentum_persistence {
+            config.indicators.push(IndicatorConfig {
+                indicator_type: "momentum_persistence".to_string(),
+                instance_id: "mom_persist_5min".to_string(),
+                timescale: Timescale::FiveMinute,
+                enabled: true,
+                weight,
+                params: HashMap::new(),
+                last_modified_by: Some("backtest_cli".to_string()),
+                last_modified_at: None,
+                modification_reason: Some("CLI override: momentum persistence".to_string()),
+            });
+        }
+        // generic indicator addition
+        for (ind_type, ts_str, weight) in &self.extra_indicators {
+            let timescale = match ts_str.as_str() {
+                "1m" | "OneMinute" => Timescale::OneMinute,
+                "5m" | "FiveMinute" => Timescale::FiveMinute,
+                "1h" | "OneHour" => Timescale::OneHour,
+                _ => Timescale::FiveMinute,
+            };
+            let instance_id = format!("{}_{}", ind_type, ts_str);
+            config.indicators.push(IndicatorConfig {
+                indicator_type: ind_type.clone(),
+                instance_id,
+                timescale,
+                enabled: true,
+                weight: *weight,
+                params: HashMap::new(),
+                last_modified_by: Some("backtest_cli".to_string()),
+                last_modified_at: None,
+                modification_reason: Some(format!("CLI override: {}", ind_type)),
+            });
+        }
     }
 }
 
 fn parse_overrides(args: &[String]) -> ConfigOverrides {
+    // parse indicator weight overrides: --indicator-weight instance_id=weight
+    let mut indicator_weights = Vec::new();
+    // parse generic indicator additions: --add-indicator TYPE:TIMESCALE:WEIGHT
+    let mut extra_indicators = Vec::new();
+    let mut i = 0;
+    while i < args.len() {
+        if args[i] == "--indicator-weight" {
+            if let Some(val) = args.get(i + 1) {
+                if let Some((id, w)) = val.split_once('=') {
+                    if let Ok(weight) = w.parse::<f64>() {
+                        indicator_weights.push((id.to_string(), weight));
+                    }
+                }
+            }
+        }
+        if args[i] == "--add-indicator" {
+            if let Some(val) = args.get(i + 1) {
+                let parts: Vec<&str> = val.split(':').collect();
+                if parts.len() == 3 {
+                    if let Ok(weight) = parts[2].parse::<f64>() {
+                        extra_indicators.push((
+                            parts[0].to_string(),
+                            parts[1].to_string(),
+                            weight,
+                        ));
+                    }
+                }
+            }
+        }
+        i += 1;
+    }
+
     ConfigOverrides {
         entry_cooldown_ms: get_arg(args, "--entry-cooldown-ms").and_then(|s| s.parse().ok()),
         max_daily_loss_pct: get_arg(args, "--max-daily-loss-pct").and_then(|s| s.parse().ok()),
@@ -116,7 +405,79 @@ fn parse_overrides(args: &[String]) -> ConfigOverrides {
         score_scaled_min: get_arg(args, "--score-scaled-min").and_then(|s| s.parse().ok()),
         score_scaled_max: get_arg(args, "--score-scaled-max").and_then(|s| s.parse().ok()),
         add_rvol_weight: get_arg(args, "--add-rvol").and_then(|s| s.parse().ok()),
+        avoid_first_minutes: get_arg(args, "--avoid-first-minutes").and_then(|s| s.parse().ok()),
+        max_concurrent_positions: get_arg(args, "--max-concurrent-positions").and_then(|s| s.parse().ok()),
+        entry_threshold: get_arg(args, "--entry-threshold").and_then(|s| s.parse().ok()),
+        exit_threshold: get_arg(args, "--exit-threshold").and_then(|s| s.parse().ok()),
+        indicator_weights,
+        timescale_weight_1m: get_arg(args, "--ts-weight-1m").and_then(|s| s.parse().ok()),
+        timescale_weight_5m: get_arg(args, "--ts-weight-5m").and_then(|s| s.parse().ok()),
+        timescale_weight_1h: get_arg(args, "--ts-weight-1h").and_then(|s| s.parse().ok()),
+        enable_agreement: args.iter().any(|a| a == "--enable-agreement"),
+        agreement_exponent: get_arg(args, "--agreement-exponent").and_then(|s| s.parse().ok()),
+        add_ofi_weight: get_arg(args, "--add-ofi").and_then(|s| s.parse().ok()),
+        enable_dynamic_fusion: args.iter().any(|a| a == "--enable-dynamic-fusion"),
+        fusion_vol_weight: get_arg(args, "--fusion-vol-weight").and_then(|s| s.parse().ok()),
+        fusion_trend_weight: get_arg(args, "--fusion-trend-weight").and_then(|s| s.parse().ok()),
+        fusion_adjustment: get_arg(args, "--fusion-adjustment").and_then(|s| s.parse().ok()),
+        fusion_bias: get_arg(args, "--fusion-bias").and_then(|s| s.parse().ok()),
+        add_vpin_weight: get_arg(args, "--add-vpin").and_then(|s| s.parse().ok()),
+        add_vpin_gate: get_arg(args, "--add-vpin-gate").and_then(|s| s.parse().ok()),
+        add_position_direction: get_arg(args, "--add-position-direction").and_then(|s| s.parse().ok()),
+        add_unrealized_pnl: get_arg(args, "--add-unrealized-pnl").and_then(|s| s.parse().ok()),
+        add_hold_duration: get_arg(args, "--add-hold-duration").and_then(|s| s.parse().ok()),
+        add_session_remaining: get_arg(args, "--add-session-remaining").and_then(|s| s.parse().ok()),
+        add_momentum_persistence: get_arg(args, "--add-momentum-persistence").and_then(|s| s.parse().ok()),
+        extra_indicators,
+        tickers_override: get_arg(args, "--tickers"),
+        no_new_entries_after: get_arg(args, "--no-new-entries-after"),
+        ticker_overrides: parse_ticker_overrides(args),
     }
+}
+
+/// parse `--ticker-override "NVDA:entry_threshold=0.35,stop_loss_pct=0.03"` flags.
+/// multiple flags allowed (one per ticker).
+fn parse_ticker_overrides(args: &[String]) -> HashMap<String, types::config::TickerOverrides> {
+    let mut result = HashMap::new();
+    let mut i = 0;
+    while i < args.len() {
+        if args[i] == "--ticker-override" && i + 1 < args.len() {
+            let val = &args[i + 1];
+            if let Some(colon) = val.find(':') {
+                let ticker = val[..colon].to_string();
+                let pairs = &val[colon + 1..];
+                let mut ovr = types::config::TickerOverrides::default();
+                for pair in pairs.split(',') {
+                    let parts: Vec<&str> = pair.splitn(2, '=').collect();
+                    if parts.len() != 2 {
+                        continue;
+                    }
+                    let key = parts[0].trim();
+                    let val_str = parts[1].trim();
+                    match key {
+                        "entry_threshold" => ovr.entry_threshold = val_str.parse().ok(),
+                        "exit_threshold" => ovr.exit_threshold = val_str.parse().ok(),
+                        "max_hold_ms" => ovr.max_hold_ms = val_str.parse().ok(),
+                        "stop_loss_pct" => ovr.stop_loss_pct = val_str.parse().ok(),
+                        "atr_multiplier" => ovr.atr_multiplier = val_str.parse().ok(),
+                        "sizing_fraction" => ovr.sizing_fraction = val_str.parse().ok(),
+                        k if k.starts_with("weight:") => {
+                            let instance_id = k.trim_start_matches("weight:");
+                            if let Ok(w) = val_str.parse::<f64>() {
+                                ovr.indicator_weights.insert(instance_id.to_string(), w);
+                            }
+                        }
+                        _ => eprintln!("warning: unknown ticker override key '{key}'"),
+                    }
+                }
+                result.insert(ticker, ovr);
+            }
+            i += 2;
+        } else {
+            i += 1;
+        }
+    }
+    result
 }
 
 #[tokio::main]
@@ -132,20 +493,21 @@ async fn main() {
 
     let verbose = args.iter().any(|a| a == "--verbose");
     let output_equity = args.iter().any(|a| a == "--output-equity");
+    let output_trades_csv = args.iter().any(|a| a == "--output-trades-csv");
 
     if let Some(date_str) = get_arg(&args, "--date") {
         let lookback_days: i64 = get_arg(&args, "--lookback-days")
             .and_then(|s| s.parse().ok())
             .unwrap_or(5);
         let write_db = args.iter().any(|a| a == "--write-db");
-        run_date_mode(&date_str, lookback_days, write_db, capital, &cost_config, verbose, output_equity, &overrides).await;
+        run_date_mode(&date_str, lookback_days, write_db, capital, &cost_config, verbose, output_equity, output_trades_csv, &overrides).await;
     } else {
         run_legacy_mode(&args, capital, &cost_config);
     }
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capital: f64, cost_config: &Option<BacktestCostConfig>, verbose: bool, output_equity: bool, overrides: &ConfigOverrides) {
+async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capital: f64, cost_config: &Option<BacktestCostConfig>, verbose: bool, output_equity: bool, output_trades_csv: bool, overrides: &ConfigOverrides) {
     dotenvy::dotenv().ok();
 
     // file + console layered logging
@@ -211,6 +573,16 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
         overrides.apply(&mut config);
     }
 
+    // ticker override
+    if let Some(ticker_str) = overrides.tickers_override.as_ref() {
+        config.tickers = ticker_str.split(',').map(|s| s.trim().to_string()).collect();
+    }
+
+    // session time override
+    if let Some(ref time) = overrides.no_new_entries_after {
+        config.session.no_new_entries_after = time.clone();
+    }
+
     // alpaca credentials
     let api_key = std::env::var("APCA_API_KEY_ID").unwrap_or_else(|_| {
         eprintln!("error: APCA_API_KEY_ID not set");
@@ -236,21 +608,24 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
         }
     };
 
-    if lookback_days > 0 {
-        println!("backtest: {} (lookback from {})", date, lookback_start);
-    } else {
-        println!("backtest: {}", date);
+    if !output_trades_csv {
+        if lookback_days > 0 {
+            println!("backtest: {} (lookback from {})", date, lookback_start);
+        } else {
+            println!("backtest: {}", date);
+        }
+        if let Some(ref costs) = cost_config {
+            println!(
+                "costs: slippage={:.1}bps  spread=${:.4}  commission=${:.4}/sh",
+                costs.slippage_bps, costs.half_spread, costs.commission_per_share,
+            );
+        }
+        println!();
     }
-    if let Some(ref costs) = cost_config {
-        println!(
-            "costs: slippage={:.1}bps  spread=${:.4}  commission=${:.4}/sh",
-            costs.slippage_bps, costs.half_spread, costs.commission_per_share,
-        );
-    }
-    println!();
 
     let mut total_pnl = 0.0;
-    let mut ticker_results: Vec<(String, f64, usize, Vec<TradeRecord>)> = Vec::new();
+    #[allow(clippy::type_complexity)]
+    let mut ticker_results: Vec<(String, f64, usize, Vec<TradeRecord>, Vec<(TimescaleScores, TimescaleScores)>, f64, Option<chrono::DateTime<chrono::Utc>>, usize, usize)> = Vec::new();
 
     for ticker in &config.tickers {
         let candles = match fetch_bars_range(
@@ -271,19 +646,46 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
 
         if candles.is_empty() {
             eprintln!("  {:<6} no data", ticker);
+            eprintln!("DATA_QUALITY:{ticker}:0:{lookback_days}");
             continue;
         }
 
+        // a full trading day has ~390 1-min bars; lookback days should have roughly
+        // lookback_days * 390 bars (minus weekends/holidays). emit count for scripts.
+        let candle_count = candles.len();
+        let expected_min = if lookback_days > 0 {
+            // conservative: ~250 trading days/year, so ~70% of calendar days are trading days
+            (lookback_days as f64 * 0.65 * 300.0) as usize
+        } else {
+            200 // single day: at least ~200 bars expected for a partial session
+        };
+        if candle_count < expected_min {
+            eprintln!(
+                "  {:<6} WARNING: only {} candles (expected ~{}) — possible rate limiting or data gap",
+                ticker, candle_count, expected_min
+            );
+        }
+        eprintln!("DATA_QUALITY:{ticker}:{candle_count}:{lookback_days}");
+
         let backtest_data = build_backtest_data(candles, &required_timescales);
+
+        // build effective config: base + config-level ticker overrides + CLI ticker overrides
+        let mut effective = config.clone();
+        if let Some(ovr) = config.ticker_overrides.get(ticker.as_str()) {
+            ovr.apply(&mut effective);
+        }
+        if let Some(ovr) = overrides.ticker_overrides.get(ticker.as_str()) {
+            ovr.apply(&mut effective);
+        }
 
         let backtest_config = BacktestConfig {
             ticker: ticker.clone(),
             initial_capital: capital,
-            indicator_configs: config.indicators.clone(),
-            action_configs: config.actions.clone(),
-            scoring_config: config.scoring.clone(),
+            indicator_configs: effective.indicators.clone(),
+            action_configs: effective.actions.clone(),
+            scoring_config: effective.scoring.clone(),
             cost_config: cost_config.clone(),
-            session_config: Some(config.session.clone()),
+            session_config: Some(effective.session.clone()),
         };
 
         match run_backtest(&backtest_config, &backtest_data) {
@@ -327,7 +729,7 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
                     }
                 }
 
-                ticker_results.push((ticker.clone(), pnl, trades, filtered_trades));
+                ticker_results.push((ticker.clone(), pnl, trades, filtered_trades, filtered_scores, result.max_composite, result.max_composite_time, result.positive_score_ticks, result.total_ticks));
             }
             Err(e) => {
                 eprintln!("  {:<6} error: {}", ticker, e);
@@ -335,49 +737,135 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
         }
     }
 
-    // print summary
-    for (ticker, pnl, trades, trade_records) in &ticker_results {
-        let sign = if *pnl >= 0.0 { "+" } else { "-" };
-        println!("  {:<6} {}${:.2}  ({} trades)", ticker, sign, pnl.abs(), trades);
-
-        if verbose {
+    if output_trades_csv {
+        // CSV mode: trade rows + daily summary rows per ticker, machine-readable
+        println!("row_type,date,ticker,direction,entry_time,exit_time,entry_price,exit_price,size,pnl,pnl_pct,hold_duration_ms,exit_reason,entry_composite,exit_composite,entry_1m,entry_5m,entry_1h,exit_1m,exit_5m,exit_1h,max_composite,max_composite_time,positive_ticks,total_ticks");
+        for (ticker, pnl, num_trades, trade_records, scores, max_comp, max_comp_time, pos_ticks, tot_ticks) in &ticker_results {
+            // trade rows
             for (idx, t) in trade_records.iter().enumerate() {
                 let dir = match t.direction {
-                    types::action::TradeDirection::Long => "LONG",
-                    types::action::TradeDirection::Short => "SHORT",
+                    types::action::TradeDirection::Long => "Long",
+                    types::action::TradeDirection::Short => "Short",
                 };
-                let entry_et = t.entry_time.with_timezone(&chrono_tz::US::Eastern);
-                let exit_et = t.exit_time.with_timezone(&chrono_tz::US::Eastern);
-                let pnl_sign = if t.pnl >= 0.0 { "+" } else { "-" };
+                let (entry_ts, exit_ts) = scores
+                    .get(idx)
+                    .cloned()
+                    .unwrap_or_default();
                 println!(
-                    "         #{:<2} {:<5} entry {}  ${:.2}  exit {}  ${:.2}  {}${:.2}  ({:?})",
-                    idx + 1,
+                    "trade,{},{},{},{},{},{:.4},{:.4},{:.2},{:.2},{:.6},{},{:?},{:.4},{:.4},{},{},{},{},{},{},,,",
+                    date_str,
+                    ticker,
                     dir,
-                    entry_et.format("%H:%M"),
+                    t.entry_time.to_rfc3339(),
+                    t.exit_time.to_rfc3339(),
                     t.entry_price,
-                    exit_et.format("%H:%M"),
                     t.exit_price,
-                    pnl_sign,
-                    t.pnl.abs(),
+                    t.size,
+                    t.pnl,
+                    t.pnl_pct,
+                    t.hold_duration_ms,
                     t.exit_reason,
+                    entry_ts.composite,
+                    exit_ts.composite,
+                    entry_ts.one_minute.map(|v| format!("{:.4}", v)).unwrap_or_default(),
+                    entry_ts.five_minute.map(|v| format!("{:.4}", v)).unwrap_or_default(),
+                    entry_ts.one_hour.map(|v| format!("{:.4}", v)).unwrap_or_default(),
+                    exit_ts.one_minute.map(|v| format!("{:.4}", v)).unwrap_or_default(),
+                    exit_ts.five_minute.map(|v| format!("{:.4}", v)).unwrap_or_default(),
+                    exit_ts.one_hour.map(|v| format!("{:.4}", v)).unwrap_or_default(),
                 );
             }
+            // daily summary row per ticker (emitted even on zero-trade days)
+            let max_time_str = max_comp_time.map(|t| t.to_rfc3339()).unwrap_or_default();
+            println!(
+                "summary,{},{},,,,,,,{:.2},,{},,,,,,,,,,{:.4},{},{},{}",
+                date_str,
+                ticker,
+                pnl,
+                num_trades,
+                max_comp,
+                max_time_str,
+                pos_ticks,
+                tot_ticks,
+            );
         }
-    }
+    } else {
+        // human-readable summary
+        for (ticker, pnl, trades, trade_records, scores, max_comp, max_comp_time, pos_ticks, tot_ticks) in &ticker_results {
+            let sign = if *pnl >= 0.0 { "+" } else { "-" };
+            println!("  {:<6} {}${:.2}  ({} trades)", ticker, sign, pnl.abs(), trades);
 
-    if !ticker_results.is_empty() {
-        let total_trades: usize = ticker_results.iter().map(|(_, _, t, _)| t).sum();
-        let label = if total_pnl >= 0.0 { "profit" } else { "loss" };
-        let sign = if total_pnl >= 0.0 { "+" } else { "-" };
-        println!(
-            "\n  {:<6} {}${:.2}  {}  ({} trades)",
-            "total", sign, total_pnl.abs(), label, total_trades
-        );
-    }
+            if verbose {
+                for (idx, t) in trade_records.iter().enumerate() {
+                    let dir = match t.direction {
+                        types::action::TradeDirection::Long => "LONG",
+                        types::action::TradeDirection::Short => "SHORT",
+                    };
+                    let entry_et = t.entry_time.with_timezone(&chrono_tz::US::Eastern);
+                    let exit_et = t.exit_time.with_timezone(&chrono_tz::US::Eastern);
+                    let pnl_sign = if t.pnl >= 0.0 { "+" } else { "-" };
+                    let (entry_score, exit_score) = scores
+                        .get(idx)
+                        .map(|(e, x)| (e.composite, x.composite))
+                        .unwrap_or((0.0, 0.0));
+                    println!(
+                        "         #{:<2} {:<5} entry {}  ${:.2} [{:.2}]  exit {}  ${:.2} [{:.2}]  {}${:.2}  ({:?})",
+                        idx + 1,
+                        dir,
+                        entry_et.format("%H:%M"),
+                        t.entry_price,
+                        entry_score,
+                        exit_et.format("%H:%M"),
+                        t.exit_price,
+                        exit_score,
+                        pnl_sign,
+                        t.pnl.abs(),
+                        t.exit_reason,
+                    );
+                }
 
-    if output_equity {
-        let ending_equity = capital + total_pnl;
-        println!("ENDING_EQUITY={:.2}", ending_equity);
+                // per-ticker summary line after trade details
+                if *trades > 0 {
+                    let wins = trade_records.iter().filter(|t| t.pnl > 0.0).count();
+                    let win_pct = if *trades > 0 { wins as f64 / *trades as f64 * 100.0 } else { 0.0 };
+                    let gross_win: f64 = trade_records.iter().filter(|t| t.pnl > 0.0).map(|t| t.pnl).sum();
+                    let gross_loss: f64 = trade_records.iter().filter(|t| t.pnl <= 0.0).map(|t| t.pnl.abs()).sum();
+                    let pf = if gross_loss > 0.0 { gross_win / gross_loss } else if gross_win > 0.0 { f64::MAX } else { 0.0 };
+                    let pf_str = if pf >= 1000.0 { "inf".to_string() } else { format!("{:.1}", pf) };
+                    let ticker_sign = if *pnl >= 0.0 { "+" } else { "-" };
+                    println!(
+                        "         {:<6} {}${:.2}  ({} trades, {:.0}% win, PF {})",
+                        ticker, ticker_sign, pnl.abs(), trades, win_pct, pf_str,
+                    );
+                }
+
+                // no-trade day diagnostic
+                if *trades == 0 {
+                    let time_str = max_comp_time.map(|t| {
+                        t.with_timezone(&chrono_tz::US::Eastern).format("%H:%M").to_string()
+                    }).unwrap_or_else(|| "n/a".to_string());
+                    println!(
+                        "         (no trades: max composite {:.4} at {}, {}/{} ticks positive)",
+                        max_comp, time_str, pos_ticks, tot_ticks,
+                    );
+                }
+            }
+        }
+
+        if !ticker_results.is_empty() {
+            let total_trades: usize = ticker_results.iter().map(|(_, _, t, _, _, _, _, _, _)| t).sum();
+            let label = if total_pnl >= 0.0 { "profit" } else { "loss" };
+            let sign = if total_pnl >= 0.0 { "+" } else { "-" };
+            println!(
+                "\n  {:<6} {}${:.2}  {}  ({} trades)",
+                "total", sign, total_pnl.abs(), label, total_trades
+            );
+        }
+
+        if output_equity {
+            let ending_equity = capital + total_pnl;
+            println!("ENDING_EQUITY={:.2}", ending_equity);
+        }
     }
 }
 
@@ -510,7 +998,7 @@ fn parse_cost_config(args: &[String]) -> Option<BacktestCostConfig> {
 
 fn get_arg(args: &[String], flag: &str) -> Option<String> {
     args.iter()
-        .position(|a| a == flag)
+        .rposition(|a| a == flag)
         .and_then(|i| args.get(i + 1))
         .cloned()
 }

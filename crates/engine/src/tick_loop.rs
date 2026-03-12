@@ -3,10 +3,10 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 
 use chrono::{DateTime, Timelike, Utc};
 use tracing::warn;
-use types::action::{Action, ActionSignal, ExitReason};
+use types::action::{Action, ActionSignal, ExitReason, TradeDirection};
 use types::config::SessionConfig;
 use types::indicator::{Indicator, IndicatorConfig};
-use types::market::MarketState;
+use types::market::{MarketState, PositionContext};
 use types::scoring::ScoringConfig;
 use types::tick_result::{TickEvent, TickResult};
 
@@ -42,6 +42,8 @@ pub struct TradingEngine {
     daily_loss_breaker_active: bool,
     /// snapshot of initial capital for circuit breaker percentage calculation.
     initial_capital_snapshot: f64,
+    /// max hold time in ms, used to populate PositionContext for meta-indicators.
+    max_hold_ms: i64,
 }
 
 impl TradingEngine {
@@ -77,18 +79,34 @@ impl TradingEngine {
             cumulative_realized_pnl: 0.0,
             daily_loss_breaker_active: false,
             initial_capital_snapshot: capital,
+            max_hold_ms: 2_700_000, // default 45 min, overridable via set_max_hold_ms
         }
     }
 
     /// process a single tick. never panics — indicator failures are caught and logged.
     /// returns a TickResult with computed scores and what event occurred.
-    pub fn on_tick(&mut self, market: &MarketState) -> TickResult {
+    pub fn on_tick(&mut self, market: &mut MarketState) -> TickResult {
         // track session start time
         if self.session_start_time.is_none() {
             self.session_start_time = Some(market.timestamp);
         }
 
-        // 1. compute all indicator scores with catch_unwind
+        // 1. inject position context from current (stale) position state
+        //    before indicators so meta-indicators can use it.
+        //    uses previous tick's position data — one tick of lag is acceptable.
+        market.position_context = self.position_manager.current_position().map(|pos| {
+            PositionContext {
+                direction: match pos.direction {
+                    TradeDirection::Long => 1.0,
+                    TradeDirection::Short => -1.0,
+                },
+                unrealized_pnl_pct: pos.unrealized_pnl_pct,
+                hold_duration_ms: pos.hold_duration_ms,
+                max_hold_ms: self.max_hold_ms,
+            }
+        });
+
+        // 2. compute all indicator scores with catch_unwind
         let mut outputs: HashMap<String, Option<f64>> = HashMap::new();
         for (id, indicator) in &self.indicators {
             let result = catch_unwind(AssertUnwindSafe(|| indicator.compute(market)));
@@ -107,17 +125,17 @@ impl TradingEngine {
             }
         }
 
-        // 2. aggregate per-timescale scores
+        // 3. aggregate per-timescale scores
         let mut scores = compute_timescale_scores(&outputs, &self.indicator_configs);
 
-        // 3. compute composite score (pass indicator outputs for dynamic fusion)
+        // 4. compute composite score (pass indicator outputs for dynamic fusion)
         compute_composite_with_indicators(&mut scores, &self.scoring_config, Some(&outputs));
 
-        // 4. update position if exists
+        // 5. update position state (preserves original timing for exits)
         self.position_manager
             .update_on_tick(market.last_price, market.timestamp);
 
-        // 5. evaluate actions based on position state
+        // 6. evaluate actions based on position state
         let fill_price = self.fill_price_override.unwrap_or(market.last_price);
 
         let event = if self.position_manager.has_position() {
@@ -314,6 +332,11 @@ impl TradingEngine {
     /// used by backtest for next-bar execution.
     pub fn set_fill_price_override(&mut self, price: Option<f64>) {
         self.fill_price_override = price;
+    }
+
+    /// set the max hold time for position context meta-indicators.
+    pub fn set_max_hold_ms(&mut self, ms: i64) {
+        self.max_hold_ms = ms;
     }
 
     /// current available capital (initial minus deployed in open positions).
