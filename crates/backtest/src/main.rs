@@ -59,6 +59,12 @@ struct ConfigOverrides {
     add_hold_duration: Option<f64>,
     add_session_remaining: Option<f64>,
     add_momentum_persistence: Option<f64>,
+    // candle pattern indicator
+    add_candle_pattern: Option<f64>,
+    candle_pattern_no_reversion: bool,
+    candle_pattern_no_confluence: bool,
+    candle_pattern_min_confluence: Option<f64>,
+    candle_pattern_no_affirmative: bool,
     // generic indicator addition: --add-indicator TYPE:TIMESCALE:WEIGHT
     extra_indicators: Vec<(String, String, f64)>,
     // session overrides
@@ -66,6 +72,25 @@ struct ConfigOverrides {
     no_new_entries_after: Option<String>,
     // per-ticker overrides: --ticker-override "NVDA:entry_threshold=0.35,stop_loss_pct=0.03"
     ticker_overrides: HashMap<String, types::config::TickerOverrides>,
+    // entry windows: --use-entry-windows [--only-window NAME] [--disable-window NAME]
+    use_entry_windows: bool,
+    only_window: Option<String>,
+    disable_window: Option<String>,
+}
+
+impl ConfigOverrides {
+    /// build per-window exit overrides for entry windows mode.
+    fn window_exit_overrides(&self) -> HashMap<String, engine::WindowExitOverrides> {
+        if !self.use_entry_windows {
+            return HashMap::new();
+        }
+        // v3 = best: no exit overrides. ScoreExit at -0.05 is load-bearing.
+        // v4 (disabled ScoreExit): catastrophic churn (10x trades, all years negative)
+        // v5 (-0.10/-0.15): mild churn, worse PF than v3 in every year
+        // conclusion: exit tuning creates re-entry churn. keep default exits.
+        let m = HashMap::new();
+        m
+    }
 }
 
 impl ConfigOverrides {
@@ -97,8 +122,12 @@ impl ConfigOverrides {
             || self.add_hold_duration.is_some()
             || self.add_session_remaining.is_some()
             || self.add_momentum_persistence.is_some()
+            || self.add_candle_pattern.is_some()
+            || self.candle_pattern_min_confluence.is_some()
+            || self.candle_pattern_no_affirmative
             || !self.extra_indicators.is_empty()
             || !self.ticker_overrides.is_empty()
+            || self.use_entry_windows
     }
 
     fn apply(&self, config: &mut StrategyConfig) {
@@ -339,6 +368,42 @@ impl ConfigOverrides {
                 modification_reason: Some("CLI override: momentum persistence".to_string()),
             });
         }
+        // candle pattern (engulfing with confluence scoring)
+        if let Some(weight) = self.add_candle_pattern {
+            let mut params = HashMap::new();
+            if self.candle_pattern_no_reversion {
+                params.insert("mean_reversion_mode".to_string(), serde_json::json!(false));
+            }
+            if self.candle_pattern_no_confluence {
+                params.insert("use_confluence".to_string(), serde_json::json!(false));
+            }
+            config.indicators.push(IndicatorConfig {
+                indicator_type: "candle_pattern".to_string(),
+                instance_id: "candle_5min".to_string(),
+                timescale: Timescale::FiveMinute,
+                enabled: true,
+                weight,
+                params,
+                last_modified_by: Some("backtest_cli".to_string()),
+                last_modified_at: None,
+                modification_reason: Some("CLI override: candle pattern".to_string()),
+            });
+        }
+        // candle pattern overrides on existing config indicators
+        if let Some(min_conf) = self.candle_pattern_min_confluence {
+            for ind in &mut config.indicators {
+                if ind.indicator_type == "candle_pattern" {
+                    ind.params.insert("min_confluence_product".to_string(), serde_json::json!(min_conf));
+                }
+            }
+        }
+        if self.candle_pattern_no_affirmative {
+            for ind in &mut config.indicators {
+                if ind.indicator_type == "candle_pattern" {
+                    ind.params.insert("affirmative_only".to_string(), serde_json::json!(false));
+                }
+            }
+        }
         // generic indicator addition
         for (ind_type, ts_str, weight) in &self.extra_indicators {
             let timescale = match ts_str.as_str() {
@@ -359,6 +424,71 @@ impl ConfigOverrides {
                 last_modified_at: None,
                 modification_reason: Some(format!("CLI override: {}", ind_type)),
             });
+        }
+
+        // entry windows: replace score_threshold_entry with window actions
+        if self.use_entry_windows {
+            // remove existing score_threshold_entry
+            config.actions.retain(|a| a.action_type != "score_threshold_entry");
+
+            // add reject gate (highest priority = 0)
+            config.actions.push(ActionConfig {
+                action_type: "entry_reject_gate".to_string(),
+                instance_id: "reject_1m_noise".to_string(),
+                phase: ActionPhase::Entry,
+                enabled: true,
+                priority: 0,
+                params: serde_json::from_value(serde_json::json!({
+                    "name": "1m noise filter",
+                    "conditions": [
+                        {"type": "timescale_lead", "timescale": "OneMinute", "lead_by": 0.15},
+                        {"type": "timescale_max", "timescale": "FiveMinute", "max_score": 0.35}
+                    ]
+                })).unwrap(),
+                last_modified_by: Some("backtest_cli".to_string()),
+                last_modified_at: None,
+                modification_reason: Some("entry windows CLI".to_string()),
+            });
+
+            // window definitions (priority: lower = evaluated first after reject gates)
+            let windows = vec![
+                // W1: momentum breakout — 5m decisively leads
+                ("window_5m_thrust", "5m thrust", 10, serde_json::json!([
+                    {"type": "composite_min", "min_score": 0.35},
+                    {"type": "timescale_lead", "timescale": "FiveMinute", "lead_by": 0.15},
+                    {"type": "timescale_min", "timescale": "FiveMinute", "min_score": 0.50},
+                    {"type": "timescale_min", "timescale": "OneHour", "min_score": 0.0}
+                ])),
+                // W4: high conviction — both core timescales strong
+                ("window_strong_core", "strong core", 20, serde_json::json!([
+                    {"type": "composite_min", "min_score": 0.35},
+                    {"type": "timescale_min", "timescale": "FiveMinute", "min_score": 0.50},
+                    {"type": "timescale_min", "timescale": "OneHour", "min_score": 0.30}
+                ])),
+            ];
+
+            for (id, name, priority, conditions) in windows {
+                let enabled = match (&self.only_window, &self.disable_window) {
+                    (Some(only), _) => only == name || only == id,
+                    (_, Some(disabled)) => disabled != name && disabled != id,
+                    _ => true,
+                };
+                config.actions.push(ActionConfig {
+                    action_type: "entry_window".to_string(),
+                    instance_id: id.to_string(),
+                    phase: ActionPhase::Entry,
+                    enabled,
+                    priority,
+                    params: serde_json::from_value(serde_json::json!({
+                        "name": name,
+                        "direction": "long",
+                        "conditions": conditions,
+                    })).unwrap(),
+                    last_modified_by: Some("backtest_cli".to_string()),
+                    last_modified_at: None,
+                    modification_reason: Some("entry windows CLI".to_string()),
+                });
+            }
         }
     }
 }
@@ -428,10 +558,18 @@ fn parse_overrides(args: &[String]) -> ConfigOverrides {
         add_hold_duration: get_arg(args, "--add-hold-duration").and_then(|s| s.parse().ok()),
         add_session_remaining: get_arg(args, "--add-session-remaining").and_then(|s| s.parse().ok()),
         add_momentum_persistence: get_arg(args, "--add-momentum-persistence").and_then(|s| s.parse().ok()),
+        add_candle_pattern: get_arg(args, "--add-candle-pattern").and_then(|s| s.parse().ok()),
+        candle_pattern_no_reversion: args.iter().any(|a| a == "--candle-pattern-no-reversion"),
+        candle_pattern_no_confluence: args.iter().any(|a| a == "--candle-pattern-no-confluence"),
+        candle_pattern_min_confluence: get_arg(args, "--candle-min-confluence").and_then(|s| s.parse().ok()),
+        candle_pattern_no_affirmative: args.iter().any(|a| a == "--candle-pattern-no-affirmative"),
         extra_indicators,
         tickers_override: get_arg(args, "--tickers"),
         no_new_entries_after: get_arg(args, "--no-new-entries-after"),
         ticker_overrides: parse_ticker_overrides(args),
+        use_entry_windows: args.iter().any(|a| a == "--use-entry-windows"),
+        only_window: get_arg(args, "--only-window"),
+        disable_window: get_arg(args, "--disable-window"),
     }
 }
 
@@ -686,6 +824,7 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
             scoring_config: effective.scoring.clone(),
             cost_config: cost_config.clone(),
             session_config: Some(effective.session.clone()),
+            window_exit_overrides: overrides.window_exit_overrides(),
         };
 
         match run_backtest(&backtest_config, &backtest_data) {
@@ -939,6 +1078,7 @@ fn run_legacy_mode(args: &[String], capital: f64, cost_config: &Option<BacktestC
         scoring_config: strategy_config.scoring,
         cost_config: cost_config.clone(),
         session_config: Some(strategy_config.session),
+        window_exit_overrides: HashMap::new(),
     };
 
     let mut candle_map = HashMap::new();

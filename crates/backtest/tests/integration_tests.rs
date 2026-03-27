@@ -81,6 +81,7 @@ fn full_pipeline_trend_reversal() {
         },
         cost_config: None,
         session_config: None,
+        window_exit_overrides: HashMap::new(),
     };
 
     // bullish then bearish data to force entry + exit
@@ -139,6 +140,7 @@ fn config_comparison_on_same_data() {
         },
         cost_config: None,
         session_config: None,
+        window_exit_overrides: HashMap::new(),
     };
 
     // config B: tighter trailing stop (lower multiplier)
@@ -222,6 +224,7 @@ fn csv_to_replay_pipeline() {
         },
         cost_config: None,
         session_config: None,
+        window_exit_overrides: HashMap::new(),
     };
 
     let result = run_backtest(&config, &data).unwrap();
@@ -252,6 +255,7 @@ fn very_short_data_does_not_panic() {
         },
         cost_config: None,
         session_config: None,
+        window_exit_overrides: HashMap::new(),
     };
 
     // only 3 candles — way less than RSI period of 14

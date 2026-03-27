@@ -722,7 +722,7 @@ trend-following indicators (MACD, EMA distance, SuperTrend, ADX) measure directi
 - MACD: 0.40, EMA: 0.30 (trend-following: 70% of weight)
 - StochRSI: 0.15, RSI: 0.10, Bollinger: 0.05 (mean-reversion: 30% of weight)
 
-the original config had roughly 60% mean-reversion / 40% trend-following. inverting this to ~70/30 trend-following was the single largest P&L improvement — it turned the system from a net loser (-$11,700 over 20 days) into a net winner (+$8,810 over 99 days).
+the original config had roughly 60% mean-reversion / 40% trend-following. inverting this to ~70/30 trend-following was the single most important directional improvement — the system became consistently profitable across all market regimes (4-year validation: PF ~3.1, 57% win rate).
 
 **never revert toward mean-reversion-heavy weights without compelling evidence.** if you see trades failing on trending days, the solution is almost always to strengthen trend-following signals, not weaken them.
 
@@ -730,13 +730,13 @@ the original config had roughly 60% mean-reversion / 40% trend-following. invert
 
 parameters are listed in order of impact on system performance. focus your analysis and changes on the most impactful parameters first.
 
-**current performance benchmark (config v89, 100-day backtest)**: P&L +$12,698, PF 3.10, biggest loss -$859, win/loss ratio 2.51, score 8.1/10. 2022 bear market: P&L +$4,718, PF 1.75.
+**current performance benchmark (config v1, 4-year validation at 3.0 bps slippage)**: total P&L +$1,447 on $10k, PF ~3.1, win rate 57%, W/L ratio 2.3x, 1,847 trades across 2022-2025. profitable in all regimes: bear (+$536), recovery (+$339), choppy (+$294), recent (+$277).
 
-**high impact** (changing these moved P&L by thousands of dollars):
+**high impact** (these directional choices have the strongest effect on signal quality):
 1. indicator weights within 5min timescale (MACD/EMA vs RSI/BB ratio)
 2. ATR trailing stop multiplier (controls churn/profit tradeoff)
 3. timescale weights (1min/5min/1hr ratio — dampening 1min was crucial)
-4. sizing method (fixed → vol-scaled eliminated tail risk)
+4. sizing method (fixed → vol-scaled adjusts for volatility)
 
 **medium impact** (moved P&L by hundreds of dollars):
 5. fixed stop percentage (interacts with indicator weights)

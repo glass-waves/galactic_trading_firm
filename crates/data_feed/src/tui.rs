@@ -1101,6 +1101,7 @@ fn render_scoring_section(
         AggregationMethod::WeightedSum => "WeightedSum",
         AggregationMethod::WeightedSumWithGates => "WeightedSumWithGates",
         AggregationMethod::MinScore => "MinScore",
+        AggregationMethod::DynamicFusion => "DynamicFusion",
     };
     lines.push(ratatui::text::Line::from(vec![
         Span::styled("  aggregation: ", Style::default().fg(theme::DIM_GREEN)),

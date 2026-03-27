@@ -1,27 +1,24 @@
 # multi-stage build for paper_trader (rust execution engine)
 
 # --- builder stage ---
-FROM rust:1.85-bookworm AS builder
+FROM rust:1.88-bookworm AS builder
 
 WORKDIR /app
 COPY Cargo.toml Cargo.lock ./
 COPY crates/ crates/
 
-# build release binary with TUI support
-RUN cargo build --release -p data_feed --features tui
+# build release binary without TUI (headless)
+RUN cargo build --release -p data_feed
 
 # --- runtime stage ---
 FROM debian:bookworm-slim
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    tmux \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
 COPY --from=builder /app/target/release/paper_trader /usr/local/bin/paper_trader
-COPY docker/paper_trader_entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh
 
 ENV RUST_LOG=info
 
-ENTRYPOINT ["/entrypoint.sh"]
+ENTRYPOINT ["paper_trader"]

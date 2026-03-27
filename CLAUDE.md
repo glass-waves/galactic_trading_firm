@@ -66,7 +66,7 @@ npx tsc                              # type check
 ## implementation phases
 
 1. **foundation** (done) — workspace setup, types crate, db schema, config loading
-2. **indicator engine** (done) — 24 indicators (13 native ta-rs + 11 composable + 4 custom), registry, aggregation
+2. **indicator engine** (done) — 35 indicator types (13 native ta-rs + 12 composable + 10 custom), registry, aggregation
 3. **action engine & scoring** (done) — scoring pipeline (weighted sum + hard gates + agreement + dynamic fusion), 8 actions (entry/exit/monitor/sizing), tick loop
 4. **backtest engine** (done) — historical replay, metrics (P&L, sharpe, drawdown, win rate), JSON/CSV export, config comparison
 5. **agent layer** (done) — typescript orchestrator, analysis agent (sonnet 4.6 mid-day), agent tools, budget enforcement
@@ -135,11 +135,11 @@ the foundation crate. defines all traits, types, and configs used by every other
 
 ### `crates/indicators/` — market signal computation
 
-24 indicators across three categories, each normalizing output to [-1.0, +1.0].
+35 indicator types across three categories, each normalizing output to [-1.0, +1.0].
 
 | file | purpose |
 |------|---------|
-| `src/lib.rs` | `default_indicator_registry()` — registers all 24 indicators. `build_indicators()` factory |
+| `src/lib.rs` | `default_indicator_registry()` — registers all 35 indicator types. `build_indicators()` factory |
 | `src/aggregation.rs` | `compute_timescale_scores()` — per-timescale weighted sum aggregation |
 | `src/helpers.rs` | normalization utilities, ta-rs conversions |
 
@@ -176,15 +176,19 @@ the foundation crate. defines all traits, types, and configs used by every other
 | `src/composable/vwap_distance.rs` | VWAP distance | (close − VWAP) / VWAP |
 | `src/composable/awesome_oscillator.rs` | awesome oscillator | SMA(HL2, 5) − SMA(HL2, 34) |
 
-#### custom indicators (4) — domain-specific
+#### custom indicators (10) — domain-specific
 
 | file | indicator | purpose |
 |------|-----------|---------|
 | `src/custom/ofi.rs` | OFI (order flow imbalance) | CLV-weighted volume proxy for order flow. from Cont et al. (2014) |
 | `src/custom/vpin.rs` | VPIN | volume-synchronized probability of informed trading. from Easley et al. (2012) |
 | `src/custom/position_context.rs` | position context (4 meta-indicators) | `position_direction`, `unrealized_pnl`, `hold_duration`, `session_remaining` |
+| `src/custom/candle_pattern.rs` | candlestick pattern (engulfing) | engulfing detection with confluence scoring (volume, VWAP, trend) and mean-reversion mode. from Bulkowski, Quantified Strategies |
+| `src/custom/rvol.rs` | relative volume | current volume vs time-of-day average |
+| `src/custom/market_breadth.rs` | market breadth | index return signal (SPY performance proxy) |
+| `src/custom/cross_correlation.rs` | cross-ticker correlation | cross-ticker correlation coefficient |
 
-**tests:** 142 (55 native, 42 composable, 18 custom, 9 VPIN, 7 aggregation, 6 registry, 3 integration, 2 smoke)
+**tests:** 199 (55 native, 45 composable, 49 custom, 9 VPIN, 7 aggregation, 6 registry, 3 integration, 2 smoke, 23 candle pattern)
 
 ---
 

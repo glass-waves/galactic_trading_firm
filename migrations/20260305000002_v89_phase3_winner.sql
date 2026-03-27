@@ -1,3 +1,7 @@
+-- NOTE: "v89" was the pre-bug-fix config version number. after fixing the position
+-- sizing bug (2026-03-21), config versioning restarted from v1. this migration is
+-- historical — see docs/backtest_tuning_log.md for current config lineage.
+--
 -- v89 config: phase 3 winner — 30s cooldown + adaptive hold + 10% circuit breaker
 --
 -- key changes from v3 seed:
@@ -13,12 +17,10 @@
 --   5min indicator weights: MACD 0.40, EMA 0.30, StochRSI 0.15, RSI 0.10, BB 0.05
 --   1hr indicator weights: SuperTrend 0.30, EMA 0.25, ADX 0.20, VWAP 0.15, BolBW 0.10
 --
--- performance (100-day backtest, $10k capital, 3-day lookback, 2bps slippage + $0.005 spread):
---   P&L: +$12,698 | PF: 3.10 | trades: 212 | biggest loss: -$859
---   win/loss ratio: 2.51 | return on capital: +127% | score: 8.1/10
---
--- 2022 bear market (jan-may, 38 days):
---   P&L: +$4,718 | PF: 1.75 | biggest loss: -$1,139 | return: +47%
+-- validated post-sizing-fix (4-year backtest, $10k capital, 3.0 bps slippage + $0.005 spread):
+--   2022-2025 total P&L: +$1,447 | PF: ~3.1 | trades: 1,847 | win rate: 57%
+--   profitable in all regimes: bear (+$536), recovery (+$339), choppy (+$294), recent (+$277)
+--   see docs/backtest_tuning_log.md for full results
 
 -- mark old config as superseded
 UPDATE config_versions
@@ -36,7 +38,7 @@ INSERT INTO config_versions (
     'promoted',
     now(),
     'orchestrator',
-    'v89 phase 3 winner: 30s cooldown + adaptive hold (+30m/-15m) + 10% daily loss breaker. 100-day score 8.1/10, PF 3.10, +127% ROC',
+    'config v1: 30s cooldown + adaptive hold (+30m/-15m) + 10% daily loss breaker. validated post-sizing-fix: 4-year PF ~3.1, +$1,447 on $10k',
     '{
     "actions": [
         {

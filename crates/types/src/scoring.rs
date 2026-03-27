@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use crate::market::Timescale;
 
 /// aggregated scores per timescale, computed from all active indicators.
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TimescaleScores {
     pub one_minute: Option<f64>,
     pub five_minute: Option<f64>,
@@ -13,6 +13,24 @@ pub struct TimescaleScores {
     pub one_day: Option<f64>,
     pub one_month: Option<f64>,
     pub composite: f64,
+    /// per-indicator scores, populated by the tick loop for entry window conditions.
+    /// keyed by indicator instance_id.
+    #[serde(skip)]
+    pub indicator_scores: Option<HashMap<String, Option<f64>>>,
+}
+
+impl Default for TimescaleScores {
+    fn default() -> Self {
+        Self {
+            one_minute: None,
+            five_minute: None,
+            one_hour: None,
+            one_day: None,
+            one_month: None,
+            composite: 0.0,
+            indicator_scores: None,
+        }
+    }
 }
 
 /// how timescale scores are combined into the composite score.

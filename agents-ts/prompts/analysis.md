@@ -323,9 +323,9 @@ if you want to suggest adding an indicator that isn't currently active, these ty
 
 ## tuning context — what we've learned
 
-the current config (v89) was reached through 53 iterations of parameter tuning followed by A/B testing of new features. understanding *why* the config is set the way it is will help you focus your analysis on productive areas rather than re-discovering established patterns.
+the current config (v1) was validated across 4 full years (2022-2025, ~1,000 trading days) with correct position sizing and pessimistic transaction costs (3.0 bps slippage + $0.005 half-spread). understanding *why* the config is set the way it is will help you focus your analysis on productive areas rather than re-discovering established patterns.
 
-**current performance (100-day backtest)**: P&L +$12,698, PF 3.10, biggest loss -$859, win/loss ratio 2.51, score 8.1/10.
+**current performance (4-year backtest, $10k capital)**: total P&L +$1,447, PF ~3.1 (consistent across all years), win rate 57%, W/L ratio 2.3x, 1,847 trades. profitable in bear (2022: +$536), recovery (2023: +$339), choppy (2024: +$294), and recent (2025: +$277) markets.
 
 ### the trend-following principle
 

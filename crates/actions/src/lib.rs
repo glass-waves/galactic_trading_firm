@@ -10,6 +10,8 @@ use types::registry::ActionRegistry;
 pub fn default_action_registry() -> ActionRegistry {
     let mut reg = ActionRegistry::new();
     reg.register("score_threshold_entry", entry::score_threshold::score_threshold_entry_factory);
+    reg.register("entry_window", entry::entry_window::entry_window_factory);
+    reg.register("entry_reject_gate", entry::entry_reject_gate::entry_reject_gate_factory);
     reg.register("atr_trailing_stop", exit::atr_trailing_stop::atr_trailing_stop_factory);
     reg.register("fixed_pct_stop", exit::fixed_pct_stop::fixed_pct_stop_factory);
     reg.register("session_close", exit::session_close::session_close_factory);

@@ -10,7 +10,7 @@ export {
   ANALYSIS_TOOL_NAMES,
   PM_TOOL_NAMES,
 } from "./agent-base.js";
-export type { ToolSetName } from "./agent-base.js";
+export type { ToolSetName, ToolDefinition } from "./agent-base.js";
 
 export {
   runCheckinCycle,

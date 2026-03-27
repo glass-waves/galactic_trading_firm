@@ -1,3 +1,4 @@
+pub mod candle_pattern;
 pub mod cross_correlation;
 pub mod market_breadth;
 pub mod ofi;

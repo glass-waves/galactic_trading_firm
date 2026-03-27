@@ -44,6 +44,22 @@ pub struct TradingEngine {
     initial_capital_snapshot: f64,
     /// max hold time in ms, used to populate PositionContext for meta-indicators.
     max_hold_ms: i64,
+    /// default max hold (stored so we can restore after per-window overrides).
+    default_max_hold_ms: i64,
+    /// per-window exit overrides: maps window name → (score_exit_threshold, max_hold_ms).
+    /// score_exit_threshold of f64::MAX means "disabled".
+    window_exit_overrides: HashMap<String, WindowExitOverrides>,
+    /// active score exit threshold (may differ from config when a window override is active).
+    active_score_exit_threshold: f64,
+}
+
+/// per-window exit parameter overrides.
+#[derive(Debug, Clone)]
+pub struct WindowExitOverrides {
+    /// override for score exit threshold. f64::MAX = disabled.
+    pub score_exit_threshold: f64,
+    /// override for max hold time in ms.
+    pub max_hold_ms: i64,
 }
 
 impl TradingEngine {
@@ -60,6 +76,7 @@ impl TradingEngine {
         capital: f64,
         session_config: Option<SessionConfig>,
     ) -> Self {
+        let exit_threshold = scoring_config.exit_threshold;
         Self {
             indicators,
             indicator_configs,
@@ -80,7 +97,15 @@ impl TradingEngine {
             daily_loss_breaker_active: false,
             initial_capital_snapshot: capital,
             max_hold_ms: 2_700_000, // default 45 min, overridable via set_max_hold_ms
+            default_max_hold_ms: 2_700_000,
+            window_exit_overrides: HashMap::new(),
+            active_score_exit_threshold: exit_threshold,
         }
+    }
+
+    /// register per-window exit overrides.
+    pub fn set_window_exit_overrides(&mut self, overrides: HashMap<String, WindowExitOverrides>) {
+        self.window_exit_overrides = overrides;
     }
 
     /// process a single tick. never panics — indicator failures are caught and logged.
@@ -128,6 +153,9 @@ impl TradingEngine {
         // 3. aggregate per-timescale scores
         let mut scores = compute_timescale_scores(&outputs, &self.indicator_configs);
 
+        // 3b. attach per-indicator scores for entry window conditions
+        scores.indicator_scores = Some(outputs.clone());
+
         // 4. compute composite score (pass indicator outputs for dynamic fusion)
         compute_composite_with_indicators(&mut scores, &self.scoring_config, Some(&outputs));
 
@@ -140,13 +168,14 @@ impl TradingEngine {
 
         let event = if self.position_manager.has_position() {
             // check score-based exit first (before action-based exits)
-            if scores.composite <= self.scoring_config.exit_threshold {
+            // uses per-window override if active, otherwise config default
+            if scores.composite <= self.active_score_exit_threshold {
                 if let Some(trade) = self.position_manager.close_position(
                     fill_price,
                     market.timestamp,
                     ExitReason::ScoreExit,
                 ) {
-                    self.available_capital += trade.size + trade.pnl;
+                    self.available_capital += trade.size * trade.entry_price + trade.pnl;
                     self.record_exit(&trade, market.timestamp);
                     self.completed_trades.push(trade);
                     return TickResult { scores, event: TickEvent::PositionClosed };
@@ -180,7 +209,7 @@ impl TradingEngine {
                         market.timestamp,
                         reason,
                     ) {
-                        self.available_capital += trade.size + trade.pnl;
+                        self.available_capital += trade.size * trade.entry_price + trade.pnl;
                         self.record_exit(&trade, market.timestamp);
                         self.completed_trades.push(trade);
                     }
@@ -195,16 +224,26 @@ impl TradingEngine {
                 return TickResult { scores, event: TickEvent::Nothing };
             }
 
-            // check entry actions
+            // check entry actions (sorted by priority — reject gates first, then windows)
             let mut entry_event = TickEvent::Nothing;
             for action in &self.entry_actions {
                 let signal = action.evaluate(None, market, &scores);
+                if matches!(signal, ActionSignal::RejectEntry) {
+                    break; // reject gate fired — no entry this tick
+                }
                 if let ActionSignal::Enter {
                     direction,
                     mut size_fraction,
-                    reason: _,
+                    reason,
                 } = signal
                 {
+                    // apply per-window exit overrides if this is a window entry
+                    if let Some(window_name) = reason.strip_prefix("window:") {
+                        if let Some(ovr) = self.window_exit_overrides.get(window_name) {
+                            self.active_score_exit_threshold = ovr.score_exit_threshold;
+                            self.max_hold_ms = ovr.max_hold_ms;
+                        }
+                    }
                     // check sizing actions for actual size
                     for sizing in &self.sizing_actions {
                         let sizing_signal = sizing.evaluate(None, market, &scores);
@@ -235,15 +274,16 @@ impl TradingEngine {
                         }
                     }
 
-                    let position_size = size_fraction * self.available_capital;
+                    let position_dollars = size_fraction * self.available_capital;
+                    let num_shares = position_dollars / fill_price;
                     let _ = self.position_manager.open_position(
                         self.ticker.clone(),
                         direction,
                         fill_price,
-                        position_size,
+                        num_shares,
                         market.timestamp,
                     );
-                    self.available_capital -= position_size;
+                    self.available_capital -= position_dollars;
                     entry_event = TickEvent::PositionOpened;
                     break;
                 }
@@ -304,6 +344,10 @@ impl TradingEngine {
         self.last_exit_time = Some(timestamp);
         self.cumulative_realized_pnl += trade.pnl;
 
+        // reset per-window exit overrides to defaults
+        self.active_score_exit_threshold = self.scoring_config.exit_threshold;
+        self.max_hold_ms = self.default_max_hold_ms;
+
         // check if daily loss breaker should activate
         if let Some(ref sc) = self.session_config {
             if let Some(max_loss) = sc.max_daily_loss_pct {
@@ -337,6 +381,7 @@ impl TradingEngine {
     /// set the max hold time for position context meta-indicators.
     pub fn set_max_hold_ms(&mut self, ms: i64) {
         self.max_hold_ms = ms;
+        self.default_max_hold_ms = ms;
     }
 
     /// current available capital (initial minus deployed in open positions).
@@ -348,7 +393,7 @@ impl TradingEngine {
     /// returns the cancelled position details if one was open.
     pub fn undo_last_open(&mut self) -> Option<types::action::Position> {
         let pos = self.position_manager.cancel_position()?;
-        self.available_capital += pos.size;
+        self.available_capital += pos.size * pos.entry_price;
         Some(pos)
     }
 
@@ -356,7 +401,7 @@ impl TradingEngine {
     /// re-opens the position from the removed trade record.
     pub fn undo_last_close(&mut self) -> Option<TradeRecord> {
         let trade = self.completed_trades.pop()?;
-        self.available_capital -= trade.size;
+        self.available_capital -= trade.size * trade.entry_price;
         let _ = self.position_manager.open_position(
             trade.ticker.clone(),
             trade.direction,
@@ -377,7 +422,7 @@ impl TradingEngine {
         timestamp: chrono::DateTime<chrono::Utc>,
     ) -> Result<(), String> {
         self.position_manager.open_position(ticker, direction, price, size, timestamp)?;
-        self.available_capital -= size;
+        self.available_capital -= size * price;
         Ok(())
     }
 
@@ -389,7 +434,7 @@ impl TradingEngine {
         reason: types::action::ExitReason,
     ) -> Option<TradeRecord> {
         let trade = self.position_manager.close_position(price, timestamp, reason)?;
-        self.available_capital += trade.size + trade.pnl;
+        self.available_capital += trade.size * trade.entry_price + trade.pnl;
         self.record_exit(&trade, timestamp);
         self.completed_trades.push(trade.clone());
         Some(trade)

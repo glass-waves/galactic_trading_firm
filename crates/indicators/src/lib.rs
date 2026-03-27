@@ -50,6 +50,7 @@ pub fn default_indicator_registry() -> IndicatorRegistry {
     reg.register("relative_volume", custom::rvol::rvol_factory);
     reg.register("market_breadth", custom::market_breadth::market_breadth_factory);
     reg.register("cross_ticker_correlation", custom::cross_correlation::cross_correlation_factory);
+    reg.register("candle_pattern", custom::candle_pattern::candle_pattern_factory);
     reg
 }
 

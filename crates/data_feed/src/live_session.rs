@@ -64,6 +64,11 @@ impl LiveSession {
         &self.engine
     }
 
+    /// mutable access to the underlying engine.
+    pub fn engine_mut(&mut self) -> &mut TradingEngine {
+        &mut self.engine
+    }
+
     /// check if there is an open position.
     pub fn has_position(&self) -> bool {
         self.engine.has_position()

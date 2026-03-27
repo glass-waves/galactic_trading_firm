@@ -58,5 +58,6 @@ pub fn compute_timescale_scores(
         one_day: get_score(&Timescale::OneDay),
         one_month: get_score(&Timescale::OneMonth),
         composite: 0.0, // composite computed by engine scoring pipeline
+        indicator_scores: None, // populated by tick loop
     }
 }

@@ -45,6 +45,9 @@ pub trait Broker: Send + Sync {
     ) -> Result<OrderFill, BrokerError>;
 
     async fn close_position(&self, ticker: &str) -> Result<OrderFill, BrokerError>;
+
+    /// update the market price. default no-op for brokers that don't need it.
+    fn set_last_price(&self, _price: f64) {}
 }
 
 /// simulated broker that fills at last_price ± slippage. no external deps.
@@ -66,12 +69,6 @@ impl SimulatedBroker {
         }
     }
 
-    /// update the simulated market price before submitting orders.
-    pub fn set_last_price(&self, price: f64) {
-        self.last_price
-            .store(price.to_bits(), std::sync::atomic::Ordering::Relaxed);
-    }
-
     fn get_last_price(&self) -> f64 {
         f64::from_bits(
             self.last_price
@@ -90,6 +87,11 @@ impl SimulatedBroker {
 
 #[async_trait]
 impl Broker for SimulatedBroker {
+    fn set_last_price(&self, price: f64) {
+        self.last_price
+            .store(price.to_bits(), std::sync::atomic::Ordering::Relaxed);
+    }
+
     async fn submit_order(
         &self,
         ticker: &str,
@@ -145,18 +147,28 @@ impl Broker for SimulatedBroker {
     }
 }
 
+/// convert an apca Num to f64.
+fn num_to_f64(n: &num_decimal::Num) -> f64 {
+    n.to_f64().unwrap_or(0.0)
+}
+
 /// alpaca paper trading broker. uses the apca crate for order execution.
 pub struct AlpacaBroker {
-    _api_key: String,
-    _api_secret: String,
+    client: apca::Client,
 }
 
 impl AlpacaBroker {
-    pub fn new(api_key: String, api_secret: String) -> Self {
-        Self {
-            _api_key: api_key,
-            _api_secret: api_secret,
-        }
+    pub fn new(api_key: String, api_secret: String) -> Result<Self, BrokerError> {
+        let api_info = apca::ApiInfo::from_parts(
+            "https://paper-api.alpaca.markets",
+            &api_key,
+            &api_secret,
+        )
+        .map_err(|e| BrokerError::ConnectionError(format!("invalid credentials: {e}")))?;
+
+        Ok(Self {
+            client: apca::Client::new(api_info),
+        })
     }
 }
 
@@ -164,20 +176,102 @@ impl AlpacaBroker {
 impl Broker for AlpacaBroker {
     async fn submit_order(
         &self,
-        _ticker: &str,
-        _direction: TradeDirection,
-        _quantity: f64,
+        ticker: &str,
+        direction: TradeDirection,
+        quantity: f64,
     ) -> Result<OrderFill, BrokerError> {
-        // TODO: implement with apca client
-        Err(BrokerError::ConnectionError(
-            "alpaca broker not yet implemented".to_string(),
-        ))
+        use apca::api::v2::order;
+
+        let side = match direction {
+            TradeDirection::Long => order::Side::Buy,
+            TradeDirection::Short => order::Side::Sell,
+        };
+
+        // truncate to whole shares for alpaca
+        let shares = quantity.floor() as i64;
+        if shares <= 0 {
+            return Err(BrokerError::OrderRejected(
+                "quantity must be at least 1 share".to_string(),
+            ));
+        }
+
+        let req = order::CreateReqInit {
+            type_: order::Type::Market,
+            time_in_force: order::TimeInForce::Day,
+            ..Default::default()
+        }
+        .init(ticker, side, order::Amount::quantity(shares));
+
+        let order = self
+            .client
+            .issue::<order::Create>(&req)
+            .await
+            .map_err(|e| BrokerError::OrderRejected(format!("{e}")))?;
+
+        let fill_price = order
+            .average_fill_price
+            .as_ref()
+            .map(num_to_f64)
+            .unwrap_or(0.0);
+
+        if fill_price <= 0.0 {
+            return Err(BrokerError::OrderRejected(format!(
+                "order not filled (status: {:?})",
+                order.status
+            )));
+        }
+
+        let filled_at = order.filled_at.unwrap_or_else(Utc::now);
+
+        Ok(OrderFill {
+            ticker: ticker.to_string(),
+            direction,
+            quantity: num_to_f64(&order.filled_quantity),
+            fill_price,
+            filled_at,
+        })
     }
 
-    async fn close_position(&self, _ticker: &str) -> Result<OrderFill, BrokerError> {
-        Err(BrokerError::ConnectionError(
-            "alpaca broker not yet implemented".to_string(),
-        ))
+    async fn close_position(&self, ticker: &str) -> Result<OrderFill, BrokerError> {
+        use apca::api::v2::position;
+
+        let symbol = apca::api::v2::asset::Symbol::Sym(ticker.to_string());
+
+        let order = self
+            .client
+            .issue::<position::Delete>(&symbol)
+            .await
+            .map_err(|e| {
+                // check if the error is a NotFound
+                let msg = format!("{e}");
+                if msg.contains("404") || msg.contains("not found") || msg.contains("NotFound") {
+                    BrokerError::NoPosition(ticker.to_string())
+                } else {
+                    BrokerError::ConnectionError(msg)
+                }
+            })?;
+
+        let fill_price = order
+            .average_fill_price
+            .as_ref()
+            .map(num_to_f64)
+            .unwrap_or(0.0);
+
+        let filled_at = order.filled_at.unwrap_or_else(Utc::now);
+
+        // the closing order side tells us the close direction
+        let direction = match order.side {
+            apca::api::v2::order::Side::Buy => TradeDirection::Long,
+            apca::api::v2::order::Side::Sell => TradeDirection::Short,
+        };
+
+        Ok(OrderFill {
+            ticker: ticker.to_string(),
+            direction,
+            quantity: num_to_f64(&order.filled_quantity),
+            fill_price,
+            filled_at,
+        })
     }
 }
 
@@ -284,15 +378,26 @@ mod tests {
 
     #[test]
     fn alpaca_broker_construction() {
-        let _broker = AlpacaBroker::new("key".to_string(), "secret".to_string());
+        let broker = AlpacaBroker::new("key".to_string(), "secret".to_string());
+        assert!(broker.is_ok());
+    }
+
+    #[test]
+    fn alpaca_set_last_price_noop() {
+        let broker = AlpacaBroker::new("key".to_string(), "secret".to_string()).unwrap();
+        // default trait method — should not panic
+        broker.set_last_price(150.0);
     }
 
     #[tokio::test]
-    async fn alpaca_broker_not_implemented() {
-        let broker = AlpacaBroker::new("key".to_string(), "secret".to_string());
-        let result = broker
-            .submit_order("SPY", TradeDirection::Long, 100.0)
-            .await;
-        assert!(result.is_err());
+    async fn simulated_set_last_price_via_trait() {
+        let broker: Box<dyn Broker> = Box::new(SimulatedBroker::new(0.0));
+        broker.set_last_price(200.0);
+
+        let fill = broker
+            .submit_order("SPY", TradeDirection::Long, 10.0)
+            .await
+            .unwrap();
+        assert!((fill.fill_price - 200.0).abs() < f64::EPSILON);
     }
 }

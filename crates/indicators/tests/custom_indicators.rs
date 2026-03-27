@@ -334,3 +334,402 @@ fn cross_corr_no_data_returns_none() {
     let ms = make_market_state(Timescale::FiveMinute, &[100.0]);
     assert!(ind.compute(&ms).is_none());
 }
+
+// ── CandlePattern Indicator ──
+
+use indicators::custom::candle_pattern::CandlePattern;
+
+fn make_candle_pattern(mean_reversion: bool, use_confluence: bool) -> CandlePattern {
+    CandlePattern::new(
+        Timescale::FiveMinute,
+        "cp_test".to_string(),
+        0.5,  // engulfing_min_body_ratio
+        0.70, // engulfing_base_score
+        mean_reversion,
+        20,   // volume_lookback
+        2.0,  // high_volume_threshold
+        0.5,  // low_volume_threshold
+        5,    // ema_fast
+        20,   // ema_slow
+        use_confluence,
+        false, // affirmative_only (false for tests to verify both positive and negative scores)
+        0.0,   // min_confluence_product (0.0 = no gate, for test coverage)
+        1,     // decay_candles (1 = no lookback, matches original behavior for tests)
+        1.0,   // decay_factor (1.0 = no decay)
+    )
+}
+
+/// build OHLCV data: N-2 neutral candles + 2 final candles for pattern testing.
+fn engulfing_ohlcv(
+    n: usize,
+    prev: (f64, f64, f64, f64, f64),
+    curr: (f64, f64, f64, f64, f64),
+) -> Vec<(f64, f64, f64, f64, f64)> {
+    let mut data: Vec<(f64, f64, f64, f64, f64)> = (0..n.saturating_sub(2))
+        .map(|i| {
+            let base = 100.0 + i as f64 * 0.1;
+            (base, base + 1.0, base - 1.0, base + 0.1, 100_000.0)
+        })
+        .collect();
+    data.push(prev);
+    data.push(curr);
+    data
+}
+
+// ── engulfing detection ──
+
+#[test]
+fn candle_bullish_engulfing_detected() {
+    let ind = make_candle_pattern(false, false);
+    // prev: bearish (open=102, close=100), curr: bullish (open=99, close=103) — wraps prev body
+    let data = engulfing_ohlcv(
+        25,
+        (102.0, 103.0, 99.5, 100.0, 100_000.0), // bearish prev
+        (99.0, 104.0, 98.0, 103.0, 100_000.0),   // bullish curr, body 99-103 wraps 100-102
+    );
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    assert!(out.score > 0.0, "bullish engulfing should be positive, got {}", out.score);
+}
+
+#[test]
+fn candle_bearish_engulfing_detected() {
+    let ind = make_candle_pattern(false, false);
+    // prev: bullish (open=100, close=102), curr: bearish (open=103, close=99) — wraps prev body
+    let data = engulfing_ohlcv(
+        25,
+        (100.0, 102.5, 99.5, 102.0, 100_000.0), // bullish prev
+        (103.0, 104.0, 98.0, 99.0, 100_000.0),   // bearish curr, body 99-103 wraps 100-102
+    );
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    assert!(out.score < 0.0, "bearish engulfing should be negative, got {}", out.score);
+}
+
+#[test]
+fn candle_body_too_small_not_engulfing() {
+    let ind = make_candle_pattern(false, false);
+    // curr body_ratio < 0.5 (tiny body in large range)
+    let data = engulfing_ohlcv(
+        25,
+        (101.0, 102.0, 99.0, 100.0, 100_000.0),  // bearish prev
+        (99.9, 110.0, 90.0, 100.1, 100_000.0),    // bullish but body=0.2, range=20, ratio=0.01
+    );
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    assert!((out.score - 0.0).abs() < f64::EPSILON, "small body should not be engulfing, got {}", out.score);
+}
+
+#[test]
+fn candle_same_direction_not_engulfing() {
+    let ind = make_candle_pattern(false, false);
+    // both bullish — not an engulfing pattern
+    let data = engulfing_ohlcv(
+        25,
+        (100.0, 103.0, 99.0, 102.0, 100_000.0),  // bullish
+        (101.0, 105.0, 100.0, 104.0, 100_000.0),  // also bullish
+    );
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    assert!((out.score - 0.0).abs() < f64::EPSILON, "same direction should not match, got {}", out.score);
+}
+
+#[test]
+fn candle_no_contain_not_engulfing() {
+    let ind = make_candle_pattern(false, false);
+    // curr body does NOT fully contain prev body (prev body top=102, curr body top=101.5)
+    let data = engulfing_ohlcv(
+        25,
+        (102.0, 103.0, 99.0, 100.0, 100_000.0),  // bearish: body 100-102
+        (99.5, 103.0, 98.0, 101.5, 100_000.0),    // bullish: body 99.5-101.5 — doesn't reach 102
+    );
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    assert!((out.score - 0.0).abs() < f64::EPSILON, "incomplete wrap should not match, got {}", out.score);
+}
+
+#[test]
+fn candle_zero_range_no_panic() {
+    let ind = make_candle_pattern(false, false);
+    // zero range candle (high == low)
+    let data = engulfing_ohlcv(
+        25,
+        (100.0, 102.0, 99.0, 101.0, 100_000.0),
+        (100.0, 100.0, 100.0, 100.0, 100_000.0), // zero range
+    );
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output without panic");
+    assert!((out.score - 0.0).abs() < f64::EPSILON);
+}
+
+// ── confluence scoring ──
+
+#[test]
+fn candle_high_volume_increases_score() {
+    let ind = make_candle_pattern(false, true);
+    // bullish engulfing with 2.5x average volume
+    let mut data = engulfing_ohlcv(
+        25,
+        (102.0, 103.0, 99.5, 100.0, 100_000.0),
+        (99.0, 104.0, 98.0, 103.0, 250_000.0), // 2.5x volume
+    );
+    // ensure preceding candles have 100k volume (already default from engulfing_ohlcv)
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out_high = ind.compute(&ms).expect("should produce output");
+
+    // same pattern with normal volume
+    data.last_mut().unwrap().4 = 100_000.0;
+    let ms_normal = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out_normal = ind.compute(&ms_normal).expect("should produce output");
+
+    assert!(
+        out_high.score.abs() > out_normal.score.abs(),
+        "high volume should increase score: {} vs {}",
+        out_high.score.abs(), out_normal.score.abs()
+    );
+}
+
+#[test]
+fn candle_low_volume_decreases_score() {
+    let ind = make_candle_pattern(false, true);
+    let mut data = engulfing_ohlcv(
+        25,
+        (102.0, 103.0, 99.5, 100.0, 100_000.0),
+        (99.0, 104.0, 98.0, 103.0, 30_000.0), // 0.3x volume
+    );
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out_low = ind.compute(&ms).expect("should produce output");
+
+    data.last_mut().unwrap().4 = 100_000.0;
+    let ms_normal = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out_normal = ind.compute(&ms_normal).expect("should produce output");
+
+    assert!(
+        out_low.score.abs() < out_normal.score.abs(),
+        "low volume should decrease score: {} vs {}",
+        out_low.score.abs(), out_normal.score.abs()
+    );
+}
+
+#[test]
+fn candle_below_vwap_reversal_boosts() {
+    let ind = make_candle_pattern(false, true);
+    // bullish engulfing
+    let data = engulfing_ohlcv(
+        25,
+        (102.0, 103.0, 99.5, 100.0, 100_000.0),
+        (99.0, 104.0, 98.0, 103.0, 100_000.0),
+    );
+    let mut ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    ms.session_vwap = 110.0; // price well below VWAP → location boost
+    let out_below = ind.compute(&ms).expect("should produce output");
+
+    ms.session_vwap = 95.0; // price above VWAP → location discount
+    let out_above = ind.compute(&ms).expect("should produce output");
+
+    assert!(
+        out_below.score.abs() > out_above.score.abs(),
+        "below VWAP should boost: {} vs {}",
+        out_below.score.abs(), out_above.score.abs()
+    );
+}
+
+#[test]
+fn candle_above_vwap_reversal_discounts() {
+    let ind = make_candle_pattern(false, true);
+    // bullish engulfing with close above VWAP
+    let data = engulfing_ohlcv(
+        25,
+        (102.0, 103.0, 99.5, 100.0, 100_000.0),
+        (99.0, 104.0, 98.0, 103.0, 100_000.0),
+    );
+    let mut ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    ms.session_vwap = 95.0; // above VWAP
+    let out = ind.compute(&ms).expect("should produce output");
+    // check metadata for location_mult
+    let loc_mult = out.metadata.get("location_mult").copied().unwrap_or(1.0);
+    assert!((loc_mult - 0.8).abs() < f64::EPSILON, "above VWAP bullish should get 0.8 mult, got {}", loc_mult);
+}
+
+#[test]
+fn candle_with_trend_boosts() {
+    let ind = make_candle_pattern(false, true);
+    // bullish engulfing in uptrend (EMA5 > EMA20 when prices trending up)
+    let mut data: Vec<(f64, f64, f64, f64, f64)> = (0..23)
+        .map(|i| {
+            let base = 90.0 + i as f64; // clear uptrend
+            (base, base + 1.0, base - 1.0, base + 0.5, 100_000.0)
+        })
+        .collect();
+    // add engulfing at the end
+    data.push((115.0, 116.0, 111.0, 112.0, 100_000.0)); // bearish prev
+    data.push((111.0, 118.0, 110.0, 116.0, 100_000.0));  // bullish curr wraps prev
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    let trend_mult = out.metadata.get("trend_mult").copied().unwrap_or(1.0);
+    assert!((trend_mult - 1.1).abs() < f64::EPSILON, "with-trend bullish should get 1.1, got {}", trend_mult);
+}
+
+#[test]
+fn candle_counter_trend_discounts() {
+    let ind = make_candle_pattern(false, true);
+    // bullish engulfing in downtrend (EMA5 < EMA20 when prices trending down)
+    let mut data: Vec<(f64, f64, f64, f64, f64)> = (0..23)
+        .map(|i| {
+            let base = 120.0 - i as f64; // clear downtrend
+            (base, base + 1.0, base - 1.0, base - 0.5, 100_000.0)
+        })
+        .collect();
+    data.push((99.0, 100.0, 96.0, 97.0, 100_000.0));  // bearish prev
+    data.push((96.0, 101.0, 95.0, 100.0, 100_000.0));  // bullish curr wraps prev
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    let trend_mult = out.metadata.get("trend_mult").copied().unwrap_or(1.0);
+    assert!((trend_mult - 0.8).abs() < f64::EPSILON, "counter-trend bullish should get 0.8, got {}", trend_mult);
+}
+
+// ── mean reversion mode ──
+
+#[test]
+fn candle_mean_reversion_flips_bearish_to_positive() {
+    let ind = make_candle_pattern(true, false);
+    // bearish engulfing → should score POSITIVE in mean reversion mode
+    let data = engulfing_ohlcv(
+        25,
+        (100.0, 102.5, 99.5, 102.0, 100_000.0), // bullish prev
+        (103.0, 104.0, 98.0, 99.0, 100_000.0),   // bearish curr wraps
+    );
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    assert!(out.score > 0.0, "mean reversion: bearish engulfing should be positive, got {}", out.score);
+}
+
+#[test]
+fn candle_mean_reversion_flips_bullish_to_negative() {
+    let ind = make_candle_pattern(true, false);
+    // bullish engulfing → should score NEGATIVE in mean reversion mode
+    let data = engulfing_ohlcv(
+        25,
+        (102.0, 103.0, 99.5, 100.0, 100_000.0), // bearish prev
+        (99.0, 104.0, 98.0, 103.0, 100_000.0),   // bullish curr wraps
+    );
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    assert!(out.score < 0.0, "mean reversion: bullish engulfing should be negative, got {}", out.score);
+}
+
+#[test]
+fn candle_traditional_mode_bearish_is_negative() {
+    let ind = make_candle_pattern(false, false);
+    let data = engulfing_ohlcv(
+        25,
+        (100.0, 102.5, 99.5, 102.0, 100_000.0),
+        (103.0, 104.0, 98.0, 99.0, 100_000.0),
+    );
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    assert!(out.score < 0.0, "traditional: bearish engulfing should be negative, got {}", out.score);
+}
+
+// ── integration ──
+
+#[test]
+fn candle_no_pattern_returns_zero() {
+    let ind = make_candle_pattern(false, false);
+    // two neutral candles, no engulfing
+    let data = engulfing_ohlcv(
+        25,
+        (100.0, 102.0, 99.0, 101.0, 100_000.0), // bullish
+        (101.0, 103.0, 100.0, 102.0, 100_000.0), // also bullish → no engulfing
+    );
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    assert!((out.score - 0.0).abs() < f64::EPSILON, "no pattern should give 0.0, got {}", out.score);
+}
+
+#[test]
+fn candle_insufficient_data_returns_none() {
+    let ind = make_candle_pattern(false, false);
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &[(100.0, 102.0, 99.0, 101.0, 100_000.0)]);
+    assert!(ind.compute(&ms).is_none(), "1 candle should return None");
+}
+
+#[test]
+fn candle_confluence_multipliers_stack() {
+    let ind = make_candle_pattern(false, true);
+    // bullish engulfing + high volume + below VWAP + uptrend = all multipliers boost
+    let mut data: Vec<(f64, f64, f64, f64, f64)> = (0..23)
+        .map(|i| {
+            let base = 90.0 + i as f64;
+            (base, base + 1.0, base - 1.0, base + 0.5, 100_000.0)
+        })
+        .collect();
+    data.push((115.0, 116.0, 111.0, 112.0, 100_000.0)); // bearish prev
+    data.push((111.0, 118.0, 110.0, 116.0, 250_000.0));  // bullish curr, high volume
+    let mut ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    ms.session_vwap = 120.0; // price below VWAP
+
+    let out = ind.compute(&ms).expect("should produce output");
+    // base 0.70 * vol 1.3 * loc 1.2 * trend 1.1 = 1.20
+    // clamped to 1.0
+    assert!((out.score - 1.0).abs() < f64::EPSILON, "stacked multipliers should clamp to 1.0, got {}", out.score);
+}
+
+#[test]
+fn candle_score_clamped_to_range() {
+    let ind = make_candle_pattern(false, true);
+    // set up maximal multipliers
+    let mut data: Vec<(f64, f64, f64, f64, f64)> = (0..23)
+        .map(|i| {
+            let base = 90.0 + i as f64;
+            (base, base + 1.0, base - 1.0, base + 0.5, 100_000.0)
+        })
+        .collect();
+    data.push((115.0, 116.0, 111.0, 112.0, 100_000.0));
+    data.push((111.0, 118.0, 110.0, 116.0, 500_000.0)); // 5x volume
+    let mut ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    ms.session_vwap = 200.0;
+
+    let out = ind.compute(&ms).expect("should produce output");
+    assert!(out.score >= -1.0 && out.score <= 1.0, "score must be in [-1, 1], got {}", out.score);
+}
+
+#[test]
+fn candle_factory_creates_from_config() {
+    let registry = default_indicator_registry();
+    let config = make_indicator_config(
+        "candle_pattern",
+        "cp_5min",
+        Timescale::FiveMinute,
+        0.05,
+        vec![
+            ("mean_reversion_mode", serde_json::json!(true)),
+            ("use_confluence", serde_json::json!(true)),
+        ],
+    );
+    let indicator = (registry.factories.get("candle_pattern").unwrap())(&config);
+    assert_eq!(indicator.name(), "candle_pattern");
+    assert_eq!(indicator.timescale(), Timescale::FiveMinute);
+}
+
+#[test]
+fn candle_metadata_contains_pattern_info() {
+    let ind = make_candle_pattern(false, true);
+    let mut data: Vec<(f64, f64, f64, f64, f64)> = (0..23)
+        .map(|i| {
+            let base = 100.0 + i as f64 * 0.1;
+            (base, base + 1.0, base - 1.0, base + 0.1, 100_000.0)
+        })
+        .collect();
+    data.push((102.0, 103.0, 99.5, 100.0, 100_000.0));
+    data.push((99.0, 104.0, 98.0, 103.0, 100_000.0));
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    assert!(out.metadata.contains_key("pattern_name"), "missing pattern_name");
+    assert!(out.metadata.contains_key("body_ratio"), "missing body_ratio");
+    assert!(out.metadata.contains_key("volume_ratio"), "missing volume_ratio");
+    assert!(out.metadata.contains_key("volume_mult"), "missing volume_mult");
+    assert!(out.metadata.contains_key("vwap_distance"), "missing vwap_distance");
+    assert!(out.metadata.contains_key("location_mult"), "missing location_mult");
+    assert!(out.metadata.contains_key("trend_mult"), "missing trend_mult");
+}

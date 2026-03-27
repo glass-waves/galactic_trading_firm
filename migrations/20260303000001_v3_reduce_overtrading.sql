@@ -28,7 +28,7 @@ INSERT INTO config_versions (
 ) VALUES (
     'promoted',
     now(),
-    'human',
+    'orchestrator',
     'v3 config — reduce overtrading: raise entry threshold 0.45->0.65, widen ATR stop 2x->3x, extend max hold 45->90min, skip first 15min, increase sizing 1%->2%',
     '{
         "schema_version": "0.2",

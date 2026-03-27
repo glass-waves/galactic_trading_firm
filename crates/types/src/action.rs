@@ -33,6 +33,10 @@ pub enum ActionSignal {
         delta_fraction: f64,
         reason: String,
     },
+
+    /// reject entry — blocks all remaining entry actions this tick.
+    /// used by entry reject gates to prevent low-quality entries.
+    RejectEntry,
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq)]

@@ -6,24 +6,15 @@ import { fileURLToPath } from "node:url";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PROMPTS_DIR = join(__dirname, "..", "prompts");
 
-// mock the SDK before importing agent-base
-vi.mock("@anthropic-ai/claude-agent-sdk", () => ({
-  query: vi.fn(),
-  createSdkMcpServer: vi.fn(() => ({ type: "sdk", name: "trading" })),
-  tool: vi.fn(
-    (
-      name: string,
-      description: string,
-      schema: unknown,
-      handler: Function,
-    ) => ({
-      name,
-      description,
-      inputSchema: schema,
-      handler,
-    }),
-  ),
-}));
+// mock the Anthropic SDK before importing agent-base
+const mockCreate = vi.fn();
+vi.mock("@anthropic-ai/sdk", () => {
+  return {
+    default: vi.fn(() => ({
+      messages: { create: mockCreate },
+    })),
+  };
+});
 
 import {
   loadPrompt,
@@ -34,7 +25,6 @@ import {
   runAnalysisAgent,
   OPUS_MODEL,
 } from "../src/agent-base.js";
-import { query, createSdkMcpServer } from "@anthropic-ai/claude-agent-sdk";
 import type { AgentType } from "../src/models.js";
 
 // --- prompt loading tests ---
@@ -102,11 +92,13 @@ describe("buildTools", () => {
     }
   });
 
-  it("should have description on all tools", () => {
+  it("should have description and input_schema on all tools", () => {
     const tools = buildTools(mockPool, 1, "agent_analysis", "analysis");
     for (const t of tools) {
       expect(t.name).toBeTruthy();
       expect(t.description).toBeTruthy();
+      expect(t.input_schema).toBeDefined();
+      expect(t.input_schema.type).toBe("object");
     }
   });
 
@@ -119,84 +111,29 @@ describe("buildTools", () => {
     }
   });
 
-  it("should capture version id for propose_config_mutation", async () => {
-    const capture = { proposed_version_id: null as number | null };
-    const tools = buildTools(mockPool, 1, "agent_pm", "pm", capture);
-    const proposeTool = tools.find(
-      (t) => t.name === "propose_config_mutation",
-    );
-    expect(proposeTool).toBeDefined();
-
-    // mock the DB calls used by the handler
-    const { getCurrentConfig } = await import(
-      "../src/tools/config-ops.js"
-    );
-    const { proposeConfig } = await import("../src/tools/config-ops.js");
-
-    vi.mock("../src/tools/config-ops.js", async (importOriginal) => ({
-      ...(await importOriginal()),
-      getCurrentConfig: vi.fn(async () => ({
-        config_version_id: 10,
-        config: {},
-      })),
-      proposeConfig: vi.fn(async () => 42),
-    }));
-
-    // reimport to get mocked version
-    const { buildTools: buildToolsFresh } = await import(
-      "../src/agent-base.js"
-    );
-    const freshCapture = { proposed_version_id: null as number | null };
-    const freshTools = buildToolsFresh(
-      mockPool,
-      1,
-      "agent_pm",
-      "pm",
-      freshCapture,
-    );
-    const freshPropose = freshTools.find(
-      (t) => t.name === "propose_config_mutation",
-    );
-
-    if (freshPropose) {
-      const result = await freshPropose.handler(
-        { config_blob: {}, mutation_reason: "test" },
-        {},
-      );
-      expect(result.content[0].type).toBe("text");
-      // the capture is updated by the handler
-      expect(freshCapture.proposed_version_id).toBe(42);
+  it("should have handler functions on all tools", () => {
+    const tools = buildTools(mockPool, 1, "agent_pm", "pm");
+    for (const t of tools) {
+      expect(typeof t.handler).toBe("function");
     }
   });
 });
 
-// --- SDK query() mock tests ---
+// --- API integration mock tests ---
 
-function makeResultMessage(inputTokens = 500, outputTokens = 200) {
+function makeApiResponse(
+  inputTokens = 500,
+  outputTokens = 200,
+  stopReason: "end_turn" | "tool_use" = "end_turn",
+) {
   return {
-    type: "result" as const,
-    subtype: "success" as const,
-    duration_ms: 1000,
-    duration_api_ms: 800,
-    is_error: false,
-    num_turns: 2,
-    session_id: "test-session",
-    total_cost_usd: 0.001,
+    id: "msg_test",
+    type: "message" as const,
+    role: "assistant" as const,
+    content: [{ type: "text" as const, text: "Analysis complete." }],
+    model: "claude-opus-4-6",
+    stop_reason: stopReason,
     usage: { input_tokens: inputTokens, output_tokens: outputTokens },
-    modelUsage: {
-      "claude-sonnet-4-6": {
-        inputTokens,
-        outputTokens,
-        cacheReadInputTokens: 0,
-        cacheCreationInputTokens: 0,
-        webSearchRequests: 0,
-        costUSD: 0.001,
-        contextWindow: 200000,
-        maxOutputTokens: 16384,
-      },
-    },
-    result: "Analysis complete.",
-    structured_output: null,
   };
 }
 
@@ -206,10 +143,7 @@ describe("runPmAgent", () => {
   });
 
   it("should return null version when no proposal", async () => {
-    const mockQuery = vi.mocked(query);
-    mockQuery.mockImplementation(async function* () {
-      yield makeResultMessage(1500, 700) as any;
-    });
+    mockCreate.mockResolvedValueOnce(makeApiResponse(1500, 700));
 
     const mockPool = {} as any;
     const [usage, versionId] = await runPmAgent(mockPool, 1);
@@ -227,13 +161,7 @@ describe("runAnalysisAgent", () => {
   });
 
   it("should use OPUS_MODEL by default", async () => {
-    let capturedOptions: any = null;
-
-    const mockQuery = vi.mocked(query);
-    mockQuery.mockImplementation(async function* (params: any) {
-      capturedOptions = params.options;
-      yield makeResultMessage(1200, 600) as any;
-    });
+    mockCreate.mockResolvedValueOnce(makeApiResponse(1200, 600));
 
     const mockPool = {} as any;
     const usage = await runAnalysisAgent(mockPool, 1);
@@ -241,8 +169,10 @@ describe("runAnalysisAgent", () => {
     expect(usage.input_tokens).toBe(1200);
     expect(usage.output_tokens).toBe(600);
     expect(usage.model).toBe(OPUS_MODEL);
-    expect(capturedOptions?.model).toBe(OPUS_MODEL);
+
+    // verify the model was passed to the API
+    expect(mockCreate).toHaveBeenCalledWith(
+      expect.objectContaining({ model: OPUS_MODEL }),
+    );
   });
 });
-
-

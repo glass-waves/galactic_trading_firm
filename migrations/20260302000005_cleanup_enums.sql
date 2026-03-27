@@ -2,6 +2,7 @@
 -- user approved truncating all dependent tables to allow enum recreation.
 
 -- 1. drop views that depend on agent_type or memo_type columns
+DROP VIEW IF EXISTS active_config;
 DROP VIEW IF EXISTS changelog_since;
 DROP VIEW IF EXISTS changelog_by_timescale;
 DROP VIEW IF EXISTS checkin_memos_since_last_pm;
@@ -19,8 +20,10 @@ TRUNCATE trades CASCADE;
 
 ALTER TABLE agent_memos ALTER COLUMN agent TYPE text;
 ALTER TABLE evolution_cycles ALTER COLUMN agents_triggered TYPE text[];
+ALTER TABLE evolution_cycles ALTER COLUMN agents_completed DROP DEFAULT;
 ALTER TABLE evolution_cycles ALTER COLUMN agents_completed TYPE text[];
 ALTER TABLE config_changelog ALTER COLUMN changed_by TYPE text;
+ALTER TABLE config_versions ALTER COLUMN created_by TYPE text;
 
 DROP TYPE agent_type;
 
@@ -34,6 +37,8 @@ ALTER TABLE agent_memos ALTER COLUMN agent TYPE agent_type USING agent::agent_ty
 ALTER TABLE evolution_cycles ALTER COLUMN agents_triggered TYPE agent_type[] USING agents_triggered::agent_type[];
 ALTER TABLE evolution_cycles ALTER COLUMN agents_completed TYPE agent_type[] USING agents_completed::agent_type[];
 ALTER TABLE config_changelog ALTER COLUMN changed_by TYPE agent_type USING changed_by::agent_type;
+ALTER TABLE config_versions ALTER COLUMN created_by TYPE agent_type USING created_by::agent_type;
+ALTER TABLE evolution_cycles ALTER COLUMN agents_completed SET DEFAULT '{}'::agent_type[];
 
 -- 4. add 'analysis' to memo_type
 ALTER TYPE memo_type ADD VALUE IF NOT EXISTS 'analysis';
@@ -88,3 +93,9 @@ FROM config_changelog cl
 JOIN config_versions cv ON cl.config_version_id = cv.id
 WHERE cv.status = 'promoted'
 ORDER BY cv.promoted_at ASC, cl.id ASC;
+
+CREATE VIEW active_config AS
+SELECT * FROM config_versions
+WHERE status = 'promoted'
+ORDER BY promoted_at DESC
+LIMIT 1;

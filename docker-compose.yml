@@ -46,8 +46,6 @@ services:
       LOG_DIR: /data/logs
     volumes:
       - logs:/data/logs
-    stdin_open: true
-    tty: true
     stop_grace_period: 30s
 
   agents-ts:
@@ -68,6 +66,21 @@ services:
     volumes:
       - logs:/data/logs
     stop_grace_period: 15s
+
+  cockpit:
+    build:
+      context: .
+      dockerfile: cockpit/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/adaptive_trading
 
 volumes:
   pgdata:

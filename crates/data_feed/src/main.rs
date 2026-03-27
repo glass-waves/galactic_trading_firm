@@ -27,7 +27,7 @@ fn log_shutdown_stats(
 
 use data_feed::account::resolve_capital;
 use data_feed::alpaca_feed::{AlpacaFeed, BarEvent};
-use data_feed::broker::SimulatedBroker;
+use data_feed::broker::{AlpacaBroker, Broker, SimulatedBroker};
 use data_feed::config_loader::load_config;
 use data_feed::config_watcher::{try_build_engine, ConfigWatcher};
 use data_feed::live_session::LiveSession;
@@ -145,14 +145,16 @@ async fn main() {
     }
 
     // 6. create broker
-    let broker: Option<SimulatedBroker> = match broker_mode.as_str() {
+    let broker: Box<dyn Broker> = match broker_mode.as_str() {
         "alpaca_paper" => {
+            let b = AlpacaBroker::new(api_key.clone(), api_secret.clone())
+                .expect("failed to create alpaca broker");
             info!("using alpaca paper broker");
-            None
+            Box::new(b)
         }
         _ => {
             info!("using simulated broker (5 bps slippage)");
-            Some(SimulatedBroker::new(5.0))
+            Box::new(SimulatedBroker::new(5.0))
         }
     };
 
@@ -309,10 +311,8 @@ async fn main() {
                 tick_count += 1;
                 let ticker = &bar_event.symbol;
 
-                // update broker price if simulated
-                if let Some(ref b) = broker {
-                    b.set_last_price(bar_event.candle.close);
-                }
+                // update broker price
+                broker.set_last_price(bar_event.candle.close);
 
                 // clone candle for TUI history before on_bar consumes it
                 #[cfg(feature = "tui")]
@@ -348,6 +348,29 @@ async fn main() {
                             price = market.last_price,
                             "position opened"
                         );
+
+                        // submit order to broker
+                        if let Some(pos) = session.current_position() {
+                            let shares = (pos.size / market.last_price).floor();
+                            let direction = pos.direction;
+                            match broker
+                                .submit_order(ticker, direction, shares)
+                                .await
+                            {
+                                Ok(fill) => {
+                                    info!(
+                                        ticker = %ticker,
+                                        fill_price = fill.fill_price,
+                                        quantity = fill.quantity,
+                                        "broker order filled"
+                                    );
+                                }
+                                Err(e) => {
+                                    error!(ticker = %ticker, error = %e, "broker order failed, undoing position");
+                                    session.engine_mut().undo_last_open();
+                                }
+                            }
+                        }
                     }
 
                     // update TUI dashboard state
@@ -402,6 +425,24 @@ async fn main() {
                     }
 
                     if let Some(tws) = trade_with_scores {
+                        // close position at broker
+                        match broker.close_position(&tws.trade.ticker).await {
+                            Ok(fill) => {
+                                info!(
+                                    ticker = %tws.trade.ticker,
+                                    fill_price = fill.fill_price,
+                                    "broker position closed"
+                                );
+                            }
+                            Err(e) => {
+                                warn!(
+                                    ticker = %tws.trade.ticker,
+                                    error = %e,
+                                    "broker close failed (engine already closed)"
+                                );
+                            }
+                        }
+
                         info!(
                             ticker = %tws.trade.ticker,
                             pnl = tws.trade.pnl,

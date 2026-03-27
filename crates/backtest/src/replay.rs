@@ -76,6 +76,8 @@ pub struct BacktestConfig {
     pub cost_config: Option<BacktestCostConfig>,
     /// optional session config for enforcing time/position constraints.
     pub session_config: Option<types::config::SessionConfig>,
+    /// per-window exit overrides (window name → exit params).
+    pub window_exit_overrides: HashMap<String, engine::WindowExitOverrides>,
 }
 
 /// historical candle data for replay, keyed by timescale.
@@ -163,6 +165,11 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
         .and_then(|v| v.as_i64())
         .unwrap_or(2_700_000);
     engine.set_max_hold_ms(max_hold_ms);
+
+    // apply per-window exit overrides
+    if !config.window_exit_overrides.is_empty() {
+        engine.set_window_exit_overrides(config.window_exit_overrides.clone());
+    }
 
     let cost = config.cost_config.clone().unwrap_or_default();
 
