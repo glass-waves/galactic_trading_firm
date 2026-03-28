@@ -76,6 +76,16 @@ struct ConfigOverrides {
     use_entry_windows: bool,
     only_window: Option<String>,
     disable_window: Option<String>,
+    // window parameter overrides (for sweep testing without recompiling)
+    w1_composite_min: Option<f64>,
+    w1_lead_by: Option<f64>,
+    w1_5m_min: Option<f64>,
+    w1_1h_min: Option<f64>,
+    w4_composite_min: Option<f64>,
+    w4_5m_min: Option<f64>,
+    w4_1h_min: Option<f64>,
+    reject_1m_lead: Option<f64>,
+    reject_5m_max: Option<f64>,
 }
 
 impl ConfigOverrides {
@@ -431,6 +441,10 @@ impl ConfigOverrides {
             // remove existing score_threshold_entry
             config.actions.retain(|a| a.action_type != "score_threshold_entry");
 
+            // reject gate params (overridable)
+            let reject_1m_lead = self.reject_1m_lead.unwrap_or(0.15);
+            let reject_5m_max = self.reject_5m_max.unwrap_or(0.35);
+
             // add reject gate (highest priority = 0)
             config.actions.push(ActionConfig {
                 action_type: "entry_reject_gate".to_string(),
@@ -441,8 +455,8 @@ impl ConfigOverrides {
                 params: serde_json::from_value(serde_json::json!({
                     "name": "1m noise filter",
                     "conditions": [
-                        {"type": "timescale_lead", "timescale": "OneMinute", "lead_by": 0.15},
-                        {"type": "timescale_max", "timescale": "FiveMinute", "max_score": 0.35}
+                        {"type": "timescale_lead", "timescale": "OneMinute", "lead_by": reject_1m_lead},
+                        {"type": "timescale_max", "timescale": "FiveMinute", "max_score": reject_5m_max}
                     ]
                 })).unwrap(),
                 last_modified_by: Some("backtest_cli".to_string()),
@@ -450,20 +464,29 @@ impl ConfigOverrides {
                 modification_reason: Some("entry windows CLI".to_string()),
             });
 
+            // window params (overridable via CLI for sweep testing)
+            let w1_composite = self.w1_composite_min.unwrap_or(0.35);
+            let w1_lead = self.w1_lead_by.unwrap_or(0.15);
+            let w1_5m = self.w1_5m_min.unwrap_or(0.50);
+            let w1_1h = self.w1_1h_min.unwrap_or(0.0);
+            let w4_composite = self.w4_composite_min.unwrap_or(0.35);
+            let w4_5m = self.w4_5m_min.unwrap_or(0.40);
+            let w4_1h = self.w4_1h_min.unwrap_or(0.30);
+
             // window definitions (priority: lower = evaluated first after reject gates)
             let windows = vec![
                 // W1: momentum breakout — 5m decisively leads
                 ("window_5m_thrust", "5m thrust", 10, serde_json::json!([
-                    {"type": "composite_min", "min_score": 0.35},
-                    {"type": "timescale_lead", "timescale": "FiveMinute", "lead_by": 0.15},
-                    {"type": "timescale_min", "timescale": "FiveMinute", "min_score": 0.50},
-                    {"type": "timescale_min", "timescale": "OneHour", "min_score": 0.0}
+                    {"type": "composite_min", "min_score": w1_composite},
+                    {"type": "timescale_lead", "timescale": "FiveMinute", "lead_by": w1_lead},
+                    {"type": "timescale_min", "timescale": "FiveMinute", "min_score": w1_5m},
+                    {"type": "timescale_min", "timescale": "OneHour", "min_score": w1_1h}
                 ])),
                 // W4: high conviction — both core timescales strong
                 ("window_strong_core", "strong core", 20, serde_json::json!([
-                    {"type": "composite_min", "min_score": 0.35},
-                    {"type": "timescale_min", "timescale": "FiveMinute", "min_score": 0.50},
-                    {"type": "timescale_min", "timescale": "OneHour", "min_score": 0.30}
+                    {"type": "composite_min", "min_score": w4_composite},
+                    {"type": "timescale_min", "timescale": "FiveMinute", "min_score": w4_5m},
+                    {"type": "timescale_min", "timescale": "OneHour", "min_score": w4_1h}
                 ])),
             ];
 
@@ -570,6 +593,16 @@ fn parse_overrides(args: &[String]) -> ConfigOverrides {
         use_entry_windows: args.iter().any(|a| a == "--use-entry-windows"),
         only_window: get_arg(args, "--only-window"),
         disable_window: get_arg(args, "--disable-window"),
+        // window param overrides for sweep testing
+        w1_composite_min: get_arg(args, "--w1-composite-min").and_then(|s| s.parse().ok()),
+        w1_lead_by: get_arg(args, "--w1-lead-by").and_then(|s| s.parse().ok()),
+        w1_5m_min: get_arg(args, "--w1-5m-min").and_then(|s| s.parse().ok()),
+        w1_1h_min: get_arg(args, "--w1-1h-min").and_then(|s| s.parse().ok()),
+        w4_composite_min: get_arg(args, "--w4-composite-min").and_then(|s| s.parse().ok()),
+        w4_5m_min: get_arg(args, "--w4-5m-min").and_then(|s| s.parse().ok()),
+        w4_1h_min: get_arg(args, "--w4-1h-min").and_then(|s| s.parse().ok()),
+        reject_1m_lead: get_arg(args, "--reject-1m-lead").and_then(|s| s.parse().ok()),
+        reject_5m_max: get_arg(args, "--reject-5m-max").and_then(|s| s.parse().ok()),
     }
 }
 
