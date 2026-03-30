@@ -7,7 +7,8 @@ use types::test_fixtures::*;
 use actions::entry::score_threshold::ScoreThresholdEntry;
 use actions::exit::atr_trailing_stop::AtrTrailingStop;
 use actions::exit::fixed_pct_stop::FixedPctStop;
-use actions::exit::max_hold_timeout::MaxHoldTimeout;
+use actions::exit::max_hold_timeout::{MaxHoldTimeout, ProfitTier};
+use actions::exit::profit_trailing_stop::ProfitTrailingStop;
 use actions::exit::session_close::SessionCloseExit;
 use actions::monitor::breakeven_stop::BreakevenStop;
 use actions::sizing::fixed_fractional::FixedFractionalSizing;
@@ -527,4 +528,264 @@ fn adaptive_hold_backward_compatible() {
         ActionSignal::Exit { reason } => assert_eq!(reason, ExitReason::MaxHoldTimeout),
         other => panic!("expected Exit MaxHoldTimeout, got {other:?}"),
     }
+}
+
+// ── Tiered MaxHoldTimeout ──
+
+#[test]
+fn tiered_hold_extends_at_tier1() {
+    let action = MaxHoldTimeout::with_tiers(
+        3_600_000, 0, 0, 0.0,
+        vec![
+            ProfitTier { pnl_pct: 0.001, extension_ms: 1_800_000 },  // +0.1% → +30 min
+            ProfitTier { pnl_pct: 0.003, extension_ms: 3_600_000 },  // +0.3% → +60 min
+            ProfitTier { pnl_pct: 0.005, extension_ms: 5_400_000 },  // +0.5% → +90 min
+        ],
+        "mh1".into(),
+    );
+    let ms = make_market_state(Timescale::FiveMinute, &[100.2]);
+    let mut pos = long_position(100.0, 100.2, 100.2); // +0.2% profit
+    pos.unrealized_pnl = 20.0;
+    pos.unrealized_pnl_pct = 0.002;
+    pos.hold_duration_ms = 4_000_000; // over base, under tier1 extension (3.6M + 1.8M = 5.4M)
+    let scores = default_scores(0.3);
+    assert!(matches!(action.evaluate(Some(&pos), &ms, &scores), ActionSignal::Hold));
+}
+
+#[test]
+fn tiered_hold_exits_below_tier1() {
+    let action = MaxHoldTimeout::with_tiers(
+        3_600_000, 0, 0, 0.0,
+        vec![
+            ProfitTier { pnl_pct: 0.001, extension_ms: 1_800_000 },
+        ],
+        "mh1".into(),
+    );
+    let ms = make_market_state(Timescale::FiveMinute, &[100.0]);
+    let mut pos = long_position(100.0, 100.05, 100.05); // +0.05% — below tier1 threshold of 0.1%
+    pos.unrealized_pnl = 5.0;
+    pos.unrealized_pnl_pct = 0.0005;
+    pos.hold_duration_ms = 3_700_000; // over base
+    let scores = default_scores(0.5);
+    // no tier matches, legacy profit_extension_ms is 0, so exits at base
+    match action.evaluate(Some(&pos), &ms, &scores) {
+        ActionSignal::Exit { reason } => assert_eq!(reason, ExitReason::MaxHoldTimeout),
+        other => panic!("expected Exit MaxHoldTimeout, got {other:?}"),
+    }
+}
+
+#[test]
+fn tiered_hold_uses_highest_matching_tier() {
+    let action = MaxHoldTimeout::with_tiers(
+        3_600_000, 0, 0, 0.0,
+        vec![
+            ProfitTier { pnl_pct: 0.001, extension_ms: 1_800_000 },  // +30 min
+            ProfitTier { pnl_pct: 0.003, extension_ms: 3_600_000 },  // +60 min
+            ProfitTier { pnl_pct: 0.005, extension_ms: 5_400_000 },  // +90 min
+        ],
+        "mh1".into(),
+    );
+    let ms = make_market_state(Timescale::FiveMinute, &[100.4]);
+    let mut pos = long_position(100.0, 100.4, 100.4); // +0.4% → tier2 (+60 min)
+    pos.unrealized_pnl = 40.0;
+    pos.unrealized_pnl_pct = 0.004;
+    pos.hold_duration_ms = 6_000_000; // 100 min — under base+60min=160min (9.6M ms)
+    let scores = default_scores(0.5);
+    assert!(matches!(action.evaluate(Some(&pos), &ms, &scores), ActionSignal::Hold));
+}
+
+#[test]
+fn tiered_hold_score_gate_blocks_extension() {
+    let action = MaxHoldTimeout::with_tiers(
+        3_600_000, 0, 0, 0.15, // score_gate = 0.15
+        vec![
+            ProfitTier { pnl_pct: 0.001, extension_ms: 1_800_000 },
+        ],
+        "mh1".into(),
+    );
+    let ms = make_market_state(Timescale::FiveMinute, &[100.2]);
+    let mut pos = long_position(100.0, 100.2, 100.2);
+    pos.unrealized_pnl = 20.0;
+    pos.unrealized_pnl_pct = 0.002;
+    pos.hold_duration_ms = 3_700_000; // over base
+    // composite is 0.10 — below score_gate of 0.15
+    let scores = default_scores(0.10);
+    // score gate not met → falls back to legacy (0) → exits at base
+    match action.evaluate(Some(&pos), &ms, &scores) {
+        ActionSignal::Exit { reason } => assert_eq!(reason, ExitReason::MaxHoldTimeout),
+        other => panic!("expected Exit MaxHoldTimeout, got {other:?}"),
+    }
+}
+
+#[test]
+fn tiered_hold_score_gate_allows_extension() {
+    let action = MaxHoldTimeout::with_tiers(
+        3_600_000, 0, 0, 0.15, // score_gate = 0.15
+        vec![
+            ProfitTier { pnl_pct: 0.001, extension_ms: 1_800_000 },
+        ],
+        "mh1".into(),
+    );
+    let ms = make_market_state(Timescale::FiveMinute, &[100.2]);
+    let mut pos = long_position(100.0, 100.2, 100.2);
+    pos.unrealized_pnl = 20.0;
+    pos.unrealized_pnl_pct = 0.002;
+    pos.hold_duration_ms = 4_000_000; // over base but under extended (5.4M)
+    // composite is 0.30 — above score_gate of 0.15
+    let scores = default_scores(0.30);
+    assert!(matches!(action.evaluate(Some(&pos), &ms, &scores), ActionSignal::Hold));
+}
+
+#[test]
+fn tiered_hold_falls_back_to_legacy_when_no_tiers() {
+    // with_tiers but empty tier list → uses legacy profit_extension_ms
+    let action = MaxHoldTimeout::with_tiers(
+        3_600_000, 1_800_000, 0, 0.0,
+        vec![],
+        "mh1".into(),
+    );
+    let ms = make_market_state(Timescale::FiveMinute, &[101.0]);
+    let mut pos = long_position(100.0, 101.0, 101.0);
+    pos.unrealized_pnl = 100.0;
+    pos.unrealized_pnl_pct = 0.01;
+    pos.hold_duration_ms = 4_000_000; // over base, under base+legacy (5.4M)
+    let scores = default_scores(0.5);
+    assert!(matches!(action.evaluate(Some(&pos), &ms, &scores), ActionSignal::Hold));
+}
+
+#[test]
+fn tiered_hold_factory_parses_tiers() {
+    let mut params = std::collections::HashMap::new();
+    params.insert("max_hold_ms".into(), serde_json::json!(3_600_000));
+    params.insert("score_gate".into(), serde_json::json!(0.15));
+    params.insert("tier1_pnl_pct".into(), serde_json::json!(0.001));
+    params.insert("tier1_extension_ms".into(), serde_json::json!(1_800_000));
+    params.insert("tier2_pnl_pct".into(), serde_json::json!(0.003));
+    params.insert("tier2_extension_ms".into(), serde_json::json!(3_600_000));
+    let cfg = types::action::ActionConfig {
+        action_type: "max_hold_timeout".into(),
+        instance_id: "mh1".into(),
+        phase: ActionPhase::Exit,
+        enabled: true,
+        priority: 0,
+        params,
+        last_modified_by: None,
+        last_modified_at: None,
+        modification_reason: None,
+    };
+    let action = actions::exit::max_hold_timeout::max_hold_timeout_factory(&cfg);
+    assert_eq!(action.name(), "max_hold_timeout");
+}
+
+// ── ProfitTrailingStop ──
+
+#[test]
+fn profit_trail_holds_below_min_profit() {
+    let action = ProfitTrailingStop::new(0.50, 0.002, "pt1".into()); // min 0.2%
+    let ms = make_market_state(Timescale::FiveMinute, &[100.1]);
+    let mut pos = long_position(100.0, 100.1, 100.1); // +0.1% peak — below min
+    pos.unrealized_pnl_pct = 0.001;
+    let scores = default_scores(0.5);
+    assert!(matches!(action.evaluate(Some(&pos), &ms, &scores), ActionSignal::Hold));
+}
+
+#[test]
+fn profit_trail_holds_when_above_stop() {
+    let action = ProfitTrailingStop::new(0.50, 0.001, "pt1".into()); // min 0.1%
+    let ms = make_market_state(Timescale::FiveMinute, &[100.4]);
+    // peak at 100.5 (+0.5%), current at 100.4 (+0.4%)
+    // stop = 100 * (1 + 0.005 * 0.5) = 100.25 — current 100.4 > 100.25 → hold
+    let mut pos = long_position(100.0, 100.4, 100.5);
+    pos.unrealized_pnl_pct = 0.004;
+    let scores = default_scores(0.3);
+    assert!(matches!(action.evaluate(Some(&pos), &ms, &scores), ActionSignal::Hold));
+}
+
+#[test]
+fn profit_trail_exits_when_giveback_exceeded() {
+    let action = ProfitTrailingStop::new(0.50, 0.001, "pt1".into());
+    let ms = make_market_state(Timescale::FiveMinute, &[100.2]);
+    // peak at 100.5 (+0.5%), current at 100.2 (+0.2%)
+    // stop = 100 * (1 + 0.005 * 0.5) = 100.25 — current 100.2 < 100.25 → exit
+    let mut pos = long_position(100.0, 100.2, 100.5);
+    pos.unrealized_pnl_pct = 0.002;
+    let scores = default_scores(0.1);
+    match action.evaluate(Some(&pos), &ms, &scores) {
+        ActionSignal::Exit { reason } => assert_eq!(reason, ExitReason::TrailingStop),
+        other => panic!("expected Exit TrailingStop, got {other:?}"),
+    }
+}
+
+#[test]
+fn profit_trail_works_for_short() {
+    let action = ProfitTrailingStop::new(0.50, 0.001, "pt1".into());
+    let ms = make_market_state(Timescale::FiveMinute, &[99.8]);
+    // short entry at 100, low_water_mark at 99.5 (+0.5% profit)
+    // stop = 100 * (1 - 0.005 * 0.5) = 99.75 — current 99.8 > 99.75 → exit
+    let mut pos = short_position(100.0, 99.8, 99.5);
+    pos.unrealized_pnl_pct = 0.002;
+    let scores = default_scores(-0.1);
+    match action.evaluate(Some(&pos), &ms, &scores) {
+        ActionSignal::Exit { reason } => assert_eq!(reason, ExitReason::TrailingStop),
+        other => panic!("expected Exit TrailingStop for short, got {other:?}"),
+    }
+}
+
+#[test]
+fn profit_trail_short_holds_in_profit() {
+    let action = ProfitTrailingStop::new(0.50, 0.001, "pt1".into());
+    let ms = make_market_state(Timescale::FiveMinute, &[99.6]);
+    // short entry at 100, low_water_mark at 99.5 (+0.5%)
+    // stop = 100 * (1 - 0.005 * 0.5) = 99.75 — current 99.6 < 99.75 → hold
+    let mut pos = short_position(100.0, 99.6, 99.5);
+    pos.unrealized_pnl_pct = 0.004;
+    let scores = default_scores(-0.3);
+    assert!(matches!(action.evaluate(Some(&pos), &ms, &scores), ActionSignal::Hold));
+}
+
+#[test]
+fn profit_trail_no_position_holds() {
+    let action = ProfitTrailingStop::new(0.50, 0.001, "pt1".into());
+    let ms = make_market_state(Timescale::FiveMinute, &[100.0]);
+    let scores = default_scores(0.5);
+    assert!(matches!(action.evaluate(None, &ms, &scores), ActionSignal::Hold));
+}
+
+#[test]
+fn profit_trail_factory_defaults() {
+    let cfg = types::action::ActionConfig {
+        action_type: "profit_trailing_stop".into(),
+        instance_id: "pt1".into(),
+        phase: ActionPhase::Exit,
+        enabled: true,
+        priority: 0,
+        params: Default::default(),
+        last_modified_by: None,
+        last_modified_at: None,
+        modification_reason: None,
+    };
+    let action = actions::exit::profit_trailing_stop::profit_trailing_stop_factory(&cfg);
+    assert_eq!(action.name(), "profit_trailing_stop");
+    assert_eq!(action.phase(), ActionPhase::Exit);
+}
+
+#[test]
+fn profit_trail_zero_giveback_locks_all_profit() {
+    // giveback=0 means keep 100% of peak profit — stop at the high water mark
+    let action = ProfitTrailingStop::new(0.0, 0.001, "pt1".into());
+    let ms = make_market_state(Timescale::FiveMinute, &[100.49]);
+    // peak at 100.5, current at 100.49 — any pullback triggers
+    let mut pos = long_position(100.0, 100.49, 100.5);
+    pos.unrealized_pnl_pct = 0.0049;
+    let scores = default_scores(0.5);
+    match action.evaluate(Some(&pos), &ms, &scores) {
+        ActionSignal::Exit { reason } => assert_eq!(reason, ExitReason::TrailingStop),
+        other => panic!("expected Exit TrailingStop, got {other:?}"),
+    }
+}
+
+#[test]
+fn profit_trail_registry_entry() {
+    let registry = actions::default_action_registry();
+    assert!(registry.factories.contains_key("profit_trailing_stop"));
 }

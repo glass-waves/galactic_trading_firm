@@ -47,6 +47,7 @@ fn make_scoring(
         },
         hard_gate_timescales: gates, agreement: None, dynamic_fusion: None,
         hard_gate_indicators: HashMap::new(),
+                hourly_exit_override: None,
     }
 }
 

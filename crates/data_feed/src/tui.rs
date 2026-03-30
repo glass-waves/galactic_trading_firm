@@ -1517,6 +1517,7 @@ mod tests {
                 aggregation: AggregationMethod::WeightedSumWithGates,
                 hard_gate_timescales: vec![Timescale::OneHour], agreement: None, dynamic_fusion: None,
                 hard_gate_indicators: std::collections::HashMap::new(),
+                hourly_exit_override: None,
             },
             session: SessionConfig {
                 no_new_entries_after: "15:30".to_string(),

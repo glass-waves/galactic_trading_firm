@@ -20,6 +20,7 @@ fn make_scoring_config(
         aggregation: method,
         hard_gate_timescales: gates, agreement: None, dynamic_fusion: None,
         hard_gate_indicators: HashMap::new(),
+                hourly_exit_override: None,
     }
 }
 
@@ -275,6 +276,7 @@ fn make_agreement_config(
         agreement: Some(agreement),
         dynamic_fusion: None,
         hard_gate_indicators: HashMap::new(),
+                hourly_exit_override: None,
     }
 }
 
@@ -442,6 +444,7 @@ fn make_fusion_config() -> ScoringConfig {
             trend_indicator_id: "adx_indicator".to_string(),
         }),
         hard_gate_indicators: HashMap::new(),
+                hourly_exit_override: None,
     }
 }
 
@@ -541,6 +544,7 @@ fn dynamic_fusion_disabled_matches_static() {
         agreement: None,
         dynamic_fusion: None, // no config → fallback
         hard_gate_indicators: HashMap::new(),
+                hourly_exit_override: None,
     };
 
     let mut scores = TimescaleScores {

@@ -63,6 +63,12 @@ pub struct ScoringConfig {
     /// composite is floored to 0 (blocking entry). maps instance_id → minimum score.
     #[serde(default)]
     pub hard_gate_indicators: HashMap<String, f64>,
+
+    /// when set, suppress ScoreExit if the 1-hour timescale score is above this
+    /// threshold AND the position is profitable. allows trades to ride the hourly
+    /// trend even when fast timescales flicker negative.
+    #[serde(default)]
+    pub hourly_exit_override: Option<f64>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]

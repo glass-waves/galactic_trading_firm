@@ -170,15 +170,25 @@ impl TradingEngine {
             // check score-based exit first (before action-based exits)
             // uses per-window override if active, otherwise config default
             if scores.composite <= self.active_score_exit_threshold {
-                if let Some(trade) = self.position_manager.close_position(
-                    fill_price,
-                    market.timestamp,
-                    ExitReason::ScoreExit,
-                ) {
-                    self.available_capital += trade.size * trade.entry_price + trade.pnl;
-                    self.record_exit(&trade, market.timestamp);
-                    self.completed_trades.push(trade);
-                    return TickResult { scores, event: TickEvent::PositionClosed };
+                // hourly exit override: suppress ScoreExit when hourly trend is
+                // strong and position is profitable — let the trade ride.
+                let hourly_override = self.scoring_config.hourly_exit_override.is_some_and(|thresh| {
+                    scores.one_hour.unwrap_or(-1.0) >= thresh
+                        && self.position_manager.current_position()
+                            .is_some_and(|pos| pos.unrealized_pnl > 0.0)
+                });
+
+                if !hourly_override {
+                    if let Some(trade) = self.position_manager.close_position(
+                        fill_price,
+                        market.timestamp,
+                        ExitReason::ScoreExit,
+                    ) {
+                        self.available_capital += trade.size * trade.entry_price + trade.pnl;
+                        self.record_exit(&trade, market.timestamp);
+                        self.completed_trades.push(trade);
+                        return TickResult { scores, event: TickEvent::PositionClosed };
+                    }
                 }
             }
 

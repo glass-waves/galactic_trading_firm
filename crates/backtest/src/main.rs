@@ -86,6 +86,13 @@ struct ConfigOverrides {
     w4_1h_min: Option<f64>,
     reject_1m_lead: Option<f64>,
     reject_5m_max: Option<f64>,
+    // exit action overrides
+    max_hold_ms: Option<i64>,
+    hold_score_gate: Option<f64>,
+    hold_tiers: Vec<(f64, i64)>,       // (pnl_pct, extension_ms) pairs
+    add_profit_trail: Option<f64>,     // giveback_fraction
+    profit_trail_min: Option<f64>,     // min_profit_pct
+    hourly_exit_override: Option<f64>, // suppress ScoreExit when 1h > threshold + profitable
 }
 
 impl ConfigOverrides {
@@ -138,6 +145,11 @@ impl ConfigOverrides {
             || !self.extra_indicators.is_empty()
             || !self.ticker_overrides.is_empty()
             || self.use_entry_windows
+            || self.max_hold_ms.is_some()
+            || self.hold_score_gate.is_some()
+            || !self.hold_tiers.is_empty()
+            || self.add_profit_trail.is_some()
+            || self.hourly_exit_override.is_some()
     }
 
     fn apply(&self, config: &mut StrategyConfig) {
@@ -436,6 +448,47 @@ impl ConfigOverrides {
             });
         }
 
+        // hourly exit override: suppress ScoreExit when hourly trend is strong + profitable
+        if let Some(thresh) = self.hourly_exit_override {
+            config.scoring.hourly_exit_override = Some(thresh);
+        }
+
+        // max hold timeout overrides (base ms, score gate, profit tiers)
+        if self.max_hold_ms.is_some() || self.hold_score_gate.is_some() || !self.hold_tiers.is_empty() {
+            for action in &mut config.actions {
+                if action.action_type == "max_hold_timeout" {
+                    if let Some(ms) = self.max_hold_ms {
+                        action.params.insert("max_hold_ms".to_string(), serde_json::json!(ms));
+                    }
+                    if let Some(gate) = self.hold_score_gate {
+                        action.params.insert("score_gate".to_string(), serde_json::json!(gate));
+                    }
+                    for (i, (pnl_pct, ext_ms)) in self.hold_tiers.iter().enumerate() {
+                        action.params.insert(format!("tier{}_pnl_pct", i + 1), serde_json::json!(pnl_pct));
+                        action.params.insert(format!("tier{}_extension_ms", i + 1), serde_json::json!(ext_ms));
+                    }
+                }
+            }
+        }
+        // add profit trailing stop action
+        if let Some(giveback) = self.add_profit_trail {
+            let min_profit = self.profit_trail_min.unwrap_or(0.0005);
+            let mut params = HashMap::new();
+            params.insert("giveback_fraction".to_string(), serde_json::json!(giveback));
+            params.insert("min_profit_pct".to_string(), serde_json::json!(min_profit));
+            config.actions.push(ActionConfig {
+                action_type: "profit_trailing_stop".to_string(),
+                instance_id: "profit_trail".to_string(),
+                phase: ActionPhase::Exit,
+                enabled: true,
+                priority: 2, // between trailing_stop_atr (0) and max_hold (5)
+                params,
+                last_modified_by: Some("backtest_cli".to_string()),
+                last_modified_at: None,
+                modification_reason: Some("CLI override: profit trailing stop".to_string()),
+            });
+        }
+
         // entry windows: replace score_threshold_entry with window actions
         if self.use_entry_windows {
             // remove existing score_threshold_entry
@@ -521,6 +574,8 @@ fn parse_overrides(args: &[String]) -> ConfigOverrides {
     let mut indicator_weights = Vec::new();
     // parse generic indicator additions: --add-indicator TYPE:TIMESCALE:WEIGHT
     let mut extra_indicators = Vec::new();
+    // parse hold tiers: --hold-tier PNL_PCT:EXTENSION_MS (repeatable)
+    let mut hold_tiers = Vec::new();
     let mut i = 0;
     while i < args.len() {
         if args[i] == "--indicator-weight" {
@@ -542,6 +597,15 @@ fn parse_overrides(args: &[String]) -> ConfigOverrides {
                             parts[1].to_string(),
                             weight,
                         ));
+                    }
+                }
+            }
+        }
+        if args[i] == "--hold-tier" {
+            if let Some(val) = args.get(i + 1) {
+                if let Some((pnl_str, ext_str)) = val.split_once(':') {
+                    if let (Ok(pnl), Ok(ext)) = (pnl_str.parse::<f64>(), ext_str.parse::<i64>()) {
+                        hold_tiers.push((pnl, ext));
                     }
                 }
             }
@@ -603,6 +667,13 @@ fn parse_overrides(args: &[String]) -> ConfigOverrides {
         w4_1h_min: get_arg(args, "--w4-1h-min").and_then(|s| s.parse().ok()),
         reject_1m_lead: get_arg(args, "--reject-1m-lead").and_then(|s| s.parse().ok()),
         reject_5m_max: get_arg(args, "--reject-5m-max").and_then(|s| s.parse().ok()),
+        // exit action overrides
+        max_hold_ms: get_arg(args, "--max-hold-ms").and_then(|s| s.parse().ok()),
+        hold_score_gate: get_arg(args, "--hold-score-gate").and_then(|s| s.parse().ok()),
+        hold_tiers,
+        add_profit_trail: get_arg(args, "--add-profit-trail").and_then(|s| s.parse().ok()),
+        profit_trail_min: get_arg(args, "--profit-trail-min").and_then(|s| s.parse().ok()),
+        hourly_exit_override: get_arg(args, "--hourly-exit-override").and_then(|s| s.parse().ok()),
     }
 }
 

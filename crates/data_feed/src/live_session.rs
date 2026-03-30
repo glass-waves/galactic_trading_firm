@@ -138,6 +138,7 @@ mod tests {
             aggregation: AggregationMethod::WeightedSum,
             hard_gate_timescales: vec![], agreement: None, dynamic_fusion: None,
             hard_gate_indicators: std::collections::HashMap::new(),
+                hourly_exit_override: None,
         };
 
         let engine = TradingEngine::new(

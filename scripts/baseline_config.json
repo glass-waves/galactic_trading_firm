@@ -45,15 +45,22 @@
         {
             "phase": "Exit",
             "params": {
-                "max_hold_ms": 5400000
+                "max_hold_ms": 7200000,
+                "score_gate": 0.15,
+                "tier1_pnl_pct": 0.001,
+                "tier1_extension_ms": 1800000,
+                "tier2_pnl_pct": 0.003,
+                "tier2_extension_ms": 3600000,
+                "tier3_pnl_pct": 0.005,
+                "tier3_extension_ms": 5400000
             },
             "enabled": true,
             "priority": 5,
             "action_type": "max_hold_timeout",
             "instance_id": "max_hold",
-            "last_modified_at": "2026-03-03T00:00:00Z",
+            "last_modified_at": "2026-03-29T00:00:00Z",
             "last_modified_by": "human",
-            "modification_reason": "extend max hold (45min->90min)"
+            "modification_reason": "tiered hold: 120m base + score-gated profit tiers (+3.9% P&L across 4yr)"
         },
         {
             "phase": "Exit",
