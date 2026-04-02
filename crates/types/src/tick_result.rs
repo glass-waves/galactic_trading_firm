@@ -21,6 +21,8 @@ pub struct TickResult {
     pub scores: TimescaleScores,
     /// what event occurred (nothing, position opened, position closed).
     pub event: TickEvent,
+    /// entry reason string (e.g. "window:candle_reversal"). only populated on PositionOpened.
+    pub entry_reason: String,
 }
 
 #[cfg(test)]
@@ -32,6 +34,7 @@ mod tests {
         let result = TickResult {
             scores: TimescaleScores::default(),
             event: TickEvent::Nothing,
+            entry_reason: String::new(),
         };
         assert!(matches!(result.event, TickEvent::Nothing));
         assert!((result.scores.composite - 0.0).abs() < f64::EPSILON);
@@ -46,6 +49,7 @@ mod tests {
                 ..Default::default()
             },
             event: TickEvent::PositionOpened,
+            entry_reason: "window:5m_thrust".to_string(),
         };
         assert!(matches!(result.event, TickEvent::PositionOpened));
         assert_eq!(result.scores.five_minute, Some(0.7));
@@ -60,6 +64,7 @@ mod tests {
                 ..Default::default()
             },
             event: TickEvent::PositionClosed,
+            entry_reason: String::new(),
         };
         assert!(matches!(result.event, TickEvent::PositionClosed));
     }
@@ -74,6 +79,7 @@ mod tests {
                 ..Default::default()
             },
             event: TickEvent::PositionOpened,
+            entry_reason: "score_threshold".to_string(),
         };
         let cloned = result.clone();
         assert_eq!(cloned.scores.one_minute, Some(0.3));

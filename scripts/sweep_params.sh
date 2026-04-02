@@ -13,7 +13,7 @@ set -euo pipefail
 PARAM=""
 VALUES=""
 YEAR="2024"
-BASE_EXTRA="--use-entry-windows --add-momentum-persistence 0.05 --add-candle-pattern 0.05"
+BASE_EXTRA="--use-entry-windows --add-momentum-persistence 0.05 --add-candle-pattern 0.05 --tickers QQQ,AAPL,MSFT,AMZN --w5-composite-min 0.30 --w1-lead-by 0.10"
 TICKER_OVERRIDE="AAPL:entry_threshold=0.35"
 SLIPPAGE="3.0"
 HALF_SPREAD="0.005"

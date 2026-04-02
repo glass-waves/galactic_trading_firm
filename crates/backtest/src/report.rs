@@ -70,6 +70,9 @@ pub struct BacktestResult {
     /// entry and exit scores for each trade, parallel to `trades`.
     #[serde(default)]
     pub trade_scores: Vec<(TimescaleScores, TimescaleScores)>,
+    /// entry reason for each trade (e.g. "window:candle_reversal"), parallel to `trades`.
+    #[serde(default)]
+    pub trade_entry_reasons: Vec<String>,
     pub equity_curve: Vec<EquityPoint>,
     pub metrics: BacktestMetrics,
     /// max composite score seen during replay (for no-trade day diagnostics).

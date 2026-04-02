@@ -345,6 +345,14 @@ fn make_candle_pattern(mean_reversion: bool, use_confluence: bool) -> CandlePatt
         "cp_test".to_string(),
         0.5,  // engulfing_min_body_ratio
         0.70, // engulfing_base_score
+        0.60, // hammer_base_score
+        2.0,  // hammer_wick_ratio
+        0.30, // hammer_max_body_pct
+        0.60, // hammer_min_wick_pct
+        0.65, // evening_star_base_score
+        0.50, // evening_star_min_body_pct
+        0.20, // evening_star_max_doji_pct
+        0.75, // confirmed_engulfing_base_score
         mean_reversion,
         20,   // volume_lookback
         2.0,  // high_volume_threshold
@@ -732,4 +740,310 @@ fn candle_metadata_contains_pattern_info() {
     assert!(out.metadata.contains_key("vwap_distance"), "missing vwap_distance");
     assert!(out.metadata.contains_key("location_mult"), "missing location_mult");
     assert!(out.metadata.contains_key("trend_mult"), "missing trend_mult");
+}
+
+// ── hammer / shooting star detection ──
+
+/// build OHLCV data: N-1 neutral candles + 1 final candle for 1-candle pattern testing.
+fn single_candle_ohlcv(
+    n: usize,
+    candle: (f64, f64, f64, f64, f64),
+) -> Vec<(f64, f64, f64, f64, f64)> {
+    let mut data: Vec<(f64, f64, f64, f64, f64)> = (0..n.saturating_sub(1))
+        .map(|i| {
+            let base = 100.0 + i as f64 * 0.1;
+            (base, base + 1.0, base - 1.0, base + 0.1, 100_000.0)
+        })
+        .collect();
+    data.push(candle);
+    data
+}
+
+/// build OHLCV data: N-3 neutral candles + 3 final candles for 3-candle pattern testing.
+fn three_candle_ohlcv(
+    n: usize,
+    c1: (f64, f64, f64, f64, f64),
+    c2: (f64, f64, f64, f64, f64),
+    c3: (f64, f64, f64, f64, f64),
+) -> Vec<(f64, f64, f64, f64, f64)> {
+    let mut data: Vec<(f64, f64, f64, f64, f64)> = (0..n.saturating_sub(3))
+        .map(|i| {
+            let base = 100.0 + i as f64 * 0.1;
+            (base, base + 1.0, base - 1.0, base + 0.1, 100_000.0)
+        })
+        .collect();
+    data.push(c1);
+    data.push(c2);
+    data.push(c3);
+    data
+}
+
+#[test]
+fn candle_hammer_detected() {
+    let ind = make_candle_pattern(false, false);
+    // hammer: small body at top, long lower wick
+    // open=100, high=101, low=94, close=100.5 → body=0.5, range=7, lower_wick=6, upper_wick=0.5
+    // body_pct=0.07, lower_wick/body=12, upper_wick/range=0.07
+    let data = single_candle_ohlcv(25, (100.0, 101.0, 94.0, 100.5, 100_000.0));
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    assert!(out.score > 0.0, "hammer should be positive (bullish), got {}", out.score);
+    assert!((out.score - 0.60).abs() < 0.01, "hammer base score should be 0.60, got {}", out.score);
+}
+
+#[test]
+fn candle_shooting_star_detected() {
+    let ind = make_candle_pattern(false, false);
+    // shooting star: small body at bottom, long upper wick
+    // open=100.5, high=107, low=100, close=100 → body=0.5, range=7, upper_wick=6.5, lower_wick=0
+    let data = single_candle_ohlcv(25, (100.5, 107.0, 100.0, 100.0, 100_000.0));
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    assert!(out.score < 0.0, "shooting star should be negative (bearish), got {}", out.score);
+    assert!((out.score - (-0.60)).abs() < 0.01, "shooting star base score should be -0.60, got {}", out.score);
+}
+
+#[test]
+fn candle_hammer_body_too_large() {
+    let ind = make_candle_pattern(false, false);
+    // body > 30% of range → not a hammer
+    // open=100, high=106, low=94, close=104 → body=4, range=12, body_pct=0.33
+    let data = single_candle_ohlcv(25, (100.0, 106.0, 94.0, 104.0, 100_000.0));
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    // the candle also won't match engulfing (only 1 candle matters), so check for zero
+    // note: the neutral candles preceding may also match patterns; if so, score may not be zero.
+    // we use a helper that places only the target candle at the end. the neutral candles are
+    // small-body drifting up, which shouldn't trigger hammer/engulfing.
+    // body_pct = 4/12 = 0.33 > 0.30 max_body_pct → not hammer
+    assert!(
+        out.metadata.get("pattern_name").copied().unwrap_or(0.0).abs() < 0.5
+            || out.score.abs() < 0.60,
+        "large body should not be a hammer"
+    );
+}
+
+#[test]
+fn candle_hammer_wick_too_short() {
+    let ind = make_candle_pattern(false, false);
+    // wick not long enough: lower_wick < 2x body AND lower_wick/range < 60%
+    // open=100, high=102, low=98, close=101 → body=1, range=4, lower_wick=2, upper_wick=1
+    // lower_wick/body=2.0 but upper_wick/range=0.25 > max_body_pct(0.30)? No, 0.25 < 0.30
+    // Actually this WOULD qualify. Let me make a case that doesn't:
+    // open=100, high=102, low=98.5, close=101 → body=1, range=3.5, lower_wick=1.5, upper_wick=1
+    // lower_wick/body=1.5 < 2.0, lower_wick/range=0.43 < 0.60, upper_wick/range=0.29 ≤ 0.30
+    // body_pct=1/3.5=0.29 ≤ 0.30
+    // Both wick checks fail → not a hammer
+    let data = single_candle_ohlcv(25, (100.0, 102.0, 98.5, 101.0, 100_000.0));
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    // should not detect hammer (pattern_name should not be 2.0)
+    let pn = out.metadata.get("pattern_name").copied().unwrap_or(0.0);
+    assert!((pn - 2.0).abs() > 0.5, "short wick should not be hammer, pattern_name={}", pn);
+}
+
+#[test]
+fn candle_hammer_zero_body_doji() {
+    let ind = make_candle_pattern(false, false);
+    // doji with long lower wick (body ≈ 0, wick via min_wick_pct path)
+    // open=100.0, high=100.1, low=93, close=100.0 → body≈0, range=7.1, lower_wick=7.0
+    // lower_wick/range = 7.0/7.1 = 0.986 >= 0.60, upper_wick/range = 0.1/7.1 = 0.014 ≤ 0.30
+    let data = single_candle_ohlcv(25, (100.0, 100.1, 93.0, 100.0, 100_000.0));
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    assert!(out.score > 0.0, "doji with long lower wick should detect as hammer, got {}", out.score);
+}
+
+#[test]
+fn candle_hammer_mean_reversion() {
+    let ind = make_candle_pattern(true, false); // mean_reversion = true
+    // hammer is bullish → in mean reversion mode, score should be negative
+    let data = single_candle_ohlcv(25, (100.0, 101.0, 94.0, 100.5, 100_000.0));
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    assert!(out.score < 0.0, "hammer in mean reversion should be negative, got {}", out.score);
+}
+
+// ── evening star detection ──
+
+#[test]
+fn candle_evening_star_detected() {
+    let ind = make_candle_pattern(false, false);
+    // c1: large bullish (open=100, close=106, range=7) body_pct=6/7=0.86 >= 0.50
+    // c2: doji (open=106.1, close=106.2, range=1) body_pct=0.1/1=0.10 <= 0.20
+    // c3: bearish (open=105, close=102, range=4) closes at 102 <= midpoint of c1 body (103)
+    let data = three_candle_ohlcv(
+        25,
+        (100.0, 107.0, 100.0, 106.0, 100_000.0),  // c1: large bullish
+        (106.1, 107.0, 106.0, 106.2, 100_000.0),   // c2: doji
+        (105.0, 106.0, 101.5, 102.0, 100_000.0),   // c3: bearish, close=102 <= midpoint 103
+    );
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    assert!(out.score < 0.0, "evening star should be negative (bearish), got {}", out.score);
+    let pn = out.metadata.get("pattern_name").copied().unwrap_or(0.0);
+    assert!((pn - (-3.0)).abs() < 0.5, "pattern_name should be -3.0 (evening_star), got {}", pn);
+}
+
+#[test]
+fn candle_evening_star_c2_not_doji() {
+    let ind = make_candle_pattern(false, false);
+    // c2 body too large (body_pct > 0.20)
+    let data = three_candle_ohlcv(
+        25,
+        (100.0, 107.0, 100.0, 106.0, 100_000.0),  // c1: large bullish
+        (104.0, 107.0, 103.0, 106.5, 100_000.0),   // c2: body=2.5, range=4, body_pct=0.63
+        (105.0, 106.0, 101.5, 102.0, 100_000.0),   // c3: bearish
+    );
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    let pn = out.metadata.get("pattern_name").copied().unwrap_or(0.0);
+    assert!((pn - (-3.0)).abs() > 0.5, "c2 with large body should not be evening star, pattern_name={}", pn);
+}
+
+#[test]
+fn candle_evening_star_c3_not_past_midpoint() {
+    let ind = make_candle_pattern(false, false);
+    // c3 close above midpoint of c1 body → not evening star
+    // c1 body midpoint = (100+106)/2 = 103
+    let data = three_candle_ohlcv(
+        25,
+        (100.0, 107.0, 100.0, 106.0, 100_000.0),  // c1: large bullish
+        (106.1, 107.0, 106.0, 106.2, 100_000.0),   // c2: doji
+        (105.0, 106.0, 103.5, 104.0, 100_000.0),   // c3: bearish but close=104 > midpoint 103
+    );
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    let pn = out.metadata.get("pattern_name").copied().unwrap_or(0.0);
+    assert!((pn - (-3.0)).abs() > 0.5, "c3 not past midpoint should not be evening star, pattern_name={}", pn);
+}
+
+#[test]
+fn candle_evening_star_mean_reversion() {
+    let ind = make_candle_pattern(true, false); // mean_reversion = true
+    // bearish evening star → in mean reversion mode, score should be positive
+    let data = three_candle_ohlcv(
+        25,
+        (100.0, 107.0, 100.0, 106.0, 100_000.0),
+        (106.1, 107.0, 106.0, 106.2, 100_000.0),
+        (105.0, 106.0, 101.5, 102.0, 100_000.0),
+    );
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    assert!(out.score > 0.0, "evening star in mean reversion should be positive, got {}", out.score);
+}
+
+// ── confirmed engulfing (three outside up/down) detection ──
+
+#[test]
+fn candle_confirmed_engulfing_bullish() {
+    let ind = make_candle_pattern(false, false);
+    // c1: bearish (open=102, close=100), c2: bullish engulfing (open=99, close=103),
+    // c3: bullish confirmation (close > c2 body top=103)
+    let data = three_candle_ohlcv(
+        25,
+        (102.0, 103.0, 99.5, 100.0, 100_000.0),  // c1: bearish
+        (99.0, 104.0, 98.0, 103.0, 100_000.0),    // c2: bullish engulfing
+        (103.0, 105.0, 102.5, 104.0, 100_000.0),  // c3: confirms, close=104 > 103
+    );
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    assert!(out.score > 0.0, "confirmed bullish engulfing should be positive, got {}", out.score);
+    let pn = out.metadata.get("pattern_name").copied().unwrap_or(0.0);
+    assert!((pn - 4.0).abs() < 0.5, "pattern_name should be 4.0 (three_outside_up), got {}", pn);
+}
+
+#[test]
+fn candle_confirmed_engulfing_no_follow_through() {
+    let ind = make_candle_pattern(false, false);
+    // c1+c2 form bullish engulfing, but c3 doesn't close above c2 body top
+    let data = three_candle_ohlcv(
+        25,
+        (102.0, 103.0, 99.5, 100.0, 100_000.0),  // c1: bearish
+        (99.0, 104.0, 98.0, 103.0, 100_000.0),    // c2: bullish engulfing
+        (102.0, 103.5, 101.0, 102.5, 100_000.0),  // c3: close=102.5 < 103, no confirmation
+    );
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    let pn = out.metadata.get("pattern_name").copied().unwrap_or(0.0);
+    // should not be confirmed engulfing (4.0), but may detect regular engulfing (1.0)
+    assert!((pn - 4.0).abs() > 0.5, "no follow through should not be confirmed engulfing, pattern_name={}", pn);
+}
+
+#[test]
+fn candle_confirmed_engulfing_higher_score() {
+    // confirmed engulfing (0.75) should score higher than regular engulfing (0.70)
+    let ind = make_candle_pattern(false, false);
+    let data = three_candle_ohlcv(
+        25,
+        (102.0, 103.0, 99.5, 100.0, 100_000.0),  // c1: bearish
+        (99.0, 104.0, 98.0, 103.0, 100_000.0),    // c2: bullish engulfing
+        (103.0, 105.0, 102.5, 104.0, 100_000.0),  // c3: confirms
+    );
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    assert!(
+        out.score.abs() > 0.70,
+        "confirmed engulfing should score higher than 0.70, got {}",
+        out.score.abs()
+    );
+}
+
+// ── multi-pattern integration ──
+
+#[test]
+fn candle_highest_score_wins() {
+    // with decay_candles=3, set up so confirmed engulfing fires at age 0
+    // and regular engulfing fires at age 1. confirmed (0.75) > engulfing (0.70*decay)
+    let ind = CandlePattern::new(
+        Timescale::FiveMinute,
+        "cp_test".to_string(),
+        0.5, 0.70,  // engulfing
+        0.60, 2.0, 0.30, 0.60,  // hammer
+        0.65, 0.50, 0.20,  // evening star
+        0.75,  // confirmed engulfing
+        false, // mean_reversion
+        20, 2.0, 0.5, 5, 20,  // volume/EMA
+        false, false, 0.0,  // confluence off
+        3,    // scan 3 candles back
+        0.8,  // 0.8 decay
+    );
+    let data = three_candle_ohlcv(
+        25,
+        (102.0, 103.0, 99.5, 100.0, 100_000.0),  // c1: bearish
+        (99.0, 104.0, 98.0, 103.0, 100_000.0),    // c2: bullish engulfing
+        (103.0, 105.0, 102.5, 104.0, 100_000.0),  // c3: confirms
+    );
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = ind.compute(&ms).expect("should produce output");
+    let pn = out.metadata.get("pattern_name").copied().unwrap_or(0.0);
+    assert!((pn - 4.0).abs() < 0.5, "confirmed engulfing should win over regular, pattern_name={}", pn);
+}
+
+#[test]
+fn candle_factory_new_params() {
+    let registry = indicators::default_indicator_registry();
+    let config = make_indicator_config(
+        "candle_pattern",
+        "cp_5min",
+        Timescale::FiveMinute,
+        0.05,
+        vec![
+            ("hammer_base_score", serde_json::json!(0.55)),
+            ("evening_star_base_score", serde_json::json!(0.60)),
+            ("confirmed_engulfing_base_score", serde_json::json!(0.80)),
+            ("hammer_wick_ratio", serde_json::json!(2.5)),
+            ("hammer_max_body_pct", serde_json::json!(0.25)),
+            ("hammer_min_wick_pct", serde_json::json!(0.65)),
+            ("evening_star_min_body_pct", serde_json::json!(0.55)),
+            ("evening_star_max_doji_pct", serde_json::json!(0.15)),
+        ],
+    );
+    let indicator = (registry.factories.get("candle_pattern").unwrap())(&config);
+    assert_eq!(indicator.name(), "candle_pattern");
+    // the indicator should compute successfully with custom params
+    let data = single_candle_ohlcv(25, (100.0, 101.0, 94.0, 100.5, 100_000.0));
+    let ms = make_market_state_ohlcv(Timescale::FiveMinute, &data);
+    let out = indicator.compute(&ms);
+    assert!(out.is_some(), "factory-created indicator should compute");
 }

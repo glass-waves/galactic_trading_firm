@@ -188,12 +188,16 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
     // track entry scores per position so we can pair them with exit scores
     let mut pending_entry_scores: Option<TimescaleScores> = None;
     let mut trade_scores: Vec<(TimescaleScores, TimescaleScores)> = Vec::new();
+    // track entry reasons per trade (e.g. "window:candle_reversal")
+    let mut pending_entry_reason: Option<String> = None;
+    let mut trade_entry_reasons: Vec<String> = Vec::new();
 
     // deferred fill state for next-bar execution.
     // when the engine signals an entry/exit, we undo it and re-execute on the next bar.
     struct DeferredEntry {
         position: Position,
         scores: TimescaleScores,
+        entry_reason: String,
     }
     struct DeferredExit {
         exit_reason: ExitReason,
@@ -237,6 +241,7 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
                 last_candle.timestamp,
             );
             pending_entry_scores = Some(entry.scores);
+            pending_entry_reason = Some(entry.entry_reason);
         }
 
         if let Some(exit) = deferred_exit.take() {
@@ -249,6 +254,7 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
                 realized_pnl += trade.pnl;
                 let entry_scores = pending_entry_scores.take().unwrap_or_default();
                 trade_scores.push((entry_scores, exit.scores));
+                trade_entry_reasons.push(pending_entry_reason.take().unwrap_or_default());
             }
         }
 
@@ -316,6 +322,7 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
                             deferred_entry = Some(DeferredEntry {
                                 position: pos,
                                 scores: result.scores.clone(),
+                                entry_reason: result.entry_reason.clone(),
                             });
                         }
                         // if blocked, the undo already removed it — signal dropped
@@ -340,6 +347,7 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
                     // last bar — exit stays at close (can't defer)
                     let entry_scores = pending_entry_scores.take().unwrap_or_default();
                     trade_scores.push((entry_scores, result.scores.clone()));
+                    trade_entry_reasons.push(pending_entry_reason.take().unwrap_or_default());
                     if let Some(trade) = engine.completed_trades().last() {
                         realized_pnl += trade.pnl;
                     }
@@ -378,6 +386,7 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
         initial_capital: config.initial_capital,
         trades,
         trade_scores,
+        trade_entry_reasons,
         equity_curve,
         metrics,
         max_composite,

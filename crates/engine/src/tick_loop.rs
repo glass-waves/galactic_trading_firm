@@ -138,6 +138,11 @@ impl TradingEngine {
             match result {
                 Ok(Some(output)) => {
                     outputs.insert(id.clone(), Some(output.score));
+                    // propagate indicator metadata as {id}.{key} entries
+                    // (enables downstream consumers to read e.g. candle_5min.pattern_name)
+                    for (key, value) in &output.metadata {
+                        outputs.insert(format!("{}.{}", id, key), Some(*value));
+                    }
                 }
                 Ok(None) => {
                     outputs.insert(id.clone(), None);
@@ -165,6 +170,7 @@ impl TradingEngine {
 
         // 6. evaluate actions based on position state
         let fill_price = self.fill_price_override.unwrap_or(market.last_price);
+        let mut entry_reason_out = String::new();
 
         let event = if self.position_manager.has_position() {
             // check score-based exit first (before action-based exits)
@@ -187,7 +193,7 @@ impl TradingEngine {
                         self.available_capital += trade.size * trade.entry_price + trade.pnl;
                         self.record_exit(&trade, market.timestamp);
                         self.completed_trades.push(trade);
-                        return TickResult { scores, event: TickEvent::PositionClosed };
+                        return TickResult { scores, event: TickEvent::PositionClosed, entry_reason: String::new() };
                     }
                 }
             }
@@ -231,7 +237,7 @@ impl TradingEngine {
         } else {
             // no position — check if entries are allowed
             if self.is_entry_blocked(market) {
-                return TickResult { scores, event: TickEvent::Nothing };
+                return TickResult { scores, event: TickEvent::Nothing, entry_reason: String::new() };
             }
 
             // check entry actions (sorted by priority — reject gates first, then windows)
@@ -295,13 +301,14 @@ impl TradingEngine {
                     );
                     self.available_capital -= position_dollars;
                     entry_event = TickEvent::PositionOpened;
+                    entry_reason_out = reason;
                     break;
                 }
             }
             entry_event
         };
 
-        TickResult { scores, event }
+        TickResult { scores, event, entry_reason: entry_reason_out }
     }
 
     /// check all entry-blocking conditions.

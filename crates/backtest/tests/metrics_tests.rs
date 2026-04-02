@@ -253,6 +253,7 @@ fn backtest_result_serializes_to_json() {
         initial_capital: 10_000.0,
         trades,
         trade_scores: vec![],
+        trade_entry_reasons: vec![],
         equity_curve,
         metrics,
         max_composite: 0.0,

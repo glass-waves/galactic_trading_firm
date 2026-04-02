@@ -21,6 +21,9 @@ use types::market::Timescale;
 struct ConfigOverrides {
     entry_cooldown_ms: Option<i64>,
     max_daily_loss_pct: Option<f64>,
+    sizing_fraction: Option<f64>,
+    max_capital_deployed_pct: Option<f64>,
+    no_vol_sizing: bool,
     profit_extension_ms: Option<i64>,
     loss_reduction_ms: Option<i64>,
     score_scaled_sizing: bool,
@@ -86,6 +89,10 @@ struct ConfigOverrides {
     w4_1h_min: Option<f64>,
     reject_1m_lead: Option<f64>,
     reject_5m_max: Option<f64>,
+    // W5 candle reversal window
+    w5_indicator_min: Option<f64>,
+    w5_1h_min: Option<f64>,
+    w5_composite_min: Option<f64>,
     // exit action overrides
     max_hold_ms: Option<i64>,
     hold_score_gate: Option<f64>,
@@ -105,8 +112,7 @@ impl ConfigOverrides {
         // v4 (disabled ScoreExit): catastrophic churn (10x trades, all years negative)
         // v5 (-0.10/-0.15): mild churn, worse PF than v3 in every year
         // conclusion: exit tuning creates re-entry churn. keep default exits.
-        let m = HashMap::new();
-        m
+        HashMap::new()
     }
 }
 
@@ -114,6 +120,9 @@ impl ConfigOverrides {
     fn any_active(&self) -> bool {
         self.entry_cooldown_ms.is_some()
             || self.max_daily_loss_pct.is_some()
+            || self.sizing_fraction.is_some()
+            || self.max_capital_deployed_pct.is_some()
+            || self.no_vol_sizing
             || self.profit_extension_ms.is_some()
             || self.loss_reduction_ms.is_some()
             || self.score_scaled_sizing
@@ -145,6 +154,9 @@ impl ConfigOverrides {
             || !self.extra_indicators.is_empty()
             || !self.ticker_overrides.is_empty()
             || self.use_entry_windows
+            || self.w5_indicator_min.is_some()
+            || self.w5_1h_min.is_some()
+            || self.w5_composite_min.is_some()
             || self.max_hold_ms.is_some()
             || self.hold_score_gate.is_some()
             || !self.hold_tiers.is_empty()
@@ -158,6 +170,31 @@ impl ConfigOverrides {
         }
         if let Some(loss_pct) = self.max_daily_loss_pct {
             config.session.max_daily_loss_pct = Some(loss_pct);
+        }
+        if let Some(fraction) = self.sizing_fraction {
+            for action in &mut config.actions {
+                if action.phase == ActionPhase::Sizing {
+                    if action.params.contains_key("fraction") {
+                        action.params.insert("fraction".to_string(), serde_json::json!(fraction));
+                        action.enabled = true;
+                    }
+                    if action.params.contains_key("base_fraction") {
+                        action.params.insert("base_fraction".to_string(), serde_json::json!(fraction));
+                    }
+                }
+            }
+        }
+        if self.no_vol_sizing {
+            config.actions.retain(|a| a.action_type != "volatility_scaled");
+            // ensure fixed_fractional is enabled as fallback
+            for action in &mut config.actions {
+                if action.action_type == "fixed_fractional" {
+                    action.enabled = true;
+                }
+            }
+        }
+        if let Some(max_deployed) = self.max_capital_deployed_pct {
+            config.session.max_capital_deployed_pct = max_deployed;
         }
         if let Some(ext) = self.profit_extension_ms {
             for action in &mut config.actions {
@@ -525,6 +562,9 @@ impl ConfigOverrides {
             let w4_composite = self.w4_composite_min.unwrap_or(0.35);
             let w4_5m = self.w4_5m_min.unwrap_or(0.40);
             let w4_1h = self.w4_1h_min.unwrap_or(0.30);
+            let w5_indicator = self.w5_indicator_min.unwrap_or(0.40);
+            let w5_1h = self.w5_1h_min.unwrap_or(0.20);
+            let w5_composite = self.w5_composite_min.unwrap_or(0.20);
 
             // window definitions (priority: lower = evaluated first after reject gates)
             let windows = vec![
@@ -534,6 +574,12 @@ impl ConfigOverrides {
                     {"type": "timescale_lead", "timescale": "FiveMinute", "lead_by": w1_lead},
                     {"type": "timescale_min", "timescale": "FiveMinute", "min_score": w1_5m},
                     {"type": "timescale_min", "timescale": "OneHour", "min_score": w1_1h}
+                ])),
+                // W5: candle reversal — pattern fires with hourly support
+                ("window_candle_reversal", "candle reversal", 15, serde_json::json!([
+                    {"type": "indicator_min", "instance_id": "candle_5min", "min_score": w5_indicator},
+                    {"type": "timescale_min", "timescale": "OneHour", "min_score": w5_1h},
+                    {"type": "composite_min", "min_score": w5_composite}
                 ])),
                 // W4: high conviction — both core timescales strong
                 ("window_strong_core", "strong core", 20, serde_json::json!([
@@ -616,6 +662,9 @@ fn parse_overrides(args: &[String]) -> ConfigOverrides {
     ConfigOverrides {
         entry_cooldown_ms: get_arg(args, "--entry-cooldown-ms").and_then(|s| s.parse().ok()),
         max_daily_loss_pct: get_arg(args, "--max-daily-loss-pct").and_then(|s| s.parse().ok()),
+        sizing_fraction: get_arg(args, "--sizing-fraction").and_then(|s| s.parse().ok()),
+        max_capital_deployed_pct: get_arg(args, "--max-capital-deployed-pct").and_then(|s| s.parse().ok()),
+        no_vol_sizing: args.iter().any(|a| a == "--no-vol-sizing"),
         profit_extension_ms: get_arg(args, "--profit-extension-ms").and_then(|s| s.parse().ok()),
         loss_reduction_ms: get_arg(args, "--loss-reduction-ms").and_then(|s| s.parse().ok()),
         score_scaled_sizing: args.iter().any(|a| a == "--score-scaled-sizing"),
@@ -667,6 +716,10 @@ fn parse_overrides(args: &[String]) -> ConfigOverrides {
         w4_1h_min: get_arg(args, "--w4-1h-min").and_then(|s| s.parse().ok()),
         reject_1m_lead: get_arg(args, "--reject-1m-lead").and_then(|s| s.parse().ok()),
         reject_5m_max: get_arg(args, "--reject-5m-max").and_then(|s| s.parse().ok()),
+        // W5 candle reversal window
+        w5_indicator_min: get_arg(args, "--w5-indicator-min").and_then(|s| s.parse().ok()),
+        w5_1h_min: get_arg(args, "--w5-1h-min").and_then(|s| s.parse().ok()),
+        w5_composite_min: get_arg(args, "--w5-composite-min").and_then(|s| s.parse().ok()),
         // exit action overrides
         max_hold_ms: get_arg(args, "--max-hold-ms").and_then(|s| s.parse().ok()),
         hold_score_gate: get_arg(args, "--hold-score-gate").and_then(|s| s.parse().ok()),
@@ -867,7 +920,7 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
 
     let mut total_pnl = 0.0;
     #[allow(clippy::type_complexity)]
-    let mut ticker_results: Vec<(String, f64, usize, Vec<TradeRecord>, Vec<(TimescaleScores, TimescaleScores)>, f64, Option<chrono::DateTime<chrono::Utc>>, usize, usize)> = Vec::new();
+    let mut ticker_results: Vec<(String, f64, usize, Vec<TradeRecord>, Vec<(TimescaleScores, TimescaleScores)>, Vec<String>, f64, Option<chrono::DateTime<chrono::Utc>>, usize, usize)> = Vec::new();
 
     for ticker in &config.tickers {
         let candles = match fetch_bars_range(
@@ -937,12 +990,16 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
                 // keeping scores parallel with their trades
                 let mut filtered_trades = Vec::new();
                 let mut filtered_scores = Vec::new();
+                let mut filtered_reasons = Vec::new();
                 for (i, trade) in result.trades.into_iter().enumerate() {
                     if trade.entry_time >= target_open_utc && trade.entry_time <= target_close_utc {
                         filtered_trades.push(trade);
                         if let Some(scores) = result.trade_scores.get(i) {
                             filtered_scores.push(scores.clone());
                         }
+                        filtered_reasons.push(
+                            result.trade_entry_reasons.get(i).cloned().unwrap_or_default()
+                        );
                     }
                 }
 
@@ -972,7 +1029,7 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
                     }
                 }
 
-                ticker_results.push((ticker.clone(), pnl, trades, filtered_trades, filtered_scores, result.max_composite, result.max_composite_time, result.positive_score_ticks, result.total_ticks));
+                ticker_results.push((ticker.clone(), pnl, trades, filtered_trades, filtered_scores, filtered_reasons, result.max_composite, result.max_composite_time, result.positive_score_ticks, result.total_ticks));
             }
             Err(e) => {
                 eprintln!("  {:<6} error: {}", ticker, e);
@@ -982,8 +1039,8 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
 
     if output_trades_csv {
         // CSV mode: trade rows + daily summary rows per ticker, machine-readable
-        println!("row_type,date,ticker,direction,entry_time,exit_time,entry_price,exit_price,size,pnl,pnl_pct,hold_duration_ms,exit_reason,entry_composite,exit_composite,entry_1m,entry_5m,entry_1h,exit_1m,exit_5m,exit_1h,max_composite,max_composite_time,positive_ticks,total_ticks");
-        for (ticker, pnl, num_trades, trade_records, scores, max_comp, max_comp_time, pos_ticks, tot_ticks) in &ticker_results {
+        println!("row_type,date,ticker,direction,entry_time,exit_time,entry_price,exit_price,size,pnl,pnl_pct,hold_duration_ms,exit_reason,entry_reason,candle_pattern,entry_composite,exit_composite,entry_1m,entry_5m,entry_1h,exit_1m,exit_5m,exit_1h,max_composite,max_composite_time,positive_ticks,total_ticks");
+        for (ticker, pnl, num_trades, trade_records, scores, entry_reasons, max_comp, max_comp_time, pos_ticks, tot_ticks) in &ticker_results {
             // trade rows
             for (idx, t) in trade_records.iter().enumerate() {
                 let dir = match t.direction {
@@ -994,8 +1051,24 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
                     .get(idx)
                     .cloned()
                     .unwrap_or_default();
+                let reason = entry_reasons.get(idx).cloned().unwrap_or_default();
+                // decode candle pattern from indicator metadata (propagated as candle_5min.pattern_name)
+                let candle_pattern = entry_ts.indicator_scores.as_ref()
+                    .and_then(|m| m.get("candle_5min.pattern_name"))
+                    .and_then(|v| *v)
+                    .map(|v| match v as i64 {
+                        1 => "bullish_engulfing",
+                        -1 => "bearish_engulfing",
+                        2 => "hammer",
+                        -2 => "shooting_star",
+                        -3 => "evening_star",
+                        4 => "three_outside_up",
+                        -4 => "three_outside_down",
+                        _ => "",
+                    })
+                    .unwrap_or("");
                 println!(
-                    "trade,{},{},{},{},{},{:.4},{:.4},{:.2},{:.2},{:.6},{},{:?},{:.4},{:.4},{},{},{},{},{},{},,,",
+                    "trade,{},{},{},{},{},{:.4},{:.4},{:.2},{:.2},{:.6},{},{:?},{},{},{:.4},{:.4},{},{},{},{},{},{},,,",
                     date_str,
                     ticker,
                     dir,
@@ -1008,6 +1081,8 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
                     t.pnl_pct,
                     t.hold_duration_ms,
                     t.exit_reason,
+                    reason,
+                    candle_pattern,
                     entry_ts.composite,
                     exit_ts.composite,
                     entry_ts.one_minute.map(|v| format!("{:.4}", v)).unwrap_or_default(),
@@ -1021,7 +1096,7 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
             // daily summary row per ticker (emitted even on zero-trade days)
             let max_time_str = max_comp_time.map(|t| t.to_rfc3339()).unwrap_or_default();
             println!(
-                "summary,{},{},,,,,,,{:.2},,{},,,,,,,,,,{:.4},{},{},{}",
+                "summary,{},{},,,,,,,{:.2},,{},,,,,,,,,,,,{:.4},{},{},{}",
                 date_str,
                 ticker,
                 pnl,
@@ -1034,7 +1109,7 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
         }
     } else {
         // human-readable summary
-        for (ticker, pnl, trades, trade_records, scores, max_comp, max_comp_time, pos_ticks, tot_ticks) in &ticker_results {
+        for (ticker, pnl, trades, trade_records, scores, _entry_reasons, max_comp, max_comp_time, pos_ticks, tot_ticks) in &ticker_results {
             let sign = if *pnl >= 0.0 { "+" } else { "-" };
             println!("  {:<6} {}${:.2}  ({} trades)", ticker, sign, pnl.abs(), trades);
 
@@ -1096,7 +1171,7 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
         }
 
         if !ticker_results.is_empty() {
-            let total_trades: usize = ticker_results.iter().map(|(_, _, t, _, _, _, _, _, _)| t).sum();
+            let total_trades: usize = ticker_results.iter().map(|(_, _, t, _, _, _, _, _, _, _)| t).sum();
             let label = if total_pnl >= 0.0 { "profit" } else { "loss" };
             let sign = if total_pnl >= 0.0 { "+" } else { "-" };
             println!(

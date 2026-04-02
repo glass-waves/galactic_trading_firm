@@ -5,6 +5,9 @@
 #
 # outputs a single CSV to stdout (redirect to file).
 # progress is written to stderr.
+#
+# when --compound is passed (in extra_args), each day's ending capital
+# carries over to the next day. without it, each day starts at $CAPITAL.
 
 set -uo pipefail
 
@@ -22,6 +25,31 @@ LOOKBACK=3
 COST_ARGS="--slippage-bps 2.0 --half-spread 0.005"
 BACKTEST="cargo run -p backtest --release --"
 
+# check for --compound flag and --capital override, remove from extra args
+COMPOUND=false
+FILTERED_ARGS=()
+SKIP_NEXT=false
+for i in "${!EXTRA_ARGS[@]}"; do
+    if $SKIP_NEXT; then
+        SKIP_NEXT=false
+        continue
+    fi
+    arg="${EXTRA_ARGS[$i]}"
+    if [[ "$arg" == "--compound" ]]; then
+        COMPOUND=true
+    elif [[ "$arg" == "--capital" ]]; then
+        # consume --capital and its value, use as starting capital
+        next_i=$((i + 1))
+        if [[ $next_i -lt ${#EXTRA_ARGS[@]} ]]; then
+            CAPITAL="${EXTRA_ARGS[$next_i]}"
+            SKIP_NEXT=true
+        fi
+    else
+        FILTERED_ARGS+=("$arg")
+    fi
+done
+EXTRA_ARGS=("${FILTERED_ARGS[@]+"${FILTERED_ARGS[@]}"}")
+
 # generate all weekdays for the year
 DATES=$(python3 -c "
 import datetime
@@ -38,9 +66,10 @@ COUNT=0
 HEADER_PRINTED=0
 ERRORS=0
 CUM_PNL=0
+CURRENT_CAPITAL=$CAPITAL
 
 echo "=== year backtest: $YEAR ===" >&2
-echo "capital: \$${CAPITAL}  lookback: ${LOOKBACK}  costs: ${COST_ARGS}" >&2
+echo "capital: \$${CAPITAL}  lookback: ${LOOKBACK}  costs: ${COST_ARGS}  compound: ${COMPOUND}" >&2
 if [[ ${#EXTRA_ARGS[@]} -gt 0 ]]; then
     echo "overrides: ${EXTRA_ARGS[*]}" >&2
 fi
@@ -50,7 +79,14 @@ echo "" >&2
 for date in $DATES; do
     COUNT=$(( COUNT + 1 ))
 
-    output=$($BACKTEST --date "$date" --capital "$CAPITAL" --lookback-days "$LOOKBACK" $COST_ARGS --output-trades-csv ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} 2>/dev/null) || true
+    # use compounded capital or fixed capital
+    if $COMPOUND; then
+        DAY_CAPITAL=$(printf '%.0f' "$CURRENT_CAPITAL")
+    else
+        DAY_CAPITAL=$CAPITAL
+    fi
+
+    output=$($BACKTEST --date "$date" --capital "$DAY_CAPITAL" --lookback-days "$LOOKBACK" $COST_ARGS --output-trades-csv ${EXTRA_ARGS[@]+"${EXTRA_ARGS[@]}"} 2>/dev/null) || true
 
     if [[ -z "$output" ]]; then
         echo "  [$COUNT/$TOTAL] $date  ERROR (no output)" >&2
@@ -72,6 +108,16 @@ for date in $DATES; do
     day_trades=$(echo "$output" | grep "^trade," | wc -l | tr -d ' ')
     CUM_PNL=$(echo "$CUM_PNL + $day_pnl" | bc -l)
 
+    # update compounding capital
+    if $COMPOUND; then
+        CURRENT_CAPITAL=$(echo "$CURRENT_CAPITAL + $day_pnl" | bc -l)
+        # floor at 10% of initial to prevent total wipeout
+        MIN_CAPITAL=$(echo "$CAPITAL * 0.10" | bc -l)
+        if (( $(echo "$CURRENT_CAPITAL < $MIN_CAPITAL" | bc -l) )); then
+            CURRENT_CAPITAL=$MIN_CAPITAL
+        fi
+    fi
+
     if (( $(echo "$day_pnl < 0" | bc -l) )); then
         sign=""
     else
@@ -83,9 +129,18 @@ for date in $DATES; do
         cum_sign=""
     fi
 
-    printf "  [%d/%d] %s  %s\$%s  (%s trades)  cum: %s\$%.2f\n" \
-        "$COUNT" "$TOTAL" "$date" "$sign" "$day_pnl" "$day_trades" "$cum_sign" "$CUM_PNL" >&2
+    if $COMPOUND; then
+        printf "  [%d/%d] %s  %s\$%s  (%s trades)  cum: %s\$%.2f  capital: \$%.0f\n" \
+            "$COUNT" "$TOTAL" "$date" "$sign" "$day_pnl" "$day_trades" "$cum_sign" "$CUM_PNL" "$CURRENT_CAPITAL" >&2
+    else
+        printf "  [%d/%d] %s  %s\$%s  (%s trades)  cum: %s\$%.2f\n" \
+            "$COUNT" "$TOTAL" "$date" "$sign" "$day_pnl" "$day_trades" "$cum_sign" "$CUM_PNL" >&2
+    fi
 done
 
 echo "" >&2
-echo "=== done: $TOTAL days, $ERRORS errors, cumulative P&L: \$$(printf '%.2f' "$CUM_PNL") ===" >&2
+if $COMPOUND; then
+    echo "=== done: $TOTAL days, $ERRORS errors, cumulative P&L: \$$(printf '%.2f' "$CUM_PNL"), final capital: \$$(printf '%.0f' "$CURRENT_CAPITAL") ===" >&2
+else
+    echo "=== done: $TOTAL days, $ERRORS errors, cumulative P&L: \$$(printf '%.2f' "$CUM_PNL") ===" >&2
+fi

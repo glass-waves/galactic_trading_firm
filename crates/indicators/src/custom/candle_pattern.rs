@@ -19,6 +19,20 @@ pub struct CandlePattern {
     engulfing_min_body_ratio: f64,
     engulfing_base_score: f64,
 
+    // hammer / shooting star params
+    hammer_base_score: f64,
+    hammer_wick_ratio: f64,
+    hammer_max_body_pct: f64,
+    hammer_min_wick_pct: f64,
+
+    // evening star params
+    evening_star_base_score: f64,
+    evening_star_min_body_pct: f64,
+    evening_star_max_doji_pct: f64,
+
+    // confirmed engulfing (three outside up/down) params
+    confirmed_engulfing_base_score: f64,
+
     // scoring mode: when true, bearish patterns score positive (mean reversion)
     mean_reversion_mode: bool,
 
@@ -53,6 +67,14 @@ impl CandlePattern {
         instance_id: String,
         engulfing_min_body_ratio: f64,
         engulfing_base_score: f64,
+        hammer_base_score: f64,
+        hammer_wick_ratio: f64,
+        hammer_max_body_pct: f64,
+        hammer_min_wick_pct: f64,
+        evening_star_base_score: f64,
+        evening_star_min_body_pct: f64,
+        evening_star_max_doji_pct: f64,
+        confirmed_engulfing_base_score: f64,
         mean_reversion_mode: bool,
         volume_lookback: usize,
         high_volume_threshold: f64,
@@ -70,6 +92,14 @@ impl CandlePattern {
             instance_id,
             engulfing_min_body_ratio,
             engulfing_base_score,
+            hammer_base_score,
+            hammer_wick_ratio,
+            hammer_max_body_pct,
+            hammer_min_wick_pct,
+            evening_star_base_score,
+            evening_star_min_body_pct,
+            evening_star_max_doji_pct,
+            confirmed_engulfing_base_score,
             mean_reversion_mode,
             affirmative_only,
             volume_lookback,
@@ -124,32 +154,144 @@ fn is_engulfing(prev: &Candle, curr: &Candle, min_body_ratio: f64) -> Option<boo
     }
 }
 
-// --- future pattern stubs ---
-//
-// fn is_harami(prev: &Candle, curr: &Candle) -> Option<bool>
-//     bullish harami: 76% win rate, 1.65 PF (Quantified Strategies, 306 trades on SPY).
-//     curr body fully inside prev body, opposite direction. next priority after engulfing.
-//
-// fn is_hammer(candle: &Candle, wick_ratio: f64) -> bool
-//     hammer: 60% base, 72% with RSI filter (TradesViz ES study).
-//     small body at top of range, long lower shadow >= wick_ratio * body. reversal signal.
-//
-// fn is_shooting_star(candle: &Candle, wick_ratio: f64) -> bool
-//     shooting star: inverse hammer for bearish signals.
-//     small body at bottom of range, long upper shadow >= wick_ratio * body.
-//
-// fn is_pin_bar(candle: &Candle, wick_ratio: f64) -> Option<PinBarDirection>
-//     pin bar: long rejection wick >= wick_ratio * body. needs VWAP/volume confirmation.
-//     Some(Bullish) for lower wick rejection, Some(Bearish) for upper wick rejection.
-//
-// fn is_three_soldiers_or_crows(c: &[Candle; 3], min_body_ratio: f64) -> Option<bool>
-//     three black crows: 78-79% reversal rate (Bulkowski). consistent across bull/bear markets.
-//     three white soldiers: continuation pattern. 3-candle patterns degrade on intraday (<5m).
-//     Some(true) for soldiers, Some(false) for crows.
-//
-// fn is_evening_star(c: &[Candle; 3], doji_threshold: f64) -> bool
-//     evening star: 72% reversal rate (Bulkowski). bullish + small body + bearish.
-//     morning star excluded: 51.85% win rate on intraday (TradesViz) — near random.
+/// hammer / shooting star detection (1-candle reversal).
+///
+/// hammer (bullish): small body at top of range, long lower wick (rejection of lower prices).
+/// shooting star (bearish): small body at bottom of range, long upper wick (rejection of upper prices).
+///
+/// returns Some(true) for hammer, Some(false) for shooting star, None if no match.
+/// research: hammer 55-60% WR daily, wick rejection = institutional order flow at a level.
+fn is_hammer_or_shooting_star(
+    candle: &Candle,
+    wick_ratio: f64,
+    max_body_pct: f64,
+    min_wick_pct: f64,
+) -> Option<bool> {
+    let range = candle.high - candle.low;
+    if range < f64::EPSILON {
+        return None;
+    }
+
+    let body = (candle.close - candle.open).abs();
+    let body_pct = body / range;
+
+    // body must be small relative to range
+    if body_pct > max_body_pct {
+        return None;
+    }
+
+    let upper_wick = candle.high - candle.close.max(candle.open);
+    let lower_wick = candle.close.min(candle.open) - candle.low;
+
+    let body_is_tiny = body < f64::EPSILON;
+
+    // hammer: long lower wick, small upper wick
+    let lower_qualifies = if body_is_tiny {
+        lower_wick / range >= min_wick_pct
+    } else {
+        lower_wick / body >= wick_ratio || lower_wick / range >= min_wick_pct
+    };
+    if lower_qualifies && upper_wick / range <= max_body_pct {
+        return Some(true);
+    }
+
+    // shooting star: long upper wick, small lower wick
+    let upper_qualifies = if body_is_tiny {
+        upper_wick / range >= min_wick_pct
+    } else {
+        upper_wick / body >= wick_ratio || upper_wick / range >= min_wick_pct
+    };
+    if upper_qualifies && lower_wick / range <= max_body_pct {
+        return Some(false);
+    }
+
+    None
+}
+
+/// evening star detection (3-candle bearish exhaustion).
+///
+/// c1: large bullish candle (body >= min_body_pct of range).
+/// c2: small body / doji (body <= max_doji_pct of range).
+/// c3: bearish candle closing past midpoint of c1's body.
+///
+/// returns Some(false) for bearish evening star, None if no match.
+/// morning star (bullish inverse) excluded: ~52% intraday WR (near random).
+/// research: evening star 72% reversal rate (Bulkowski).
+fn is_evening_star(
+    c1: &Candle,
+    c2: &Candle,
+    c3: &Candle,
+    min_body_pct: f64,
+    max_doji_pct: f64,
+) -> Option<bool> {
+    let c1_range = c1.high - c1.low;
+    let c2_range = c2.high - c2.low;
+    let c3_range = c3.high - c3.low;
+    if c1_range < f64::EPSILON || c2_range < f64::EPSILON || c3_range < f64::EPSILON {
+        return None;
+    }
+
+    let c1_body = (c1.close - c1.open).abs();
+    let c2_body = (c2.close - c2.open).abs();
+
+    // c1 must be bullish with a large body
+    if c1.close <= c1.open || c1_body / c1_range < min_body_pct {
+        return None;
+    }
+
+    // c2 must be a small body / doji
+    if c2_body / c2_range > max_doji_pct {
+        return None;
+    }
+
+    // c3 must be bearish
+    if c3.close >= c3.open {
+        return None;
+    }
+
+    // c3 must close at or below the midpoint of c1's body
+    let c1_body_midpoint = (c1.open + c1.close) / 2.0;
+    if c3.close > c1_body_midpoint {
+        return None;
+    }
+
+    Some(false) // bearish evening star
+}
+
+/// confirmed engulfing detection (three outside up/down).
+///
+/// engulfing pattern on c1+c2, plus c3 confirming the direction by closing beyond
+/// the engulfing candle's body. higher conviction than standalone engulfing.
+///
+/// returns Some(true) for three outside up, Some(false) for three outside down, None if no match.
+/// research: 69-75% reversal rate for three outside patterns.
+fn is_confirmed_engulfing(
+    c1: &Candle,
+    c2: &Candle,
+    c3: &Candle,
+    min_body_ratio: f64,
+) -> Option<bool> {
+    let is_bullish = is_engulfing(c1, c2, min_body_ratio)?;
+
+    let c2_body_top = c2.close.max(c2.open);
+    let c2_body_bottom = c2.close.min(c2.open);
+
+    if is_bullish {
+        // c3 must close above c2's body top (continuation upward)
+        if c3.close > c2_body_top {
+            Some(true)
+        } else {
+            None
+        }
+    } else {
+        // c3 must close below c2's body bottom (continuation downward)
+        if c3.close < c2_body_bottom {
+            Some(false)
+        } else {
+            None
+        }
+    }
+}
 
 /// compute volume ratio: current candle volume / rolling average volume.
 fn compute_volume_ratio(candles: &[Candle], lookback: usize) -> f64 {
@@ -241,8 +383,8 @@ impl Indicator for CandlePattern {
     }
 
     fn min_lookback(&self) -> usize {
-        // need at least 2 candles for engulfing + enough for EMA/volume lookback
-        let pattern_min = 2;
+        // need at least 3 candles for 3-candle patterns (evening star, confirmed engulfing)
+        let pattern_min = 3;
         if self.use_confluence {
             pattern_min.max(self.volume_lookback + 1).max(self.ema_slow + 1)
         } else {
@@ -259,42 +401,118 @@ impl Indicator for CandlePattern {
         let mut metadata = HashMap::new();
         let n = candles.len();
 
-        // scan backwards through recent candle pairs for patterns.
+        // scan backwards through recent candles for patterns.
         // the most recent pattern wins; older patterns decay exponentially.
+        // checks 1-candle (hammer/shooting star), 2-candle (engulfing), and
+        // 3-candle (evening star, confirmed engulfing) patterns at each age.
         let scan_depth = self.decay_candles.max(1);
         let mut best_score: f64 = 0.0;
         let mut best_age: usize = 0;
         let mut best_pattern = "none";
 
         for age in 0..scan_depth {
-            let idx = n.saturating_sub(2 + age);
-            if idx + 1 >= n {
-                continue;
+            // curr_idx is the "current" candle at this age offset
+            if age >= n {
+                break;
             }
-            let pair_prev = &candles[idx];
-            let pair_curr = &candles[idx + 1];
+            let curr_idx = n - 1 - age;
 
-            if let Some(is_bullish) = is_engulfing(pair_prev, pair_curr, self.engulfing_min_body_ratio) {
+            let decay = self.decay_factor.powi(age as i32);
+
+            // --- 1-candle patterns: hammer / shooting star ---
+            if let Some(is_bullish) = is_hammer_or_shooting_star(
+                &candles[curr_idx],
+                self.hammer_wick_ratio,
+                self.hammer_max_body_pct,
+                self.hammer_min_wick_pct,
+            ) {
                 let direction = if is_bullish { 1.0 } else { -1.0 };
-                let score = direction * self.engulfing_base_score;
+                let score = direction * self.hammer_base_score;
                 let score = if self.mean_reversion_mode { -score } else { score };
-
-                // apply exponential decay based on age
-                let decay = self.decay_factor.powi(age as i32);
                 let decayed_score = score * decay;
 
-                // keep the strongest (highest absolute) signal
                 if decayed_score.abs() > best_score.abs() {
                     best_score = decayed_score;
                     best_age = age;
-                    best_pattern = if is_bullish { "bullish_engulfing" } else { "bearish_engulfing" };
+                    best_pattern = if is_bullish { "hammer" } else { "shooting_star" };
                 }
+            }
+
+            // --- 2-candle patterns: engulfing ---
+            if curr_idx >= 1 {
+                let prev = &candles[curr_idx - 1];
+                let curr = &candles[curr_idx];
+
+                if let Some(is_bullish) = is_engulfing(prev, curr, self.engulfing_min_body_ratio) {
+                    let direction = if is_bullish { 1.0 } else { -1.0 };
+                    let score = direction * self.engulfing_base_score;
+                    let score = if self.mean_reversion_mode { -score } else { score };
+                    let decayed_score = score * decay;
+
+                    if decayed_score.abs() > best_score.abs() {
+                        best_score = decayed_score;
+                        best_age = age;
+                        best_pattern = if is_bullish { "bullish_engulfing" } else { "bearish_engulfing" };
+                    }
+                }
+            }
+
+            // --- 3-candle patterns: evening star, confirmed engulfing ---
+            if curr_idx >= 2 {
+                let c1 = &candles[curr_idx - 2];
+                let c2 = &candles[curr_idx - 1];
+                let c3 = &candles[curr_idx];
+
+                // evening star (bearish only — morning star skipped)
+                if let Some(is_bullish) = is_evening_star(
+                    c1, c2, c3,
+                    self.evening_star_min_body_pct,
+                    self.evening_star_max_doji_pct,
+                ) {
+                    let direction = if is_bullish { 1.0 } else { -1.0 };
+                    let score = direction * self.evening_star_base_score;
+                    let score = if self.mean_reversion_mode { -score } else { score };
+                    let decayed_score = score * decay;
+
+                    if decayed_score.abs() > best_score.abs() {
+                        best_score = decayed_score;
+                        best_age = age;
+                        best_pattern = "evening_star";
+                    }
+                }
+
+                // confirmed engulfing (three outside up/down)
+                if let Some(is_bullish) = is_confirmed_engulfing(
+                    c1, c2, c3, self.engulfing_min_body_ratio,
+                ) {
+                    let direction = if is_bullish { 1.0 } else { -1.0 };
+                    let score = direction * self.confirmed_engulfing_base_score;
+                    let score = if self.mean_reversion_mode { -score } else { score };
+                    let decayed_score = score * decay;
+
+                    if decayed_score.abs() > best_score.abs() {
+                        best_score = decayed_score;
+                        best_age = age;
+                        best_pattern = if is_bullish { "three_outside_up" } else { "three_outside_down" };
+                    }
+                }
+            }
+
+            // early termination: if scanning deeper won't beat the current best
+            // (max possible base score is 0.75, so future decayed scores are bounded)
+            if age > 0 && best_score.abs() > 0.75 * self.decay_factor.powi((age + 1) as i32) {
+                break;
             }
         }
 
         metadata.insert("pattern_name".to_string(), match best_pattern {
             "bullish_engulfing" => 1.0,
             "bearish_engulfing" => -1.0,
+            "hammer" => 2.0,
+            "shooting_star" => -2.0,
+            "evening_star" => -3.0,
+            "three_outside_up" => 4.0,
+            "three_outside_down" => -4.0,
             _ => 0.0,
         });
         metadata.insert("pattern_age".to_string(), best_age as f64);
@@ -377,6 +595,46 @@ pub fn candle_pattern_factory(config: &IndicatorConfig) -> Box<dyn Indicator> {
         .get("engulfing_base_score")
         .and_then(|v| v.as_f64())
         .unwrap_or(0.70);
+    let hammer_base_score = config
+        .params
+        .get("hammer_base_score")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.60);
+    let hammer_wick_ratio = config
+        .params
+        .get("hammer_wick_ratio")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(2.0);
+    let hammer_max_body_pct = config
+        .params
+        .get("hammer_max_body_pct")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.30);
+    let hammer_min_wick_pct = config
+        .params
+        .get("hammer_min_wick_pct")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.60);
+    let evening_star_base_score = config
+        .params
+        .get("evening_star_base_score")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.65);
+    let evening_star_min_body_pct = config
+        .params
+        .get("evening_star_min_body_pct")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.50);
+    let evening_star_max_doji_pct = config
+        .params
+        .get("evening_star_max_doji_pct")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.20);
+    let confirmed_engulfing_base_score = config
+        .params
+        .get("confirmed_engulfing_base_score")
+        .and_then(|v| v.as_f64())
+        .unwrap_or(0.75);
     let mean_reversion_mode = config
         .params
         .get("mean_reversion_mode")
@@ -438,6 +696,14 @@ pub fn candle_pattern_factory(config: &IndicatorConfig) -> Box<dyn Indicator> {
         config.instance_id.clone(),
         engulfing_min_body_ratio,
         engulfing_base_score,
+        hammer_base_score,
+        hammer_wick_ratio,
+        hammer_max_body_pct,
+        hammer_min_wick_pct,
+        evening_star_base_score,
+        evening_star_min_body_pct,
+        evening_star_max_doji_pct,
+        confirmed_engulfing_base_score,
         mean_reversion_mode,
         volume_lookback,
         high_volume_threshold,
