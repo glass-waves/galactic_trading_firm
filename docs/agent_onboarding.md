@@ -25,7 +25,7 @@ read these to understand what the system actually does:
 |-----|-------------------|
 | `docs/research_synthesis.md` | **why** every architecture decision was made. maps 44 papers to specific code choices (agent consolidation rationale, indicator selection, scoring pipeline design). read sections 1-4 at minimum. |
 | `docs/entry_windows_analysis.md` | how the entry window system works, research-backed analysis of W1-W5 windows. explains the "gated entry" concept and why certain windows were adopted/rejected. |
-| `agents-ts/prompts/agent_pm.md` | the PM agent's system prompt. contains the most detailed explanation of every action's tuning ranges, what's been tested, and what failed. sections 4 (action catalog) and 5 (sizing) are essential for understanding position management. |
+| `../galactic_trading_agents/agents-ts/prompts/agent_pm.md` | the archived PM agent's system prompt. contains the most detailed explanation of every action's tuning ranges, what's been tested, and what failed. sections 4 (action catalog) and 5 (sizing) are essential for understanding position management. |
 
 ### key concepts to internalize
 
@@ -88,6 +88,8 @@ these results use the v10 config (W5 candle reversal window, tuned W1/W4 params)
 3. **compounding support in the engine** — currently only in shell scripts, not in the rust engine or DB config
 4. **v10 entry windows** (W5 candle reversal, W1 lead_by=0.10, W5 composite_min=0.30) — these are only applied via CLI overrides, not in the promoted config
 
+> **note on config creation:** configs are now created manually via new SQL migrations inserted into `config_versions`, or via the backtest CLI. the typescript agent layer that previously proposed configs has been archived to `../galactic_trading_agents/`.
+
 ---
 
 ## 5. tuning history and context
@@ -105,21 +107,9 @@ a critical bug was fixed 2026-03-21: `position_size = fraction * capital` was tr
 
 ---
 
-## 6. agent layer (typescript)
+## 6. agent layer (archived)
 
-| resource | what it gives you |
-|----------|-------------------|
-| `agents-ts/src/orchestrator.ts` | main scheduler: cron at 12:30 ET (sonnet analysis) and 15:30 ET (opus PM cycle). budget enforcement, cycle state machine. |
-| `agents-ts/src/agent-base.ts` | shared agent invocation. `runAnalysisAgent()` and `runPmAgent()` are the two entry points. uses claude agent SDK with in-process MCP server. |
-| `agents-ts/prompts/analysis.md` | analysis agent system prompt |
-| `agents-ts/prompts/agent_pm.md` | PM agent system prompt — **the most detailed doc on action tuning ranges and what's been tested** |
-| `docs/scheduled_jobs_design.md` | design sketch for replacing agents-ts with claude scheduled cloud jobs (not yet implemented) |
-
-### agent architecture (2-agent model)
-
-- **analysis agent**: exploratory. produces structured JSON memo with evidence-backed suggestions. zero config authority.
-- **PM agent**: conservative. receives analysis + beliefs + validation constraints. can propose config mutations or "hold steady". full config authority. maintains beliefs via CVRF.
-- schedule: mid-day sonnet analysis (12:30 ET), end-of-day opus full cycle (15:30 ET)
+the typescript agent layer (`agents-ts/`) was archived to `../galactic_trading_agents/` on 2026-04-02, replaced by anthropic claude code scheduled jobs. agent-specific database tables remain in migrations for compatibility. see `docs/archive/scheduled_jobs_design.md` for the replacement design.
 
 ---
 
@@ -189,15 +179,14 @@ cargo run -p backtest --release -- --date 2025-10-06 --lookback-days 3
 
 | doc | status | notes |
 |-----|--------|-------|
-| `docs/codebase_guide.md` | **outdated** | references "python agents" — agents are now typescript. `CLAUDE.md` supersedes this entirely. |
-| `docs/development_spec.md` | **historical** | original implementation roadmap. useful for understanding phase sequencing but phases 1-7 are all done. |
+| `docs/codebase_guide.md` | **outdated** | references "python agents". `CLAUDE.md` supersedes this entirely. |
+| `docs/development_spec.md` | **historical** | original implementation roadmap. phases 1-7 are all done. |
 | `docs/action_items.md` | **completed** | all 11 items from research synthesis were implemented 2026-03-02. |
 | `docs/hardening_plan.md` | **future** | 3-tier safety guardrails for real capital. not yet implemented. |
 | `docs/tool_belt_catalog.md` | **reference only** | 163 indicators + 124 actions catalog. useful when considering new indicator/action types. |
 | `docs/ta_rs_implementation_map.md` | **reference only** | maps indicators to ta-rs functions. useful when implementing new native indicators. |
 | `docs/intraday-trading-research.md` | **reference only** | 32-paper bibliography. read if you need research backing for a specific approach. |
-| `docs/multi-agent-research.md` | **reference only** | 10 papers on multi-agent LLM systems. explains 7→2 agent consolidation rationale. |
-| `docs/agentic_system_recommendations.md` | **historical** | post-mortem of oct walk-forward run. useful for understanding agent failure modes. |
+| `docs/archive/*` | **archived** | agent-specific docs (scheduled_jobs_design, agentic_system_recommendations, multi-agent-research) |
 
 ---
 
@@ -221,18 +210,7 @@ cargo run -p backtest --release -- --date 2025-10-06 --lookback-days 3
 
 ---
 
-## 10. uncommitted changes (as of 2026-04-02)
+## 10. recent changes
 
-the following changes are in the working tree but not committed:
-
-- `crates/indicators/src/custom/candle_pattern.rs` — 3 new patterns (hammer/shooting star, evening star, confirmed engulfing)
-- `crates/indicators/tests/custom_indicators.rs` — tests for new patterns
-- `crates/backtest/src/main.rs` — new CLI flags (`--sizing-fraction`, `--max-capital-deployed-pct`, `--no-vol-sizing`, `--w5-*`, entry_reason/candle_pattern CSV columns)
-- `crates/backtest/src/replay.rs` — entry reason tracking
-- `crates/backtest/src/report.rs` — entry_reason field in BacktestResult
-- `crates/engine/src/tick_loop.rs` — entry reason propagation, sizing overrides
-- `crates/types/src/tick_result.rs` — `entry_reason` field
-- `scripts/backtest_year.sh` — `--compound` and `--capital` flags
-- `scripts/sweep_params.sh` — minor update
-
-these represent the v10 entry window work and the compounding/sizing changes.
+- **v10 (2026-04-02)**: candle patterns (hammer/shooting star, evening star, confirmed engulfing), W5 entry window, `--sizing-fraction`/`--compound`/`--capital` CLI flags, entry_reason tracking in CSV output
+- **agent layer archived (2026-04-02)**: `agents-ts/` moved to `../galactic_trading_agents/`, replaced by claude code scheduled jobs

@@ -1,0 +1,21 @@
+-- agent layer archived (2026-04-02)
+--
+-- the typescript agent orchestrator (agents-ts/) has been removed from this
+-- repository and replaced by anthropic claude code scheduled jobs.
+--
+-- the following agent-specific tables are preserved for migration chain
+-- integrity and potential future use by scheduled jobs:
+--   - agent_memos (20260228000005)
+--   - evolution_cycles (20260228000006)
+--   - config_changelog (20260228000007)
+--   - daily_budget (20260228000008)
+--   - beliefs (20260302000004)
+--
+-- these tables are no longer actively written to by any service in this
+-- repository. they remain empty but functional. views referencing them
+-- (recent_agent_signals, checkin_memos_since_last_pm, daily_cost_summary)
+-- return empty result sets.
+--
+-- the archived agent code is at: ../galactic_trading_agents/
+
+SELECT 1; -- no-op migration for documentation purposes

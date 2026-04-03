@@ -7,7 +7,6 @@
 - docker desktop ([mac install](https://docs.docker.com/desktop/install/mac-install/))
 - git (to clone the repo)
 - alpaca api credentials (paper trading account)
-- anthropic api key
 
 ### setup
 
@@ -20,7 +19,6 @@ cd ~/galactic_trading_firm
 cat > .env << 'EOF'
 APCA_API_KEY_ID=your-alpaca-key
 APCA_API_SECRET_KEY=your-alpaca-secret
-ANTHROPIC_API_KEY=your-anthropic-key
 BROKER_MODE=simulated
 INITIAL_CAPITAL=100000
 RUST_LOG=info
@@ -35,7 +33,7 @@ that's it. docker compose handles the rest:
 1. starts postgres
 2. runs all database migrations (creates tables, seeds config)
 3. starts paper_trader (rust execution engine)
-4. starts agents-ts (orchestrator in scheduled mode)
+4. starts cockpit (monitoring dashboard on port 3000)
 
 first build takes a few minutes (rust compilation). subsequent starts are instant.
 
@@ -46,7 +44,6 @@ all services have `restart: unless-stopped` — they survive crashes and reboots
 ```bash
 docker compose ps                # all services should be running (migrate will show "exited 0")
 docker compose logs paper_trader  # check execution engine
-docker compose logs agents-ts    # check agent orchestrator
 ```
 
 ### attach to the TUI
@@ -75,29 +72,6 @@ docker compose down -v    # stop and DELETE all data (fresh start)
 
 ---
 
-## agent schedule
-
-all times US/Eastern, weekdays only:
-
-| time | cycle | model | purpose |
-|------|-------|-------|---------|
-| 12:30 | mid-day analysis | sonnet 4.6 | observation memo with structured suggestions |
-| 15:30 | full PM cycle | opus 4.6 | analysis + PM decision → config mutation or hold steady |
-
-budget enforcement: $5/day cap. exhausted budget skips remaining cycles.
-
-### manual agent runs
-
-```bash
-# single analysis cycle
-docker compose exec agents-ts node dist/orchestrator.js --mode once
-
-# single PM cycle
-docker compose exec agents-ts node dist/orchestrator.js --mode pm
-```
-
----
-
 ## local development
 
 for working on the code without docker:
@@ -117,14 +91,6 @@ cargo clippy --workspace -- -D warnings
 cargo run -p data_feed --release
 # with TUI
 cargo run -p data_feed --release --features tui
-
-# typescript agents — build and test
-cd agents-ts && npm install
-npx tsc
-npx vitest run
-
-# run orchestrator locally
-node dist/orchestrator.js --mode once
 ```
 
 ## backtest

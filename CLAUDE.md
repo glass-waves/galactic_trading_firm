@@ -4,23 +4,18 @@ this file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## project overview
 
-adaptive multi-timescale intraday trading system with two-layer architecture:
-
-- **fast layer (rust)**: execution engine processing ticks in real-time using `ta` crate (ta-rs v0.5) for indicator computation. targets sub-ms latency per tick.
-- **slow layer (typescript)**: evolution agents via claude agent sdk. 2-agent cycles: analysis agent + PM agent. opus 4.6 for end-of-day full PM cycle (1x daily), sonnet 4.6 for mid-day analysis (1x daily). orchestrator enforces a $5/day budget cap under anthropic tier 1 ($100/month).
+adaptive multi-timescale intraday trading system. rust execution engine processing ticks in real-time using `ta` crate (ta-rs v0.5) for indicator computation. targets sub-ms latency per tick.
 
 instruments: SPY, QQQ, 3-5 liquid mega-caps. intraday only, no overnight holds.
 
-**agent schedule:**
-- 12:30 ET — mid-day analysis (sonnet 4.6, observation only)
-- 15:30 ET — full PM cycle (opus 4.6, analysis + PM with config authority)
+> **note:** the typescript agent layer (agents-ts/) was archived to `../galactic_trading_agents/` on 2026-04-02, replaced by anthropic claude code scheduled jobs. agent-specific database tables remain in migrations for compatibility.
 
 ## repository structure
 
 ```
 galactic_trading_firm/
 ├── Cargo.toml                    # rust workspace root
-├── docker-compose.yml            # postgres 16 + paper_trader + agents-ts
+├── docker-compose.yml            # postgres 16 + paper_trader + cockpit
 ├── crates/
 │   ├── types/                    # shared types — Candle, Indicator/Action traits, StrategyConfig
 │   ├── indicators/               # indicator implementations (phase 2)
@@ -31,14 +26,7 @@ galactic_trading_firm/
 │   │   └── src/{main.rs, config.rs, scoring.rs, position.rs}
 │   ├── backtest/                 # historical replay + reports (phase 4)
 │   └── data_feed/                # paper trading binary (phase 7)
-├── agents-ts/                    # typescript agent layer
-│   ├── src/
-│   │   ├── orchestrator.ts       # scheduler, budget tracking
-│   │   ├── agent-base.ts         # shared agent sdk invocation
-│   │   ├── models.ts             # type definitions
-│   │   └── tools/                # agent tools (sql queries, config ops, memo writer)
-│   ├── prompts/                  # system prompts per agent/timescale
-│   └── tests/
+├── cockpit/                      # next.js monitoring dashboard
 ├── migrations/                   # sqlx migrations (from data_model.sql)
 └── docs/                         # design artifacts and reference docs
 ```
@@ -57,10 +45,6 @@ cargo clippy --workspace -- -D warnings
 docker-compose up -d
 sqlx migrate run
 
-# typescript agents
-cd agents-ts && npm install
-npx vitest run                       # run tests
-npx tsc                              # type check
 ```
 
 ## implementation phases
@@ -69,10 +53,9 @@ npx tsc                              # type check
 2. **indicator engine** (done) — 35 indicator types (13 native ta-rs + 12 composable + 10 custom), registry, aggregation
 3. **action engine & scoring** (done) — scoring pipeline (weighted sum + hard gates + agreement + dynamic fusion), 8 actions (entry/exit/monitor/sizing), tick loop
 4. **backtest engine** (done) — historical replay, metrics (P&L, sharpe, drawdown, win rate), JSON/CSV export, config comparison
-5. **agent layer** (done) — typescript orchestrator, analysis agent (sonnet 4.6 mid-day), agent tools, budget enforcement
-6. **full evolution loop** (done) — PM agent (opus 4.6) with config mutation authority, backtest validation gates, config diff/changelog, beliefs/CVRF, hot-reload
+5. **agent layer** (archived) — moved to `../galactic_trading_agents/`, replaced by claude code scheduled jobs
+6. **full evolution loop** (archived) — moved to `../galactic_trading_agents/`
 7. **paper trading** (done) — alpaca websocket, candle aggregation, simulated broker, trade writer, config hot-reload, ratatui TUI (feature-gated)
-8. **proposal system** — agents propose new tool types via human-gated github PRs
 
 ## key architecture concepts
 
@@ -94,18 +77,7 @@ two registries of pluggable modules loaded from config at runtime:
 
 ### config versioning
 
-immutable append-only model. every config change creates a new `config_versions` row. flow: proposed → backtested → validated → promoted. the execution engine reads the latest `promoted` config and hot-reloads. rollback = promote an older version.
-
-### two-agent evolution cycles
-
-consolidated from 7 agents to 2 per cycle (based on research synthesis — task granularity > agent count):
-
-- **analysis agent**: exploratory, detail-oriented. fine-grained atomic sub-tasks across all timescales. output = structured JSON memo with evidence-backed suggestions. zero config authority.
-- **PM agent**: conservative, evaluative. receives analysis + accumulated beliefs + validation constraints. output = approved config mutations or "hold steady" with reasoning. full config authority. maintains beliefs via CVRF (conceptual verbal reinforcement framework).
-
-### proposal system (phase 8)
-
-agents can request new tool *types* (not instances) through a human-gated PR process. agents can freely add/remove/reconfigure *instances* of existing types through config alone, but new types require code changes and human review.
+immutable append-only model. every config change creates a new `config_versions` row. flow: proposed → backtested → validated → promoted. the execution engine reads the latest `promoted` config and hot-reloads. rollback = promote an older version. configs are created manually via migrations or the backtest CLI.
 
 ---
 
@@ -285,59 +257,6 @@ live market data ingestion, candle aggregation, simulated broker, trade recordin
 
 ---
 
-## typescript agent layer (`agents-ts/`)
-
-### core orchestration
-
-| file | purpose |
-|------|---------|
-| `src/orchestrator.ts` | main scheduler and budget enforcement. cron: 12:30 ET analysis (sonnet), 15:30 ET full PM (opus). `runFullPmCycle()`: analysis agent → PM agent → backtest validate → promote/reject. CLI: `--mode scheduled\|once\|pm\|checkin`. SIGTERM handling via `AbortController` |
-| `src/agent-base.ts` | shared agent invocation framework. `runAgentSdk()`: creates in-process MCP server, builds tool array, calls `sdk.query()`, parses responses, tracks token usage. `runAnalysisAgent(model, pool, cycleId)` and `runPmAgent(model, pool, cycleId)` are the two entry points |
-| `src/models.ts` | type definitions mirroring postgres schema: `AgentMemo`, `EvolutionCycle`, `Suggestion`, `Belief`, `TokenUsage`. factory functions: `createAgentMemo()`, `createEvolutionCycle()` |
-| `src/db.ts` | `getPool()` — pg.Pool with `DATABASE_URL` env var |
-| `src/logger.ts` | structured logging |
-| `src/walk-forward.ts` | walk-forward backtesting utility (multi-day rolling window validation) |
-| `src/promote-config.ts` | one-liner utility to promote a config version |
-| `src/index.ts` | barrel re-exports |
-
-### agent tools
-
-| file | tools | access level |
-|------|-------|--------------|
-| `src/tools/sql-queries.ts` | `getRecentTrades`, `getDailyPerformance`, `getConfigChangelog`, `getPerformanceByExitReason`, `getCheckinMemosSinceLastPm`, `getAnalysisMemos`, `getActiveBeliefs` | read-only (both agents) |
-| `src/tools/config-ops.ts` | `getCurrentConfig`, `getConfigVersion`, `proposeConfig`, `updateConfigStatus`, `writeChangelogEntries` | write (PM agent only) |
-| `src/tools/memo-writer.ts` | `writeMemo` | write (both agents, different memo types) |
-| `src/tools/backtest-runner.ts` | `runBacktestValidation`, `validateBacktestResult` | spawns backtest binary, polls for results |
-| `src/tools/config-diff.ts` | `computeConfigDiff` | pure function — produces atomic change dicts for changelog |
-| `src/tools/log-reader.ts` | `readLogs` | read-only — tails paper_trader/engine logs |
-
-**tool set assignment:**
-- analysis agent (7 tools): `get_recent_trades`, `get_daily_performance`, `get_current_config`, `get_config_changelog`, `get_performance_by_exit_reason`, `get_beliefs`, `write_analysis_memo`
-- PM agent (12 tools): all analysis tools + `get_prior_memos`, `get_analysis_memos`, `propose_config_mutation`, `write_pm_memo`, `write_belief`, `read_logs`
-
-### prompts
-
-| file | agent | model | purpose |
-|------|-------|-------|---------|
-| `prompts/analysis.md` | analysis agent | sonnet 4.6 (mid-day) / opus 4.6 (end-of-day) | analyze trade history, compute metrics, assess signal quality, detect market regime, produce structured JSON suggestions with evidence. zero config authority |
-| `prompts/agent_pm.md` | PM agent | opus 4.6 | evaluate analysis + suggestions + beliefs, propose config mutations or hold steady, write beliefs (CVRF framework). full config authority |
-
-### typescript tests
-
-| file | tests | coverage |
-|------|-------|----------|
-| `tests/agent-base.test.ts` | 11 | prompt loading, tool sets, token cost, tool invocation parsing |
-| `tests/models.test.ts` | 21 | model factories, type conversions, enum validation |
-| `tests/orchestrator.test.ts` | 12 | budget tracking, cycle state machine, agent triggering |
-| `tests/tools/backtest-runner.test.ts` | 7 | spawning backtest binary, result parsing |
-| `tests/tools/config-diff.test.ts` | 8 | diff computation, change categorization |
-| `tests/tools/config-ops.test.ts` | 4 | config versioning, status transitions |
-| `tests/tools/log-reader.test.ts` | 9 | log tailing |
-
-**total: 72 tests passing, tsc clean**
-
----
-
 ## database schema
 
 managed via sqlx migrations in `migrations/`. reference schema in `docs/data_model.sql`.
@@ -353,11 +272,11 @@ managed via sqlx migrations in `migrations/`. reference schema in `docs/data_mod
 | `config_versions` | immutable append-only config store | id, status (proposed/backtesting/validated/promoted/rejected), config_blob (JSONB), parent_version_id, backtest results |
 | `trades` | completed trade records | ticker, direction, entry/exit prices, PnL, exit_reason, entry/exit scores per timescale, config_version_id |
 | `indicator_snapshots` | historical indicator values per trade | timestamp, indicator_id, timescale, raw_value, normalized_score |
-| `agent_memos` | structured agent outputs | agent, memo_type, reasoning, suggestions (JSONB), confidence, regime/bias/signal assessments, period metrics |
-| `evolution_cycles` | per-cycle metadata and cost tracking | trading_date, cycle_type, model_used, token usage, cost, configs proposed/promoted/rejected |
-| `config_changelog` | atomic change records | config_version_id, change_category, tool_name, param_name, old/new values, reason |
-| `daily_budget` | per-day token and cost tracking | trading_date, total cost, cycle counts, budget_limit (default $5), budget_exhausted flag |
-| `beliefs` | accumulated investment beliefs (CVRF) | belief_id, stated_belief, status, confidence, evidence, tool_context |
+| `agent_memos` | *(archived)* structured agent outputs | preserved for migration chain, not actively written |
+| `evolution_cycles` | *(archived)* per-cycle metadata and cost tracking | preserved for migration chain, not actively written |
+| `config_changelog` | *(archived)* atomic change records | preserved for migration chain, not actively written |
+| `daily_budget` | *(archived)* per-day token and cost tracking | preserved for migration chain, not actively written |
+| `beliefs` | *(archived)* accumulated investment beliefs | preserved for migration chain, not actively written |
 
 ### analysis views
 
@@ -389,25 +308,24 @@ managed via sqlx migrations in `migrations/`. reference schema in `docs/data_mod
 
 ### docker compose (`docker-compose.yml`)
 
-3 services:
+4 services:
 
 | service | image | purpose |
 |---------|-------|---------|
 | `postgres` | postgres:16 | database on port 5433. runs migrations on startup |
-| `paper_trader` | rust binary | live market data + simulated execution. reads `DATABASE_URL`, `APCA_*`, `BROKER_MODE` |
-| `agents-ts` | node | orchestrator in `--mode scheduled`. reads `DATABASE_URL`, `ANTHROPIC_API_KEY` |
+| `migrate` | sqlx | runs database migrations |
+| `paper_trader` | rust binary | live market data + simulated execution |
+| `cockpit` | next.js | monitoring dashboard on port 3000 |
 
 ### environment variables
 
 | variable | used by | purpose |
 |----------|---------|---------|
-| `DATABASE_URL` | both layers | postgres connection string |
-| `ANTHROPIC_API_KEY` | agents-ts | claude API access |
+| `DATABASE_URL` | all services | postgres connection string |
 | `APCA_API_KEY_ID`, `APCA_API_SECRET_KEY` | paper_trader | alpaca market data + broker |
 | `BROKER_MODE` | paper_trader | `simulated` or `alpaca` |
 | `INITIAL_CAPITAL` | paper_trader | starting capital for simulated broker |
-| `BACKTEST_DATA_DIR` | agents-ts | if set, backtest validates before promote; if unset, auto-promotes |
-| `LOG_DIR` | both | log file directory for `read_logs` tool |
+| `LOG_DIR` | paper_trader | log file directory |
 | `RUST_LOG` | paper_trader | log level filter |
 
 ---
@@ -439,18 +357,8 @@ TradingEngine.on_tick(MarketState)
             │
             ▼
     TradeWriter → postgres (trades table)
-            │
-            ▼
-    agents-ts reads trade data (sql-queries.ts)
-            │
-            ▼
-    analysis agent → structured memo + suggestions
-            │
-            ▼
-    PM agent → propose config mutation → backtest validate → promote
-            │
-            ▼
-    ConfigWatcher detects promoted config → hot-reload TradingEngine
+
+    ConfigWatcher polls for promoted config → hot-reload TradingEngine
 ```
 
 ---
@@ -473,13 +381,6 @@ TradingEngine.on_tick(MarketState)
 4. add tests in `crates/actions/tests/`
 5. add to a config's `actions` array with instance_id, phase, priority, params
 
-### adding a new agent tool
-
-1. add SQL query or function in `agents-ts/src/tools/` (use parameterized queries only)
-2. add to tool set in `agents-ts/src/agent-base.ts` (`ANALYSIS_TOOL_NAMES` or `PM_TOOL_NAMES`)
-3. tool factory uses zod/v4 for schema validation
-4. add tests in `agents-ts/tests/tools/`
-
 ### config lifecycle
 
 ```
@@ -489,7 +390,7 @@ proposed → backtesting → validated → promoted
 rollback = promote an older version
 ```
 
-agents can add/remove/reconfigure *instances* of existing tool types through config alone. new tool *types* require code changes and human review (phase 8 proposal system).
+new tool *types* require code changes. *instances* of existing types can be added/removed/reconfigured through config alone.
 
 ---
 
@@ -503,14 +404,12 @@ agents can add/remove/reconfigure *instances* of existing tool types through con
 | [tool_belt_catalog.md](docs/tool_belt_catalog.md) | 163 indicators + 124 actions with knobs and timescale assignments | adding/modifying indicators or actions |
 | [ta_rs_implementation_map.md](docs/ta_rs_implementation_map.md) | indicator → ta-rs mapping (22 native, 74 composable, ~67 custom) | implementing new indicators |
 | [data_model.sql](docs/data_model.sql) | complete postgres schema (enums, tables, views, config blob structure) | writing SQL queries or modifying schema |
-| [cli_usage_guide.md](docs/cli_usage_guide.md) | command-line reference for backtest, paper_trader, orchestrator | running any binary |
+| [cli_usage_guide.md](docs/cli_usage_guide.md) | command-line reference for backtest, paper_trader | running any binary |
 | [usage_guide.md](docs/usage_guide.md) | operations manual: prerequisites, quick start, docker deployment | first-time setup or deployment |
 | [hardening_plan.md](docs/hardening_plan.md) | 3-tier safety guardrails for real capital | preparing for live trading |
 | [research_synthesis.md](docs/research_synthesis.md) | applied learnings from 44 papers → architecture decisions | understanding why decisions were made |
 | [action_items.md](docs/action_items.md) | prioritized implementation items from research synthesis | checking remaining work items |
-| [agentic_system_recommendations.md](docs/agentic_system_recommendations.md) | post-mortem of oct 1-14 walk-forward run | debugging agent behavior |
 | [intraday-trading-research.md](docs/intraday-trading-research.md) | bibliography of 32 papers on ML trading and microstructure | deep research on trading strategies |
-| [multi-agent-research.md](docs/multi-agent-research.md) | 10 papers on multi-agent LLM trading systems | understanding agent consolidation rationale |
 
 ---
 
@@ -525,16 +424,12 @@ agents can add/remove/reconfigure *instances* of existing tool types through con
 | backtest | 40 | 15 metrics, 13 replay, 8 report, 4 integration |
 | data_feed | 54 | 15 candle, 10 broker, 8 market_state, 6 live_session, 5 trade_writer, 5 config_watcher, 5 alpaca |
 | **rust total** | **326** | **0 failures, 2 ignored** |
-| agents-ts | 72 | 11 agent-base, 21 models, 12 orchestrator, 8 config-diff, 7 backtest, 4 config-ops, 9 log-reader |
-| **ts total** | **72** | **tsc clean** |
 
 ## key constraints
 
 - rust engine must never panic in the tick loop — log and continue on indicator errors
 - config loading failures must fall back to the previous valid config
 - all indicator scores normalize to -1.0..+1.0
-- agent tools are read-only for trade data; write-only for memos and config proposals
-- agents use only parameterized sql queries, never arbitrary sql
 - api keys and db credentials must come from environment variables
 - `ta` crate version is pinned to v0.5
 - core rust dependencies: `ta`, `serde`, `serde_json`, `chrono`, `tokio`
