@@ -21,6 +21,9 @@ node_modules/
 .env
 *.db
 
+# data (regenerable backtest output)
+data/*.csv
+
 # logs
 logs/
 
