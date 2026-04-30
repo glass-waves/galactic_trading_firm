@@ -235,7 +235,7 @@ INSERT INTO config_versions (
         "max_concurrent_positions": 1
     },
     "tickers": [
-        "SPY",
+        "AMZN",
         "QQQ",
         "AAPL",
         "NVDA",
