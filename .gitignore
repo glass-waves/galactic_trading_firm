@@ -23,6 +23,11 @@ node_modules/
 
 # data (regenerable backtest output)
 data/*.csv
+docs/*.csv
+docs/*_progress.txt
+
+# build artifacts
+*.tsbuildinfo
 
 # logs
 logs/
