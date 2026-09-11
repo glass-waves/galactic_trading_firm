@@ -1,3 +1,4 @@
+use engine::candle_aggregator::CandleAggregator;
 use std::collections::HashMap;
 use std::io::Read;
 
@@ -88,6 +89,9 @@ pub struct BacktestData {
     /// timescale produces one tick.
     pub primary_timescale: Timescale,
 }
+
+/// rolling candle window per timescale, matching the live `MarketStateBuilder::new(200)`.
+pub const LIVE_CANDLE_WINDOW: usize = 200;
 
 /// parse "HH:MM" to minutes since midnight.
 fn parse_hm_to_minutes(s: &str) -> Option<u32> {
@@ -185,6 +189,13 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
     let start_time = primary_candles.first().unwrap().timestamp;
     let end_time = primary_candles.last().unwrap().timestamp;
 
+    // same rolling-window size as MarketStateBuilder::new(200) in the live trader
+    let mut aggregator = if data.primary_timescale == Timescale::OneMinute {
+        Some(CandleAggregator::new(LIVE_CANDLE_WINDOW))
+    } else {
+        None
+    };
+
     // track entry scores per position so we can pair them with exit scores
     let mut pending_entry_scores: Option<TimescaleScores> = None;
     let mut trade_scores: Vec<(TimescaleScores, TimescaleScores)> = Vec::new();
@@ -258,26 +269,25 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
             }
         }
 
-        let mut candle_map: HashMap<Timescale, Vec<Candle>> = HashMap::new();
-
-        // for the primary timescale, use a growing window
-        candle_map.insert(data.primary_timescale, primary_candles[..i].to_vec());
-
-        // for other timescales, include all candles up to the current timestamp
-        let current_ts = primary_candles[i - 1].timestamp;
-        for (&ts, candles) in &data.candles {
-            if ts == data.primary_timescale {
-                continue;
-            }
-            let relevant: Vec<Candle> = candles
-                .iter()
-                .filter(|c| c.timestamp <= current_ts)
-                .cloned()
-                .collect();
-            if !relevant.is_empty() {
-                candle_map.insert(ts, relevant);
-            }
-        }
+        // build the per-timescale windows exactly as the live engine does: feed the
+        // 1-minute bar through the same CandleAggregator, which yields completed
+        // 5m/1h candles plus the IN-PROGRESS candle built only from bars seen so far.
+        //
+        // (the previous implementation pre-aggregated the whole series and included
+        // any candle whose bucket had *started* — so at 09:31 the engine saw the
+        // completed 09:30–09:34 five-minute candle and the 09:30–10:29 hourly
+        // candle, closes included. every backtest result before 2026-09-11 has
+        // that look-ahead in it.)
+        let candle_map: HashMap<Timescale, Vec<Candle>> = if let Some(agg) = aggregator.as_mut() {
+            agg.on_candle(last_candle.clone());
+            agg.candle_windows()
+        } else {
+            // non-1-minute primary (legacy csv mode): only the primary series is
+            // available, growing window, no higher timescales.
+            let mut m = HashMap::new();
+            m.insert(data.primary_timescale, primary_candles[..i].to_vec());
+            m
+        };
 
         let mut market = MarketState {
             last_price: last_candle.close,

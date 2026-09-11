@@ -299,6 +299,23 @@ the eod skill was run once against the (idle) system. it correctly refused to tu
 
 also: the backtest lookback is now 8 calendar days (`scripts/backtest_range.sh`, the eod skill) to match the live warmup — 5 calendar days gave only 18 hourly candles, fewer than the hourly EMA/Bollinger need.
 
+### the look-ahead bug (found 2026-09-11 evening, after the first corrected sweep leg)
+
+the first corrected-data sweep leg returned +52 % on $10k in 8.5 months with a 1.9 % max drawdown and a daily
+sharpe above 7, with 63 % of entries in the 09:30 bar and a 99 % win rate on holds that reached the profit
+extension. a naive buy-09:35/sell-11:25 baseline on the same tickers was flat (+$116), and spot-checked fills were
+exactly next-bar open plus costs — so the edge was in the *signals*. cause: `crates/backtest/src/replay.rs`
+pre-aggregated the 5-minute and hourly series, stamped each candle with its bucket start, and at every 1-minute
+tick included every candle whose bucket had *started*. at 09:31 the engine saw the completed 09:30–09:34
+five-minute candle and the completed 09:30–10:29 hourly candle, closes included; the "strong core" window's
+hourly condition was effectively "the hour will close up".
+
+**every backtest number this repo ever produced (v6 → v11, "+$22,540", the tuning log, and my own first two sweep
+legs) had this look-ahead. none of them mean anything.** the live engine was never affected: its aggregator only
+sees bars as they arrive. the replay now feeds bars through that same aggregator (moved to
+`crates/engine/src/candle_aggregator.rs`), with the same 200-candle rolling window, so backtest and live build
+identical windows. the v12 sweep was restarted a third time on this code; only its results are trustworthy.
+
 ### the pre-monday sweep
 
 `scripts/run_v12_sweep.sh` (log: `data/sweep_progress.log`, ~6 h sequential to respect alpaca's free-plan rate limit):

@@ -1,3 +1,4 @@
+pub mod candle_aggregator;
 pub mod scoring;
 pub mod position;
 pub mod tick_loop;
