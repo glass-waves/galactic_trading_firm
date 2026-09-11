@@ -102,6 +102,16 @@ struct ConfigOverrides {
     add_profit_trail: Option<f64>,     // giveback_fraction
     profit_trail_min: Option<f64>,     // min_profit_pct
     hourly_exit_override: Option<f64>, // suppress ScoreExit when 1h > threshold + profitable
+    // generic blob overrides — work on whatever the promoted config already contains,
+    // unlike --use-entry-windows which appends its own windows.
+    //   --disable-action ID[,ID..]      set enabled=false on those instance_ids
+    //   --enable-action ID[,ID..]       set enabled=true
+    //   --set-action-param ID:PATH=JSON set a param; PATH may descend with '/', e.g.
+    //       window_5m_thrust:conditions/1/min_score=0.4   or   hard_stop:stop_loss_pct=0.02
+    //   (repeatable)
+    disable_actions: Vec<String>,
+    enable_actions: Vec<String>,
+    set_action_params: Vec<(String, String, serde_json::Value)>,
 }
 
 impl ConfigOverrides {
@@ -165,6 +175,9 @@ impl ConfigOverrides {
             || !self.hold_tiers.is_empty()
             || self.add_profit_trail.is_some()
             || self.hourly_exit_override.is_some()
+            || !self.disable_actions.is_empty()
+            || !self.enable_actions.is_empty()
+            || !self.set_action_params.is_empty()
     }
 
     fn apply(&self, config: &mut StrategyConfig) {
@@ -493,6 +506,41 @@ impl ConfigOverrides {
             config.scoring.hourly_exit_override = Some(thresh);
         }
 
+        // generic blob overrides
+        for action in &mut config.actions {
+            if self.disable_actions.iter().any(|id| id == &action.instance_id) {
+                action.enabled = false;
+            }
+            if self.enable_actions.iter().any(|id| id == &action.instance_id) {
+                action.enabled = true;
+            }
+        }
+        for (id, path, value) in &self.set_action_params {
+            let Some(action) = config.actions.iter_mut().find(|a| &a.instance_id == id) else {
+                eprintln!("warning: --set-action-param: no action with instance_id '{id}'");
+                continue;
+            };
+            let (key, rest) = match path.split_once('/') {
+                Some((k, r)) => (k.to_string(), Some(format!("/{r}"))),
+                None => (path.clone(), None),
+            };
+            match rest {
+                None => {
+                    action.params.insert(key, value.clone());
+                }
+                Some(ptr) => {
+                    let Some(root) = action.params.get_mut(&key) else {
+                        eprintln!("warning: --set-action-param: '{id}' has no param '{key}'");
+                        continue;
+                    };
+                    match root.pointer_mut(&ptr) {
+                        Some(slot) => *slot = value.clone(),
+                        None => eprintln!("warning: --set-action-param: path '{path}' not found in '{id}'"),
+                    }
+                }
+            }
+        }
+
         // max hold timeout overrides (base ms, score gate, profit tiers)
         if self.max_hold_ms.is_some() || self.hold_score_gate.is_some() || !self.hold_tiers.is_empty() {
             for action in &mut config.actions {
@@ -731,7 +779,35 @@ fn parse_overrides(args: &[String]) -> ConfigOverrides {
         add_profit_trail: get_arg(args, "--add-profit-trail").and_then(|s| s.parse().ok()),
         profit_trail_min: get_arg(args, "--profit-trail-min").and_then(|s| s.parse().ok()),
         hourly_exit_override: get_arg(args, "--hourly-exit-override").and_then(|s| s.parse().ok()),
+        disable_actions: get_all_args(args, "--disable-action")
+            .iter()
+            .flat_map(|v| v.split(',').map(|x| x.trim().to_string()))
+            .filter(|x| !x.is_empty())
+            .collect(),
+        enable_actions: get_all_args(args, "--enable-action")
+            .iter()
+            .flat_map(|v| v.split(',').map(|x| x.trim().to_string()))
+            .filter(|x| !x.is_empty())
+            .collect(),
+        set_action_params: get_all_args(args, "--set-action-param")
+            .iter()
+            .filter_map(|spec| {
+                let (id, kv) = spec.split_once(':')?;
+                let (path, raw) = kv.split_once('=')?;
+                let value = serde_json::from_str::<serde_json::Value>(raw)
+                    .unwrap_or_else(|_| serde_json::Value::String(raw.to_string()));
+                Some((id.to_string(), path.to_string(), value))
+            })
+            .collect(),
     }
+}
+
+/// every value following any occurrence of `flag` (repeatable flags).
+fn get_all_args(args: &[String], flag: &str) -> Vec<String> {
+    args.windows(2)
+        .filter(|w| w[0] == flag)
+        .map(|w| w[1].clone())
+        .collect()
 }
 
 /// parse `--ticker-override "NVDA:entry_threshold=0.35,stop_loss_pct=0.03"` flags.
