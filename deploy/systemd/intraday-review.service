@@ -1,0 +1,14 @@
+[Unit]
+Description=claude check-in: intraday watchdog + review (every 15 min, market hours)
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dylmet/Projects/galactic_trading_firm
+EnvironmentFile=/home/dylmet/Projects/galactic_trading_firm/.env
+Environment=PATH=/home/dylmet/.local/bin:/home/dylmet/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+Environment=TZ=America/Los_Angeles
+# headless: no TTY, no approvals possible. tools are pre-approved in .claude/settings.json;
+# anything else is denied rather than waited on.
+ExecStart=/bin/sh -c 'mkdir -p logs/checkins && /home/dylmet/.local/bin/claude -p "/intraday-review" --model sonnet --output-format json --max-turns 40 --max-budget-usd 1.00 --permission-mode dontAsk --permission-prompts none >> logs/checkins/intraday-review.jsonl'
+TimeoutStartSec=900

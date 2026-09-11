@@ -33,14 +33,18 @@ impl From<serde_json::Error> for ConfigError {
     }
 }
 
-pub async fn load_config(pool: &sqlx::PgPool) -> Result<StrategyConfig, ConfigError> {
-    let row: Option<(serde_json::Value,)> = sqlx::query_as(
-        "SELECT config_blob FROM config_versions WHERE status = 'promoted' ORDER BY promoted_at DESC LIMIT 1",
+/// load the latest promoted config. returns the `config_versions.id` row id
+/// alongside the parsed blob — callers must use the row id (not the blob's
+/// `config_id`) for trade attribution and hot-reload tracking.
+pub async fn load_config(pool: &sqlx::PgPool) -> Result<(i64, StrategyConfig), ConfigError> {
+    let row: Option<(i64, serde_json::Value)> = sqlx::query_as(
+        "SELECT id, config_blob FROM config_versions WHERE status = 'promoted' \
+         ORDER BY promoted_at DESC NULLS LAST, id DESC LIMIT 1",
     )
     .fetch_optional(pool)
     .await?;
 
-    let (config_blob,) = row.ok_or(ConfigError::NotFound)?;
+    let (row_id, config_blob) = row.ok_or(ConfigError::NotFound)?;
     let config: StrategyConfig = serde_json::from_value(config_blob)?;
 
     if config.indicators.is_empty() {
@@ -54,5 +58,5 @@ pub async fn load_config(pool: &sqlx::PgPool) -> Result<StrategyConfig, ConfigEr
         ));
     }
 
-    Ok(config)
+    Ok((row_id, config))
 }

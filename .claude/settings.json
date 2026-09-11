@@ -1,0 +1,39 @@
+{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Grep",
+      "Glob",
+      "Bash(psql *)",
+      "Bash(docker exec galactic_trading_firm-postgres-1 psql *)",
+      "Bash(docker compose ps*)",
+      "Bash(systemctl --user status *)",
+      "Bash(systemctl --user is-active *)",
+      "Bash(journalctl --user *)",
+      "Bash(./scripts/update_config.sh *)",
+      "Bash(./scripts/notify.sh *)",
+      "Bash(./scripts/report_backtest.py *)",
+      "Bash(./scripts/backtest_range.sh *)",
+      "Bash(./target/release/backtest *)",
+      "Bash(cat *)",
+      "Bash(tail *)",
+      "Bash(date *)",
+      "Bash(jq *)",
+      "Bash(curl -s https://paper-api.alpaca.markets/*)",
+      "Bash(curl -s -H * https://paper-api.alpaca.markets/*)",
+      "Bash(systemctl --user start preopen-check.service)",
+      "Bash(systemctl --user start intraday-review.service)",
+      "Bash(systemctl --user start eod-review.service)",
+      "Bash(systemctl --user list-timers *)",
+      "Bash(./scripts/psql.sh *)"
+    ],
+    "deny": [
+      "Bash(git push *)",
+      "Bash(rm -rf *)",
+      "Bash(systemctl --user stop paper-trader*)",
+      "Bash(systemctl --user start paper-trader*)",
+      "Bash(systemctl --user restart paper-trader*)",
+      "Bash(systemctl --user disable *)"
+    ]
+  }
+}

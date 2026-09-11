@@ -26,6 +26,8 @@ galactic_trading_firm/
 │   │   └── src/{main.rs, config.rs, scoring.rs, position.rs}
 │   ├── backtest/                 # historical replay + reports (phase 4)
 │   └── data_feed/                # paper trading binary (phase 7)
+├── deploy/systemd/               # user-level systemd units + install.sh: unattended trader start/stop + claude check-in timers
+├── .claude/skills/               # preopen-check, intraday-review, eod-review — the scheduled claude check-in prompts
 ├── cockpit/                      # next.js monitoring dashboard
 ├── migrations/                   # sqlx migrations (from data_model.sql)
 └── docs/                         # design artifacts and reference docs
@@ -240,20 +242,22 @@ live market data ingestion, candle aggregation, simulated broker, trade recordin
 
 | file | purpose |
 |------|---------|
-| `src/main.rs` | async main: SIGTERM/ctrl-c handling, per-ticker sessions, `select!` loop for alpaca events → broker → trade_writer. config hot-reload via `ConfigWatcher` |
-| `src/alpaca_feed.rs` | `AlpacaFeed` — websocket client for alpaca market data stream. subscribes to 1-min bars |
+| `src/main.rs` | async main: SIGTERM/ctrl-c handling (flattens all positions at the broker and records them), per-ticker sessions, `select!` loop for alpaca events → broker → trade_writer. only regular-hours bars reach the engine. config hot-reload via `ConfigWatcher` is **deferred per ticker until flat**. 30s heartbeat arm: feed-staleness detection, missed-close safety net, `engine_state` upserts |
+| `src/alpaca_feed.rs` | `AlpacaFeed` — websocket client for alpaca market data stream (IEX feed). subscribes to 1-min bars; reconnects on server close with backoff. `fetch_historical_bars(symbol, days)` pages SIP bars (lagged 16 min for the free plan, IEX fallback) to warm 5m/1h windows |
 | `src/candle_aggregator.rs` | `CandleAggregator` — ingests 1-min candles, emits clock-aligned 5-min and hourly candles. rolling window of up to 200 candles per timescale |
-| `src/market_state.rs` | `MarketStateBuilder` — wraps candle aggregator, adds bid/ask spread, computes session VWAP, emits `MarketState` snapshots |
-| `src/broker.rs` | `SimulatedBroker` (paper mode) — execute orders, track fills, simulate slippage. respects position and capital limits |
-| `src/account.rs` | account state: cash, margin, equity. reads `INITIAL_CAPITAL` env var or queries alpaca |
-| `src/live_session.rs` | `LiveSession` (per ticker) — single intraday position lifecycle. stashes entry scores, pairs with exit scores on close |
-| `src/trade_writer.rs` | `TradeWriter` — async writes completed trades to postgres |
-| `src/config_watcher.rs` | `ConfigWatcher` — polls postgres for promoted config changes. `try_build_engine()` applies per-ticker overrides from `config.ticker_overrides`, then rebuilds with fallback to previous config |
-| `src/config_loader.rs` | config loading from database or JSON file |
+| `src/market_state.rs` | `MarketStateBuilder` — wraps candle aggregator, adds bid/ask spread, computes session VWAP (resets on each new US/Eastern day; candle windows persist), emits `MarketState` snapshots |
+| `src/broker.rs` | `Broker` trait: `SimulatedBroker` (fills at last price ± 5 bps, no limits) and `AlpacaBroker` (real paper orders; polls until filled, cancels on 15s timeout; `open_positions()` for startup reconciliation) |
+| `src/account.rs` | `resolve_capital` = min(`INITIAL_CAPITAL`, alpaca equity) in `alpaca_paper` mode; lenient `/v2/account` endpoint (apca's own `Account` type rejects the current payload) |
+| `src/live_session.rs` | `LiveSession` (per ticker) — single intraday position lifecycle. stashes entry scores + entry_reason + broker fill, pairs with exit scores on close; knows its `config_version_id`; `force_close` / `undo_open` for the main loop |
+| `src/session_clock.rs` | US/Eastern helpers: `is_regular_hours`, `eastern_date`, `eastern_minutes`, `parse_hm` |
+| `src/state_writer.rs` | `upsert_engine_state` (per-ticker live state + heartbeat) and `write_entry_block_event` (gate / near-miss diagnostics) |
+| `src/trade_writer.rs` | `TradeWriter` — async writes completed trades to postgres with `entry_reason`, `source` ('paper' \| 'demo'), broker fill prices, and the producing engine's `config_version_id` |
+| `src/config_watcher.rs` | `ConfigWatcher` — polls postgres for promoted configs with `id >` the running row id. `try_build_engine()` applies per-ticker overrides from `config.ticker_overrides`, then rebuilds with fallback to previous config |
+| `src/config_loader.rs` | `load_config(pool) -> (row_id, StrategyConfig)` from the database only. the **row id** (not the blob's `config_id`) keys trade attribution and hot-reload |
 | `src/tui.rs` | (feature-gated: `--features tui`) ratatui terminal UI: live positions, P&L, recent trades, market state |
 | `src/lib.rs` | module tree and re-exports |
 
-**tests:** 54 (15 candle_aggregator, 10 broker, 8 market_state, 6 live_session, 5 trade_writer, 5 config_watcher, 5 alpaca_feed)
+**tests:** 66 inline (candle_aggregator, broker, market_state, live_session, trade_writer, config_watcher, alpaca_feed, session_clock, state_writer) + 3 ignored live tests that need real keys: `live_equity`, `live_order_roundtrip`, `live_historical_bars`
 
 ---
 
@@ -270,8 +274,10 @@ managed via sqlx migrations in `migrations/`. reference schema in `docs/data_mod
 | table | purpose | key fields |
 |-------|---------|------------|
 | `config_versions` | immutable append-only config store | id, status (proposed/backtesting/validated/promoted/rejected), config_blob (JSONB), parent_version_id, backtest results |
-| `trades` | completed trade records | ticker, direction, entry/exit prices, PnL, exit_reason, entry/exit scores per timescale, config_version_id |
-| `indicator_snapshots` | historical indicator values per trade | timestamp, indicator_id, timescale, raw_value, normalized_score |
+| `trades` | completed trade records | ticker, direction, entry/exit prices, PnL, exit_reason, entry/exit scores per timescale, config_version_id, `entry_reason` (which window fired), `source` ('paper' \| 'demo' \| 'backtest'), broker fill prices |
+| `engine_state` | live per-ticker state, upserted every bar and every 30s (heartbeat) | last_bar_at, scores, open position + unrealized P&L, daily_pnl, loss_breaker_active, entry_blocked_by, near_miss, feed_stale, config_version_id, pending_config_version_id |
+| `entry_block_events` | why entries were not taken (append-only, throttled) | kind ('gate' \| 'near_miss'), reason, scores at the time |
+| `trade_indicator_snapshots` | historical indicator values per trade (never written by any code) | timestamp, indicator_id, timescale, raw_value, normalized_score |
 | `agent_memos` | *(archived)* structured agent outputs | preserved for migration chain, not actively written |
 | `evolution_cycles` | *(archived)* per-cycle metadata and cost tracking | preserved for migration chain, not actively written |
 | `config_changelog` | *(archived)* atomic change records | preserved for migration chain, not actively written |
@@ -301,6 +307,13 @@ managed via sqlx migrations in `migrations/`. reference schema in `docs/data_mod
 | `20260302000003` | add `suggestions` JSONB column to agent_memos |
 | `20260302000004` | `beliefs` table |
 | `20260302000005` | cleanup old agent_type enum values |
+| `20260303000001` | v3 config: reduce overtrading |
+| `20260305000001` | add `score_exit`, `daily_loss_limit` exit reasons |
+| `20260305000002` | v89 config (phase-3 winner, pre-sizing-fix) |
+| `20260402000001` | archive agent layer (documentation only) |
+| `20260402000002` | v11 config: full kelly sizing + entry windows + candle pattern |
+| `20260912000001` | `engine_state` + `entry_block_events` tables; `trades.entry_reason/source/broker_*`; agent_type values `human`/`claude_intraday`/`claude_eod`; memo_type values for watchdog/intraday/eod |
+| `20260912000002` | v12 config: explicit morning session (entries until 11:30 ET, flat by 11:55 ET — what v11 actually backtested), `avoid_first_minutes` 0, `max_position_pct` 0.36 |
 
 ---
 
@@ -323,8 +336,8 @@ managed via sqlx migrations in `migrations/`. reference schema in `docs/data_mod
 |----------|---------|---------|
 | `DATABASE_URL` | all services | postgres connection string |
 | `APCA_API_KEY_ID`, `APCA_API_SECRET_KEY` | paper_trader | alpaca market data + broker |
-| `BROKER_MODE` | paper_trader | `simulated` or `alpaca` |
-| `INITIAL_CAPITAL` | paper_trader | starting capital for simulated broker |
+| `BROKER_MODE` | paper_trader | `simulated` or `alpaca_paper` (anything else is a startup error) |
+| `INITIAL_CAPITAL` | paper_trader | sizing budget per engine. in `alpaca_paper` mode the effective capital is min(INITIAL_CAPITAL, account equity) |
 | `LOG_DIR` | paper_trader | log file directory |
 | `RUST_LOG` | paper_trader | log level filter |
 
@@ -422,13 +435,18 @@ new tool *types* require code changes. *instances* of existing types can be adde
 | actions | 33 | 27 action behavior, 6 registry |
 | engine | 40 | 22 scoring, 9 position, 9 tick loop |
 | backtest | 40 | 15 metrics, 13 replay, 8 report, 4 integration |
-| data_feed | 54 | 15 candle, 10 broker, 8 market_state, 6 live_session, 5 trade_writer, 5 config_watcher, 5 alpaca |
-| **rust total** | **326** | **0 failures, 2 ignored** |
+| data_feed | 66 | candle, broker, market_state, live_session, trade_writer, config_watcher, alpaca, session_clock, state_writer (+3 ignored live tests) |
+| **rust total** | **471** | **0 failures, 4 ignored** (as of 2026-09-11) |
 
 ## key constraints
 
 - rust engine must never panic in the tick loop — log and continue on indicator errors
 - config loading failures must fall back to the previous valid config
+- all session times (`no_new_entries_after`, `force_exit_by`, `avoid_first_minutes`) are US/Eastern; `MarketState.timestamp` is UTC. convert with `chrono_tz::US::Eastern`, never compare UTC hours to config strings
+- the engine resets per-day state (loss breaker, cooldown, avoid-first clock) on the first tick of a new Eastern date; VWAP resets in `MarketStateBuilder`; candle windows persist across days
+- positions are sized in whole shares; `session.max_position_pct` is a hard clamp on any single position
+- `paper_trader` refuses to start without alpaca keys unless `--demo` is passed; demo trades are written with `source='demo'`
+- trades and hot-reload are keyed on `config_versions.id` (the row), not the blob's `config_id`. a running trader only sees rows with a higher id — rollback = insert a copy of the old blob as a new row
 - all indicator scores normalize to -1.0..+1.0
 - api keys and db credentials must come from environment variables
 - `ta` crate version is pinned to v0.5

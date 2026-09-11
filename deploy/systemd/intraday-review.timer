@@ -1,0 +1,10 @@
+[Unit]
+Description=intraday review every 15 min during US market hours (06:35–13:05 America/Los_Angeles, weekdays)
+[Timer]
+OnCalendar=Mon..Fri *-*-* 06:35,50:00
+OnCalendar=Mon..Fri *-*-* 07..12:05/15:00
+OnCalendar=Mon..Fri *-*-* 13:05:00
+Unit=intraday-review.service
+Persistent=false
+[Install]
+WantedBy=timers.target

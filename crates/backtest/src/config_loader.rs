@@ -89,11 +89,14 @@ fn exit_reason_to_str(r: &ExitReason) -> &'static str {
     }
 }
 
+/// write backtest trades to the shared `trades` table with `source = 'backtest'`
+/// so they never masquerade as paper trades. `entry_reasons` is parallel to `trades`.
 pub async fn write_backtest_trades(
     pool: &sqlx::PgPool,
     config_version_id: i64,
     trades: &[TradeRecord],
     trade_scores: &[(TimescaleScores, TimescaleScores)],
+    entry_reasons: &[String],
 ) -> Result<usize, sqlx::Error> {
     let mut count = 0usize;
     for (i, trade) in trades.iter().enumerate() {
@@ -104,6 +107,10 @@ pub async fn write_backtest_trades(
             .get(i)
             .cloned()
             .unwrap_or_default();
+        let entry_reason: Option<&str> = entry_reasons
+            .get(i)
+            .map(|s| s.as_str())
+            .filter(|s| !s.is_empty());
 
         sqlx::query(
             r#"
@@ -116,7 +123,7 @@ pub async fn write_backtest_trades(
                 entry_score_daily, entry_score_monthly, entry_score_composite,
                 exit_score_1min, exit_score_5min, exit_score_hourly,
                 exit_score_daily, exit_score_monthly, exit_score_composite,
-                commission, is_paper
+                commission, is_paper, entry_reason, source
             ) VALUES (
                 $1, $2::trade_direction, $3, $4, $5,
                 $6, $7, $8, $9,
@@ -124,7 +131,7 @@ pub async fn write_backtest_trades(
                 $14,
                 $15, $16, $17, $18, $19, $20,
                 $21, $22, $23, $24, $25, $26,
-                $27, $28
+                $27, $28, $29, 'backtest'
             )
             "#,
         )
@@ -156,6 +163,7 @@ pub async fn write_backtest_trades(
         .bind(exit_scores.composite)
         .bind(0.0_f64) // commission
         .bind(true)     // is_paper
+        .bind(entry_reason)
         .execute(pool)
         .await?;
 

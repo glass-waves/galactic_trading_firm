@@ -1527,6 +1527,7 @@ mod tests {
                 max_capital_deployed_pct: 0.8,
                 entry_cooldown_ms: 0,
                 max_daily_loss_pct: None,
+                max_position_pct: None,
             },
             ticker_overrides: std::collections::HashMap::new(),
         }

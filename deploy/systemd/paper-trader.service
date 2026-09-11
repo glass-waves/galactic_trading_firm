@@ -1,0 +1,26 @@
+[Unit]
+Description=galactic trading firm — paper trader (alpaca paper account)
+Requires=trading-postgres.service
+After=trading-postgres.service network-online.target
+# don't retry forever on a persistent startup failure (bad keys, bad config)
+StartLimitIntervalSec=600
+StartLimitBurst=3
+
+[Service]
+Type=simple
+WorkingDirectory=/home/dylmet/Projects/galactic_trading_firm
+EnvironmentFile=/home/dylmet/Projects/galactic_trading_firm/.env
+Environment=LOG_DIR=/home/dylmet/Projects/galactic_trading_firm/logs
+Environment=RUST_LOG=info
+Environment=PATH=/home/dylmet/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+# wait for postgres to accept connections, then make sure the schema is current
+ExecStartPre=/bin/sh -c 'for i in $(seq 1 30); do docker exec galactic_trading_firm-postgres-1 pg_isready -U postgres -d adaptive_trading >/dev/null 2>&1 && exit 0; sleep 2; done; echo "postgres not ready" >&2; exit 1'
+ExecStartPre=/home/dylmet/.cargo/bin/sqlx migrate run
+ExecStart=/home/dylmet/Projects/galactic_trading_firm/target/release/paper_trader
+# SIGTERM makes the trader flatten every position at the broker and record it — give it time
+KillSignal=SIGTERM
+TimeoutStopSec=90
+Restart=on-failure
+RestartSec=20
+StandardOutput=journal
+StandardError=journal

@@ -1,15 +1,21 @@
+use chrono::NaiveDate;
 use types::market::{Candle, MarketState};
 
 use crate::candle_aggregator::CandleAggregator;
+use crate::session_clock::eastern_date;
 
 /// builds MarketState from live candle data.
-/// tracks session VWAP and cumulative volume.
+/// tracks session VWAP and cumulative volume. the VWAP accumulators reset
+/// automatically on the first bar of a new US/Eastern calendar day; the
+/// candle windows are kept so hourly indicators stay warm across days.
 pub struct MarketStateBuilder {
     aggregator: CandleAggregator,
     /// cumulative price*volume for VWAP calculation.
     cumulative_pv: f64,
     /// cumulative volume for VWAP calculation.
     cumulative_volume: f64,
+    /// eastern date the VWAP accumulators belong to.
+    vwap_date: Option<NaiveDate>,
 }
 
 impl MarketStateBuilder {
@@ -18,12 +24,36 @@ impl MarketStateBuilder {
             aggregator: CandleAggregator::new(max_candle_window),
             cumulative_pv: 0.0,
             cumulative_volume: 0.0,
+            vwap_date: None,
         }
+    }
+
+    /// reset the session VWAP accumulators when the bar belongs to a new eastern day.
+    fn roll_vwap_day(&mut self, candle: &Candle) {
+        let d = eastern_date(candle.timestamp);
+        if self.vwap_date != Some(d) {
+            self.vwap_date = Some(d);
+            self.cumulative_pv = 0.0;
+            self.cumulative_volume = 0.0;
+        }
+    }
+
+    /// number of candles currently held per timescale (for warmup diagnostics).
+    pub fn window_sizes(&self) -> Vec<(types::market::Timescale, usize)> {
+        let mut v: Vec<_> = self
+            .aggregator
+            .candle_windows()
+            .into_iter()
+            .map(|(ts, c)| (ts, c.len()))
+            .collect();
+        v.sort_by_key(|(ts, _)| format!("{ts:?}"));
+        v
     }
 
     /// process a new 1-minute bar and build a MarketState snapshot.
     /// bid/ask are approximated from the candle close ± half-spread.
     pub fn on_bar(&mut self, candle: Candle, bid: f64, ask: f64) -> MarketState {
+        self.roll_vwap_day(&candle);
         // update VWAP: use typical price (H+L+C)/3 * volume
         let typical_price = (candle.high + candle.low + candle.close) / 3.0;
         self.cumulative_pv += typical_price * candle.volume;
@@ -68,11 +98,13 @@ impl MarketStateBuilder {
         self.aggregator.reset_session();
         self.cumulative_pv = 0.0;
         self.cumulative_volume = 0.0;
+        self.vwap_date = None;
     }
 
     /// seed with historical candles to bootstrap indicator lookback.
     pub fn seed(&mut self, candles: Vec<Candle>) {
         for candle in candles {
+            self.roll_vwap_day(&candle);
             let typical = (candle.high + candle.low + candle.close) / 3.0;
             self.cumulative_pv += typical * candle.volume;
             self.cumulative_volume += candle.volume;
@@ -193,6 +225,30 @@ mod tests {
 
         // after seeding, volume should be accumulated
         assert!((builder.cumulative_volume - 20000.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn vwap_resets_on_new_eastern_day_but_windows_persist() {
+        let mut builder = MarketStateBuilder::new(100);
+        // day 1: 2024-06-03 14:00 UTC (10:00 EDT)
+        for m in 0..30 {
+            let c = Candle {
+                timestamp: Utc.with_ymd_and_hms(2024, 6, 3, 14, m, 0).unwrap(),
+                open: 100.0, high: 101.0, low: 99.0, close: 100.0, volume: 1000.0,
+            };
+            builder.on_bar(c, 99.99, 100.01);
+        }
+        assert!((builder.cumulative_volume - 30_000.0).abs() < f64::EPSILON);
+        // day 2: first bar resets VWAP accumulators
+        let c = Candle {
+            timestamp: Utc.with_ymd_and_hms(2024, 6, 4, 14, 0, 0).unwrap(),
+            open: 200.0, high: 201.0, low: 199.0, close: 200.0, volume: 500.0,
+        };
+        let ms = builder.on_bar(c, 199.99, 200.01);
+        assert!((ms.session_volume - 500.0).abs() < f64::EPSILON);
+        assert!((ms.session_vwap - 200.0).abs() < 0.01);
+        // but the 1-minute window still holds yesterday's candles
+        assert!(ms.candles[&Timescale::OneMinute].len() > 1);
     }
 
     #[test]

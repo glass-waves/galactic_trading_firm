@@ -18,6 +18,7 @@ sqlx = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 chrono = { workspace = true }
+chrono-tz = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
 tracing-appender = { workspace = true }
@@ -25,6 +26,9 @@ async-trait = { workspace = true }
 num-decimal = { version = "0.2", default-features = false, features = ["num-v04"] }
 futures = "0.3"
 dotenvy = { workspace = true }
+# for the lenient /v2/account request (apca 0.30 rejects the current account payload)
+http = { version = "1.1", default-features = false }
+http-endpoint = "0.6"
 
 [dev-dependencies]
 serde_json = { workspace = true }

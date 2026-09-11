@@ -1,6 +1,7 @@
 use serde_json::json;
 use std::collections::HashMap;
-use types::action::{ActionConfig, ActionPhase, ExitReason};
+use types::action::{ActionConfig, ActionPhase, ExitReason, TradeDirection};
+use types::tick_result::TickEvent;
 use types::indicator::Indicator;
 use types::market::{MarketState, Timescale};
 use types::scoring::{AggregationMethod, ScoringConfig};
@@ -230,9 +231,9 @@ fn session_close_forces_exit() {
     simulate_ticks(&mut engine, &data);
 
     if engine.has_position() {
-        // now send a tick at 15:56 to trigger session close
+        // now send a tick at 15:56 ET (20:56 UTC in january) to trigger session close
         let mut ms = make_market_state_ohlcv(Timescale::FiveMinute, &trending_up_ohlcv(30, 100.0, 1.0));
-        ms.timestamp = Utc.with_ymd_and_hms(2024, 1, 15, 15, 56, 0).unwrap();
+        ms.timestamp = Utc.with_ymd_and_hms(2024, 1, 15, 20, 56, 0).unwrap();
         ms.last_price = 130.0;
         let _result = engine.on_tick(&mut ms);
 
@@ -411,6 +412,7 @@ fn default_session() -> types::config::SessionConfig {
         max_capital_deployed_pct: 1.0,
         entry_cooldown_ms: 0,
         max_daily_loss_pct: None,
+        max_position_pct: None,
     }
 }
 
@@ -639,4 +641,234 @@ fn entries_blocked_prevents_entry_allows_exit() {
         !engine.has_position() && engine.completed_trades().is_empty(),
         "no entries should occur when entries_blocked is true"
     );
+}
+
+
+// ── session rollover, force-exit safety net, size clamp, diagnostics ──
+
+/// build a market state whose candles are stamped one minute apart starting at `start`,
+/// so session-time gates behave deterministically.
+fn market_state_at(
+    ohlcv: &[(f64, f64, f64, f64, f64)],
+    start: chrono::DateTime<chrono::Utc>,
+) -> MarketState {
+    let window: Vec<types::market::Candle> = ohlcv
+        .iter()
+        .enumerate()
+        .map(|(i, &(o, h, l, c, v))| types::market::Candle {
+            timestamp: start + chrono::Duration::minutes(i as i64),
+            open: o,
+            high: h,
+            low: l,
+            close: c,
+            volume: v,
+        })
+        .collect();
+    let last = window.last().unwrap();
+    let last_price = last.close;
+    let last_ts = last.timestamp;
+    let mut candle_map = std::collections::HashMap::new();
+    candle_map.insert(Timescale::FiveMinute, window);
+    MarketState {
+        last_price,
+        bid: last_price - 0.01,
+        ask: last_price + 0.01,
+        timestamp: last_ts,
+        candles: candle_map,
+        spread: 0.02,
+        session_vwap: last_price,
+        session_volume: 1000.0,
+        position_context: None,
+        session_progress: None,
+        entries_blocked: false,
+        total_deployed_capital: None,
+        total_initial_capital: None,
+        index_return: None,
+        cross_ticker_correlation: None,
+    }
+}
+
+fn utc(y: i32, mo: u32, d: u32, h: u32, mi: u32) -> chrono::DateTime<chrono::Utc> {
+    use chrono::TimeZone;
+    chrono::Utc.with_ymd_and_hms(y, mo, d, h, mi, 0).unwrap()
+}
+
+#[test]
+fn avoid_first_minutes_counts_from_eastern_open() {
+    let scoring = make_scoring(vec![(Timescale::FiveMinute, 1.0)], 0.5, -0.3, vec![]);
+    let mut session = default_session();
+    session.avoid_first_minutes = 30;
+    let mut engine = build_engine_with_session(scoring, vec![], session);
+    let data = trending_up_ohlcv(5, 100.0, 1.0);
+
+    // 2024-06-03 is a monday; 13:31 UTC = 09:31 EDT → inside the first 30 minutes
+    let mut ms = market_state_at(&data, utc(2024, 6, 3, 13, 27));
+    let result = engine.on_tick(&mut ms);
+    assert_eq!(result.entry_blocked_by.as_deref(), Some("avoid_first_minutes"));
+
+    // 14:05 UTC = 10:05 EDT → 35 minutes after the open, gate lifted.
+    // (the process did not "start" here — the clock is anchored to 09:30 ET, not first tick)
+    let ms2 = market_state_at(&data, utc(2024, 6, 3, 14, 1));
+    assert_eq!(engine.entry_block_reason(&ms2), None);
+
+    // pre-market tick on the same day is blocked (negative elapsed)
+    let ms3 = market_state_at(&data, utc(2024, 6, 3, 12, 0));
+    assert_eq!(engine.entry_block_reason(&ms3), Some("avoid_first_minutes"));
+}
+
+#[test]
+fn new_trading_day_resets_daily_loss_breaker_and_cooldown() {
+    let scoring = make_scoring(vec![(Timescale::FiveMinute, 1.0)], 0.5, -0.3, vec![]);
+    let mut session = default_session();
+    session.max_daily_loss_pct = Some(0.01);
+    session.entry_cooldown_ms = 3_600_000; // 1h
+    let mut engine = build_engine_with_session(scoring, vec![], session);
+    let data = trending_up_ohlcv(5, 100.0, 1.0);
+
+    // establish day 1 (10:00 EDT) then force a losing trade to trip the breaker
+    let mut ms = market_state_at(&data, utc(2024, 6, 3, 13, 56));
+    engine.on_tick(&mut ms);
+    engine
+        .force_open_position("SPY".into(), TradeDirection::Long, 100.0, 50.0, utc(2024, 6, 3, 14, 0))
+        .unwrap();
+    // 50 shares × $4 loss = $200 = 0.2% of 100k... use bigger size: 500 shares × $4 = $2,000 = 2%
+    engine.undo_last_open();
+    engine
+        .force_open_position("SPY".into(), TradeDirection::Long, 100.0, 500.0, utc(2024, 6, 3, 14, 0))
+        .unwrap();
+    let trade = engine.force_close_position(96.0, utc(2024, 6, 3, 14, 10), ExitReason::HardStop);
+    assert!(trade.is_some());
+    assert!(engine.is_daily_loss_breaker_active(), "breaker should trip after a 2% loss");
+    let ms_same_day = market_state_at(&data, utc(2024, 6, 3, 14, 26));
+    assert_eq!(engine.entry_block_reason(&ms_same_day), Some("daily_loss_breaker"));
+
+    // next trading day at 10:00 EDT: breaker, cooldown and realized pnl reset
+    let mut ms_next = market_state_at(&data, utc(2024, 6, 4, 13, 56));
+    let result = engine.on_tick(&mut ms_next);
+    assert!(!engine.is_daily_loss_breaker_active(), "breaker must reset on a new day");
+    assert!((engine.cumulative_realized_pnl()).abs() < f64::EPSILON);
+    assert_ne!(result.entry_blocked_by.as_deref(), Some("daily_loss_breaker"));
+    assert_ne!(result.entry_blocked_by.as_deref(), Some("entry_cooldown"));
+    assert_eq!(
+        engine.current_session_date(),
+        Some(chrono::NaiveDate::from_ymd_opt(2024, 6, 4).unwrap())
+    );
+}
+
+#[test]
+fn force_exit_by_safety_net_closes_without_session_close_action() {
+    // no session_close action configured — the engine itself must flatten at force_exit_by (ET)
+    let scoring = make_scoring(vec![(Timescale::FiveMinute, 1.0)], 0.5, -0.3, vec![]);
+    let mut session = default_session();
+    session.force_exit_by = "15:55".to_string();
+    let mut engine = build_engine_with_session(scoring, vec![], session);
+    let data = trending_up_ohlcv(5, 100.0, 1.0);
+
+    let mut ms = market_state_at(&data, utc(2024, 1, 15, 15, 0)); // 10:04 EST
+    engine.on_tick(&mut ms);
+    engine
+        .force_open_position("SPY".into(), TradeDirection::Long, 100.0, 10.0, utc(2024, 1, 15, 15, 4))
+        .unwrap();
+
+    // 15:56 UTC is 10:56 EST — must still be holding (regression for the UTC bug)
+    let mut ms_morning = market_state_at(&data, utc(2024, 1, 15, 15, 52));
+    engine.on_tick(&mut ms_morning);
+    assert!(engine.has_position(), "must not exit at 15:56 UTC (10:56 ET)");
+
+    // 20:56 UTC = 15:56 EST → flattened with SessionClose
+    let mut ms_close = market_state_at(&data, utc(2024, 1, 15, 20, 52));
+    let result = engine.on_tick(&mut ms_close);
+    assert!(matches!(result.event, TickEvent::PositionClosed));
+    assert!(!engine.has_position());
+    assert_eq!(engine.completed_trades().last().unwrap().exit_reason, ExitReason::SessionClose);
+}
+
+#[test]
+fn oversized_sizing_fraction_is_clamped_to_max_position_pct() {
+    let scoring = make_scoring(vec![(Timescale::FiveMinute, 1.0)], 0.0, -0.9, vec![]);
+    let mut session = default_session();
+    session.max_position_pct = Some(0.36);
+    let mut engine = build_engine_with_session(
+        scoring,
+        vec![make_action_cfg("fixed_fractional", "sz", ActionPhase::Sizing, 0,
+            vec![("fraction", json!(5.0))])], // fat-fingered 500%
+        session,
+    );
+    // RSI needs ≥15 bars; strongly trending data pushes the 5m score above the 0.0 entry threshold
+    let data = trending_up_ohlcv(40, 100.0, 1.0);
+    let mut opened = false;
+    for i in 15..=data.len() {
+        let mut ms = market_state_at(&data[..i], utc(2024, 6, 3, 14, 0));
+        let r = engine.on_tick(&mut ms);
+        if matches!(r.event, TickEvent::PositionOpened) {
+            opened = true;
+            break;
+        }
+    }
+    assert!(opened, "expected an entry with a 0.0 threshold on trending data");
+    // deployed at most 36% of 100k (whole shares, so up to one share less); capital never negative
+    let deployed = 100_000.0 - engine.available_capital();
+    let price = engine.current_position().unwrap().entry_price;
+    assert!(deployed <= 36_000.0 + 1e-6, "deployed {deployed}, expected <= 36000");
+    assert!(deployed > 36_000.0 - price, "deployed {deployed} is more than a share short of 36000");
+    let shares = engine.current_position().unwrap().size;
+    assert!((shares - shares.floor()).abs() < 1e-9, "shares must be whole, got {shares}");
+    assert!(engine.available_capital() > 0.0);
+}
+
+/// engine with only the given entry actions (no score_threshold_entry) and an ATR stop.
+fn build_windows_only_engine(
+    scoring: ScoringConfig,
+    entry_actions: Vec<ActionConfig>,
+    session: types::config::SessionConfig,
+) -> TradingEngine {
+    let ind_reg = default_indicator_registry();
+    let ind_configs = vec![
+        make_indicator_config("rsi", "rsi_5m", Timescale::FiveMinute, 1.0, vec![("period", json!(14))]),
+    ];
+    let indicators = build_indicators(&ind_configs, &ind_reg).unwrap();
+    let act_reg = default_action_registry();
+    let mut act_configs = vec![make_action_cfg("atr_trailing_stop", "ts1", ActionPhase::Exit, 0,
+        vec![("atr_period", json!(14)), ("multiplier", json!(2.0))])];
+    act_configs.extend(entry_actions);
+    let actions = build_actions(&act_configs, &act_reg).unwrap();
+    TradingEngine::new(
+        indicators, ind_configs, scoring,
+        actions.entry, actions.monitor, actions.exit, actions.sizing,
+        "SPY".to_string(), 100_000.0, Some(session),
+    )
+}
+
+#[test]
+fn reject_gate_and_near_miss_are_reported() {
+    let scoring = make_scoring(vec![(Timescale::FiveMinute, 1.0)], 0.5, -0.9, vec![]);
+    let session = default_session();
+
+    // window that can never fire: requires 5m score ≥ 1.5 (scores cap at 1.0); composite floor is met
+    let window = make_action_cfg("entry_window", "w_test", ActionPhase::Entry, 10, vec![
+        ("name", json!("impossible")),
+        ("conditions", json!([
+            {"type": "composite_min", "min_score": -1.0},
+            {"type": "timescale_min", "timescale": "FiveMinute", "min_score": 1.5}
+        ])),
+    ]);
+    let mut engine = build_windows_only_engine(scoring.clone(), vec![window], session.clone());
+    let data = trending_up_ohlcv(20, 100.0, 1.0);
+    let mut ms = market_state_at(&data, utc(2024, 6, 3, 14, 0));
+    let r = engine.on_tick(&mut ms);
+    assert!(matches!(r.event, TickEvent::Nothing));
+    assert!(r.entry_blocked_by.is_none());
+    let nm = r.near_miss.expect("near-miss diagnostics expected");
+    assert!(nm.contains("impossible:") && nm.contains("FiveMinute"), "got {nm}");
+
+    // reject gate that always fires (composite ≥ -1.0) reports as the block reason
+    let gate = make_action_cfg("entry_reject_gate", "g_test", ActionPhase::Entry, 0, vec![
+        ("name", json!("always")),
+        ("conditions", json!([{"type": "composite_min", "min_score": -1.0}])),
+    ]);
+    let mut engine2 = build_windows_only_engine(scoring, vec![gate], session);
+    let mut ms2 = market_state_at(&data, utc(2024, 6, 3, 14, 0));
+    let r2 = engine2.on_tick(&mut ms2);
+    assert_eq!(r2.entry_blocked_by.as_deref(), Some("reject_gate:always"));
+    assert!(r2.near_miss.is_none());
 }

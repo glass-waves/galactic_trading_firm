@@ -181,6 +181,55 @@ impl WindowCondition {
         }
     }
 
+    /// short description of this condition's outcome against the given scores,
+    /// e.g. "FiveMinute 0.31<0.50" or "candle_5min none<0.40". used for near-miss
+    /// diagnostics; never allocates unless called.
+    pub fn describe(
+        &self,
+        scores: &TimescaleScores,
+        indicator_scores: Option<&HashMap<String, Option<f64>>>,
+    ) -> String {
+        fn fmt(v: Option<f64>) -> String {
+            v.map(|x| format!("{x:.2}")).unwrap_or_else(|| "none".to_string())
+        }
+        match self {
+            WindowCondition::TimescaleMin { timescale, min_score } => {
+                format!("{timescale:?} {}<{min_score:.2}", fmt(get_ts_score(scores, timescale)))
+            }
+            WindowCondition::TimescaleMax { timescale, max_score } => {
+                format!("{timescale:?} {}>{max_score:.2}", fmt(get_ts_score(scores, timescale)))
+            }
+            WindowCondition::TimescaleRange { timescale, min_score, max_score } => {
+                format!(
+                    "{timescale:?} {} not in [{min_score:.2},{max_score:.2}]",
+                    fmt(get_ts_score(scores, timescale))
+                )
+            }
+            WindowCondition::TimescaleLead { timescale, lead_by } => {
+                format!("{timescale:?} {} not leading by {lead_by:.2}", fmt(get_ts_score(scores, timescale)))
+            }
+            WindowCondition::TimescaleSpreadMax { max_spread } => {
+                format!("spread>{max_spread:.2}")
+            }
+            WindowCondition::TimescaleAllMin { min_score } => format!("all<{min_score:.2}"),
+            WindowCondition::IndicatorMin { instance_id, min_score } => {
+                format!("{instance_id} {}<{min_score:.2}", fmt(get_indicator_score(indicator_scores, instance_id)))
+            }
+            WindowCondition::IndicatorMax { instance_id, max_score } => {
+                format!("{instance_id} {}>{max_score:.2}", fmt(get_indicator_score(indicator_scores, instance_id)))
+            }
+            WindowCondition::IndicatorRange { instance_id, min_score, max_score } => {
+                format!(
+                    "{instance_id} {} not in [{min_score:.2},{max_score:.2}]",
+                    fmt(get_indicator_score(indicator_scores, instance_id))
+                )
+            }
+            WindowCondition::CompositeMin { min_score } => {
+                format!("composite {:.2}<{min_score:.2}", scores.composite)
+            }
+        }
+    }
+
     /// parse a condition from a JSON value (config params format).
     pub fn from_json(value: &serde_json::Value) -> Result<Self, String> {
         let cond_type = value
@@ -242,6 +291,19 @@ pub fn all_conditions_met(
     conditions
         .iter()
         .all(|c| c.evaluate(scores, indicator_scores))
+}
+
+/// describe every failing condition, joined with "; ". empty when all pass.
+pub fn failing_conditions(
+    conditions: &[WindowCondition],
+    scores: &TimescaleScores,
+    indicator_scores: Option<&HashMap<String, Option<f64>>>,
+) -> Vec<String> {
+    conditions
+        .iter()
+        .filter(|c| !c.evaluate(scores, indicator_scores))
+        .map(|c| c.describe(scores, indicator_scores))
+        .collect()
 }
 
 /// parse multiple conditions from a JSON array in config params.

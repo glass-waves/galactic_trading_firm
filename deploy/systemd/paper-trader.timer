@@ -1,0 +1,11 @@
+[Unit]
+Description=start the paper trader before the US open (weekdays 06:10 America/Los_Angeles)
+
+[Timer]
+# system timezone is America/Los_Angeles; US DST shifts move with the market's
+OnCalendar=Mon..Fri *-*-* 06:10:00
+Unit=paper-trader.service
+Persistent=false
+
+[Install]
+WantedBy=timers.target

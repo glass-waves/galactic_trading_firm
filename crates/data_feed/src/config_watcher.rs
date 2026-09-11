@@ -58,7 +58,7 @@ impl ConfigWatcher {
         let row: Option<(i64, serde_json::Value)> = sqlx::query_as(
             "SELECT id, config_blob FROM config_versions \
              WHERE status = 'promoted' AND id > $1 \
-             ORDER BY promoted_at DESC LIMIT 1",
+             ORDER BY id DESC LIMIT 1",
         )
         .bind(self.current_version_id)
         .fetch_optional(&self.pool)
@@ -236,6 +236,7 @@ mod tests {
                 max_capital_deployed_pct: 0.15,
                 entry_cooldown_ms: 0,
                 max_daily_loss_pct: None,
+                max_position_pct: None,
             },
             ticker_overrides: std::collections::HashMap::new(),
         };
@@ -294,6 +295,7 @@ mod tests {
                 max_capital_deployed_pct: 0.15,
                 entry_cooldown_ms: 0,
                 max_daily_loss_pct: None,
+                max_position_pct: None,
             },
             ticker_overrides: std::collections::HashMap::new(),
         };

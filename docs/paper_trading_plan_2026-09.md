@@ -1,0 +1,316 @@
+# paper trading revival — status, week-1 plan, intraday agent design
+
+**written:** 2026-09-11 (friday). last substantive commit was 2026-04-30 (`eab9c2b`).
+**goal:** run the v11 config on the alpaca paper account the week of 2026-09-14, with a claude agent
+watching the live output during market hours and making config adjustments that hot-reload into the engine.
+
+this doc is the output of a full read of every crate, the migrations, the scripts, the cockpit, and the
+archived agent design. every "critical" bug below was verified by hand in source, not just reported by a subagent.
+
+---
+
+## status update — 2026-09-11 (evening)
+
+**everything in section 2 and the P0 observability list is implemented, tested, and verified against the real alpaca paper account.** 471 tests pass, clippy is clean (lib and TUI). nothing is committed yet.
+
+| item | state |
+|---|---|
+| #1 share count | fixed. engine now sizes in **whole shares** and the broker gets exactly that quantity |
+| #2 session close TZ | fixed in `session_close.rs` (US/Eastern) **and** the engine has its own force-exit safety net from `session.force_exit_by` |
+| #3 config row id | fixed. `load_config` returns the row id; trades and hot-reload keyed on it. v12 is row 6 |
+| #4 reload / shutdown orphans | fixed. reload is deferred per ticker until flat; shutdown flattens at the broker and records the trade; a 30s clock-based net flattens anything still open 2 min past `force_exit_by` |
+| #5 silent synthetic feed | fixed. no keys ⇒ startup error; `--demo` is explicit, forbidden with `alpaca_paper`, and writes `source='demo'` |
+| #6 websocket clean close | fixed. reconnects with backoff (reset after a healthy minute); per-ticker `feed_stale` flag after 3 min without a bar during hours |
+| #7 daily reset | fixed. engine resets breaker/cooldown/avoid-first on each new Eastern date, anchored to 09:30 ET; VWAP resets in the state builder; candle windows persist |
+| #8 warmup | fixed. 8 calendar days of 1-min SIP bars (lagged 16 min for the free plan, IEX fallback), RTH-filtered, paged. verified: 1,950 bars → 36 hourly candles per ticker |
+| #9 capital cap | partially. `max_position_pct` clamp added and set to 0.36 in v12; `max_concurrent_positions: 1` still the exposure bound (the dead `max_capital_deployed_pct` path is unchanged) |
+| #10 fills | recorded. `trades.broker_entry_price/broker_exit_price` now hold the real fills; engine P&L still uses bar closes (compare the two after week 1) |
+| #11 size clamp | fixed (see #9). non-finite / ≤0 fractions skip the entry |
+| extended-hours bars | new: only 09:30–16:00 ET bars reach the engine |
+| alpaca order fills | new finding + fix: alpaca's create/close responses come back `accepted` before the fill. the broker now polls the order until `filled` (15s timeout ⇒ cancel + engine rollback). verified live: create → accepted → cancel |
+| alpaca account | new finding + fix: apca 0.30 cannot parse the current `/v2/account` payload. a lenient endpoint replaces it; capital = min(`INITIAL_CAPITAL`, equity) |
+| observability | `engine_state`, `entry_block_events`, `trades.entry_reason/source`, enum values for claude agents. all landed via `migrations/20260912000001` |
+| v12 config | `migrations/20260912000002`: entries until 11:30 ET, flat by 11:55 ET, `avoid_first_minutes` 0, `max_position_pct` 0.36. everything else is v11 |
+| scripts | `update_config.sh` now uses `DATABASE_URL`, sets `promoted_at`, takes a `created_by` |
+
+**decisions made on your behalf (revisit if you disagree):**
+- v12 reproduces what v11 actually backtested (morning-only). holding to 15:55 ET is untested; run the baseline on it before choosing it.
+- `avoid_first_minutes` is 0 because the old code made it a no-op on the scored day. the engine now honours it, so any non-zero value is a strategy change to be backtested.
+- whole-share sizing changes backtest numbers slightly at small capital; it is what the broker does, so paper and backtest now agree.
+
+**still to do before monday:** commit this work; run the 20-day baseline (section 3) with the fixed binary; write the `/intraday-review` skill's first version (done: `.claude/skills/intraday-review/SKILL.md`); dry-run `/loop 15m /intraday-review` against the running trader on monday morning.
+
+---
+
+## 1. status opinion
+
+### what's good
+
+- **it builds and tests clean today** on rust 1.92: `cargo build`, `cargo test` (456 passed, 0 failed, 2 ignored), `cargo clippy -D warnings` all green.
+- **the engine core is well built.** trait-based tool belt, `catch_unwind` around every indicator, immutable config versions, per-ticker overrides, a genuinely rich backtest CLI (~70 override flags, next-bar fills, cost model, per-window attribution).
+- **alpaca paper keys in `.env` still work** (checked 2026-09-11: account ACTIVE, $100k equity, trading + data APIs both 200). no refresh needed.
+- **the TUI (`--features tui`) is complete** and is the best live view that exists.
+
+### what's not — the honest version
+
+**the live path has never actually been exercised end-to-end with the current sizing model.** the evidence is bug #1 below: in `alpaca_paper` mode every single order would be rejected for zero shares. nobody has seen a v11 trade fill on the paper account. all "making money now" claims are backtest-only.
+
+**the v11 numbers are in-sample and describe a different strategy than the one configured.**
+- six rounds of selection (v6→v11) on the same 2022–2025 window; the only hold-out script was archived.
+- "+$22,540 / 4yr" is 36% fixed-fractional sizing on the same ~1,100 trades that made +$581 at 5%. it's leverage, not alpha, and no drawdown was reported for it.
+- validated on SPY/QQQ/AAPL/MSFT; promoted config trades AMZN/QQQ/AAPL/NVDA/MSFT. NVDA was explicitly excluded from validation as an outlier, AMZN was never backtested in the full config.
+- because of bug #2, every backtest and the live engine force-flat at **11:55 ET**, not 15:55. the "validated" strategy is a morning-only strategy plus a tail of 1-bar churn trades in the afternoon.
+- nothing has been tested on may–september 2026 data.
+
+**observability for an intraday agent is close to zero.** the DB is written exactly once per *completed* trade. no heartbeat, no per-tick scores, no open-position state, no record of which entry window fired, no record of why an entry was blocked. an agent polling postgres cannot tell "quiet market" from "dead websocket" from "misconfigured gate vetoing everything".
+
+**4.5 of 22 hardening-plan items are implemented.** the ones an agent needs (health endpoint, alerting, kill switch, audit log) are all absent. there is no promotion gate: any `INSERT … status='promoted'` is live within 60s.
+
+### verdict
+
+good engine, unproven strategy, untested live plumbing. paper trading is exactly the right next step, but **week 1 is a plumbing test, not a strategy test**. treat P&L as noise until entries, fills, exits, and DB writes are shown to match the backtest of the same day.
+
+---
+
+## 2. bugs that must be fixed before monday (verified in source)
+
+| # | bug | where | effect live |
+|---|-----|-------|-------------|
+| 1 | share count divided by price twice: `shares = pos.size / last_price` but `pos.size` is already shares | `crates/data_feed/src/main.rs:354` | `alpaca_paper`: 0 shares → broker rejects → `undo_last_open` → **zero trades all week**. `simulated`: engine fine, broker qty garbage |
+| 2 | `session_close` compares the **UTC** hour to the ET-intended `"15:55"` | `crates/actions/src/exit/session_close.rs:51-53` | force-flat at 11:55 ET; entries after that close on the next bar. entry cutoff in `tick_loop.rs:337` correctly uses `US/Eastern`, so the two halves disagree |
+| 3 | `TradeWriter` and `ConfigWatcher` are seeded with the blob's `config_id` (11), not the `config_versions.id` primary key (5 on a fresh migrate) | `crates/data_feed/src/main.rs:162,165` | **every trade insert fails its FK** and is dropped; hot-reload looks for `id > 11` and never fires |
+| 4 | config hot-reload and shutdown log "force-closing position" but close nothing | `main.rs:16-20`, `main.rs:509-533` | orphaned broker positions, lost trade rows, new engine re-enters on top |
+| 5 | empty alpaca keys silently start a synthetic random-walk feed and write its trades to the real `trades` table | `main.rs:175-257` | fake data indistinguishable from real |
+| 6 | clean websocket close is treated as success; the feed task exits and the bar channel closes | `crates/data_feed/src/alpaca_feed.rs:83-86` | process stays "up", trades nothing, no alarm. no staleness watchdog exists |
+| 7 | no daily reset: session VWAP/volume accumulate across days, `daily_loss_breaker_active` latches forever, `avoid_first_minutes` counts from **process start** not 09:30 | `market_state.rs:67` never called; `tick_loop.rs:115,328,374` | multi-day runs drift; a restart at noon blocks entries until 13:00 |
+| 8 | warmup fetches only 200 **1-minute** bars (~3.3h) → ~4 hourly candles; hourly indicators need 21 | `main.rs:174-190`, `alpaca_feed.rs:183-190` | the hourly hard gate runs on `vwap_distance` alone for ~3 days; weights silently renormalize |
+| 9 | `max_capital_deployed_pct` is dead: the cap needs `total_deployed_capital` which live hardcodes `None`; each ticker engine gets the **full** account capital | `tick_loop.rs:275`, `market_state.rs:59-60`, `main.rs:130` | only `max_concurrent_positions: 1` bounds exposure. raising it to 2 = 72% notional |
+| 10 | broker fill price is never fed back; trades are recorded at raw `last_price` with zero cost | `main.rs:360-366` | live P&L is optimistic vs backtest (which charges 2–3 bps + spread + next-bar open) |
+| 11 | no position-size clamp; `fraction` is unvalidated | `fixed_fractional.rs:51-57`, `tick_loop.rs:293` | a fat-finger `3.6` drives capital negative and inverts P&L sign |
+
+also worth knowing: `BROKER_MODE` must be exactly `alpaca_paper` (not `alpaca` as CLAUDE.md says); anything else silently falls back to simulated. bid/ask are fabricated as `close ± $0.01`. `update_config.sh` never sets `promoted_at` and ignores `DATABASE_URL`. `scripts/baseline_config.json` is the dead pre-fix v3 config.
+
+### the session_close decision
+
+fixing #2 changes the strategy. options:
+
+- **(a) recommended for week 1:** fix the TZ, then set `force_exit_by: "11:55"` and `no_new_entries_after: "11:30"` in the config. this reproduces the backtested behaviour minus the afternoon churn, and matches the pre-bug-fix finding that morning-only was best.
+- **(b)** fix the TZ and keep `15:55`. this is an untested strategy; run the 2025 + 2026-ytd baseline on it first.
+
+---
+
+## 3. week-1 plan (2026-09-14 → 09-18)
+
+market hours are 09:30–16:00 ET = **06:30–13:00 PT**.
+
+### before monday (sat/sun)
+
+**P0 code fixes** — bugs 1, 2(a), 3, 4, 5, 6, 7, 8, 11. roughly one focused day. each with a unit test.
+- #4: simplest safe version is **deferred reload** — when a new config is detected, rebuild only tickers that are flat; the rest swap on their next close. shutdown must call `broker.close_position` and write the trade row with `exit_reason = config_change`/`manual_override`.
+- #8: fetch 5 trading days of 1-min bars (limit 10,000) and feed them through the aggregator so 5m and 1h windows are full at start.
+- #11: clamp `size_fraction` to `[0, max_position_pct]` in `on_tick`, with `max_position_pct` in `SessionConfig` (default 0.36 to match v11).
+- #3: `load_config` returns `(id, config)`; seed both writers with the row id.
+
+**P0 observability** — the minimum for the agent (section 4):
+1. `engine_state` table, upserted every 30s per ticker: last bar ts, last price, composite + 1m/5m/1h scores, open position (direction, entry, size, unrealized $/%, hold ms), `daily_pnl`, `loss_breaker_active`, `config_version_id`, `feed_stale`.
+2. `entry_reason TEXT` column on `trades`, plumbed from `TickResult.entry_reason` (already exists, currently dropped by `data_feed`).
+3. `entry_block_events` table (or structured log line): ticker, ts, which gate blocked (`avoid_first`, `after_cutoff`, `cooldown`, `loss_breaker`, `capacity`, `reject_gate:<name>`), scores at the time. also log near-misses: any tick where a window's `composite_min` passed but another condition failed.
+4. `source` column on `trades` (`paper` | `backtest`) so `--write-db` never pollutes the paper record.
+
+**baseline expectation** — run the backtest on the 20 trading days ending 09-11 with the fixed code and the chosen session times:
+```bash
+docker compose up -d postgres && sqlx migrate run   # or: cargo install sqlx-cli first
+cargo build -p backtest --release
+for d in <20 weekdays>; do
+  ./target/release/backtest --date "$d" --lookback-days 5 --capital 10000 \
+    --slippage-bps 3.0 --half-spread 0.005 --output-trades-csv
+done > data/baseline_pre_paper.csv
+python3 scripts/compare_exits.py data/baseline_pre_paper.csv baseline
+```
+you want trades/day, win rate, exit-reason mix, and per-ticker P&L. this is what the week gets compared against. max 2 concurrent runs (alpaca rate limit).
+
+**infra**
+- `docker compose` here is podman-emulated; `psql` and `sqlx-cli` are not installed. install `sqlx-cli` (`cargo install sqlx-cli --no-default-features --features postgres`) and `postgresql` client tools.
+- `.env`: `BROKER_MODE=alpaca_paper`, `INITIAL_CAPITAL=10000` (matches the backtest capital so P&L is comparable). consider `RUST_LOG=debug` for week 1.
+- confirm `SELECT id, status FROM config_versions` shows v11 as the only `promoted` row and note its id.
+
+### monday 09-14 — plumbing day
+
+- **06:00 PT** start `cargo run -p data_feed --release --features tui` in tmux (TUI is the only live view). check logs for `historical bars loaded` with ~1,900 bars per ticker and no `starting synthetic demo feed`.
+- watch the first entry: engine "position opened" → "broker order filled" with a sane quantity → alpaca dashboard shows the position → exit → `trades` row lands with `entry_reason` populated.
+- **13:05 PT** confirm flat on alpaca and in `engine_state`. then run `backtest --date 2026-09-14 --lookback-days 5` and diff against `SELECT * FROM trades WHERE source='paper' AND entry_fill_at::date = '2026-09-14'`. entries should match on ticker/time/direction within a bar; prices will differ (IEX feed vs SIP, same-bar vs next-bar fill).
+- if monday shows zero trades, that is *expected* on some days with this config (1 concurrent position, 30s cooldown). the `entry_block_events` table tells you whether it was a gate or a genuine no-signal.
+
+### tue–fri 09-15 → 09-18 — run + watch
+
+- same daily routine: pre-open check (06:15 PT), agent loop during hours (section 4), EOD backtest-vs-paper diff, one-paragraph note per day in `agent_memos`.
+- **do not tune the strategy on week-1 results.** with 1–5 trades/day the sample is noise. week 1 config changes are allowed only for plumbing/safety reasons (a window vetoing everything, a ticker halted, an exit misfiring).
+
+### success criteria for the week (none are P&L)
+
+- process ran every session without manual restart; feed never went silently stale.
+- every position opened at the broker with the intended share count and closed before 12:00 ET (option a) with a `trades` row.
+- zero orphaned positions on alpaca at any close.
+- paper entries match same-day backtest entries on ≥80% of trades.
+- `engine_state` heartbeat never gapped >2 min during hours.
+- at least one config hot-reload applied cleanly while flat.
+
+if all six hold, week 2 becomes the strategy test: same config, no changes, gather 20+ trades, then compare to the 20-day backtest baseline.
+
+---
+
+## 4. intraday agent — design
+
+### where it runs (this is the binding constraint)
+
+- **cloud routines** (`/schedule`) have a **1-hour minimum interval** and run in anthropic's cloud with **no access to the local postgres or the running bot**. they cannot do the intraday job. they *can* do the EOD PM cycle if the repo + a reachable DB are set up later.
+- **local session cron** (`CronCreate` / `/loop`) fires every N minutes inside a claude code session on this machine. jobs are session-only and expire after 7 days — fine for a trading week; the session must stay open in a terminal.
+- **headless** (`claude -p "<prompt>"` from a systemd user timer) is the durable version for week 2+: stateless per run, all state in postgres.
+
+**recommendation for week 1:** a second tmux pane running claude code with `/loop 15m /intraday-review`, where `/intraday-review` is a project skill (`.claude/skills/intraday-review/SKILL.md`) containing the prompt below. you're at the machine anyway, and the interactive session keeps memory of what it already changed. move to the systemd timer once the prompt has stabilised.
+
+### cadence
+
+| time (PT) | job | model |
+|---|---|---|
+| 06:15 | pre-open: process alive? bars flowing? `engine_state` fresh? hourly window full? config id as expected? push-notify if not | sonnet |
+| 06:35 → 12:55 every 15 min | watchdog + review loop (below) | sonnet; escalate to opus only when proposing a change |
+| 13:05 | EOD: confirm flat on alpaca, run same-day backtest diff, write memo, propose (not promote) any strategy change for human review | opus |
+
+### the loop prompt — what each tick does
+
+1. **health (always, fast, no LLM judgement needed):**
+   - `engine_state.updated_at` older than 3 min for any ticker during hours → WARNING; older than 6 min → CRITICAL.
+   - any open position with `hold_ms` > `max_hold_ms` + 10 min, or any position after `force_exit_by` → CRITICAL.
+   - `daily_pnl / capital` < −3% → WARNING, < −5% → CRITICAL.
+   - trade count today > 3× the 20-day baseline mean → WARNING (churn).
+   - CRITICAL → `PushNotification` to the user, write `agent_memos(memo_type='watchdog_critical')`. do **not** auto-liquidate in week 1; the human is present.
+2. **read the day so far:** trades today with `entry_reason` and exit reason; `entry_block_events` grouped by gate; current scores per ticker from `engine_state`; the promoted config and its id; memos already written today (so it doesn't repeat itself).
+3. **decide.** default is **hold steady** and write nothing. a change is proposed only if one of these evidence patterns holds:
+   - a gate is vetoing everything: e.g. `reject_1m_noise` fired on >90% of ticks where a window otherwise passed, across ≥3 tickers, for ≥90 minutes.
+   - an exit is systematically misfiring: e.g. ≥3 `hard_stop` exits today where the position was up >1% at some point (breakeven logic not doing its job).
+   - a ticker is broken: halted, feed stale for that symbol only, or 2+ broker rejections → disable the ticker (remove from `tickers`) rather than tune around it.
+   - a safety condition: drawdown warning → tighten `stop_loss_pct` or lower `max_concurrent_positions`; never loosen anything on a losing day.
+4. **validate before promoting.** for any non-safety change: run `backtest --date` for the last 5 trading days with the CLI override equivalent (2 concurrent), require P&L ≥ current config's on those days and no increase in `hard_stop` share. this takes ~3–5 min inside a 15-min window. safety changes skip validation.
+5. **apply only when flat.** check `engine_state` for open positions across all tickers; if any, write the intent to `agent_memos` and re-check next tick. when flat: insert a new `config_versions` row (`status='promoted'`, `promoted_at=now()`, `parent_version_id=<current>`, `mutation_reason` with the evidence), supersede the old row, write a memo. the engine picks it up within 60s.
+6. **log the tick** as one short memo line only when something happened (state changes, warnings, proposals). silent ticks write nothing.
+
+### guardrails (hard rules in the prompt, mirrored from the archived PM prompt)
+
+- **max 1 parameter change per tick, max 3 per day, none in the first 30 minutes after open or the last 30 before `no_new_entries_after`.**
+- **no stacking:** don't touch a parameter area while the previous change has <10 trades under it.
+- **allowed knobs:** entry-window `conditions` thresholds; `enabled` on a window or the reject gate; `stop_loss_pct`; ATR `multiplier`; `max_hold_ms` / `profit_extension_ms`; `scoring.exit_threshold`; `entry_cooldown_ms`; `no_new_entries_after`; removing a ticker; `max_concurrent_positions` **downward only**; `ticker_overrides` for `stop_loss_pct` / `atr_multiplier` / `max_hold_ms`.
+- **forbidden intraday:** sizing `fraction` (any direction); adding tickers (reload doesn't create their state builder); adding/removing indicators or changing an indicator's timescale/period (re-warms the window); `hard_gate_timescales`; `force_exit_by`; `max_concurrent_positions` upward; anything in `scoring.timescale_weights`.
+- **invariants checked before insert:** blob deserialises (run `cargo run -p engine -- --validate` or equivalent), exactly the same indicator set as parent, `session_close` enabled, every window has `composite_min` ≥ 0.20, `stop_loss_pct` ∈ [0.005, 0.05].
+- **rollback** = insert a copy of the parent blob as a *new* row (the watcher only sees `id > current`; re-promoting an old id does nothing to a running process).
+- **the agent never places or closes orders directly** in week 1. it changes config, the engine acts.
+
+### tables the agent uses
+
+- reads: `engine_state`, `trades` (+`entry_reason`, `source`), `entry_block_events`, `config_versions`, `agent_memos`, the `daily_performance` / `performance_by_exit_reason` views (note: `daily_performance.trading_day` is UTC-truncated; fine for US hours).
+- writes: `config_versions`, `agent_memos` (reuse the archived table; `memo_type` enum may need `watchdog_warning` / `watchdog_critical` / `intraday_review` values — one migration), `config_changelog` (reuse).
+- `created_by` is the `agent_type` enum with no `human`/`claude` value — add `claude_intraday` and `claude_eod` in the same migration so provenance is honest.
+
+### what not to expect
+
+with this config's trade frequency, intraday statistical tuning is not possible; a 15-minute agent that "adjusts the engine" on 2 trades of evidence is a noise amplifier. the value of the loop in week 1 is **(a)** a watchdog with judgement, **(b)** catching plumbing failures within 15 minutes instead of at EOD, **(c)** building the memo trail that the EOD/overnight PM cycle needs. real strategy iteration belongs in the EOD job, validated on multi-day backtests, and promoted for the *next* session.
+
+---
+
+## 5. things deliberately left out of week 1
+
+- implementing `AlpacaBroker` fills feeding back into the engine (bug 10) — record broker fill price alongside engine price in `trades` first, fix once you can measure the gap.
+- health HTTP endpoint / kill switch — `engine_state` + the TUI + `docker stop` cover week 1.
+- re-validating the strategy on 2026 data with option (b) session times — do it over the weekend only if the P0 list is done.
+- cockpit fixes (`/agents` empty-state text, `/backtest` reads CSVs not DB, phantom `high_water_mark` columns) — cosmetic.
+- CLAUDE.md is stale in ~a dozen places (8 actions → 12, `BROKER_MODE=alpaca` → `alpaca_paper`, "walk-forward mode", JSON config loading, test counts). worth a rewrite after the fixes land so future agents don't inherit the wrong model.
+
+---
+
+## 6. unattended operation and scheduled check-ins (added 2026-09-11 evening)
+
+### set-and-forget on this desktop
+
+user-level systemd units, installed by `deploy/systemd/install.sh` (idempotent; re-run after editing a unit).
+`loginctl enable-linger` is on, so they run without a login session and survive reboots.
+
+| unit | when (America/Los_Angeles, weekdays) | what |
+|---|---|---|
+| `trading-postgres.service` | on boot / on demand | `docker compose up -d postgres` (podman) |
+| `paper-trader.timer` → `paper-trader.service` | 06:10 | waits for postgres, runs `sqlx migrate run`, starts `target/release/paper_trader` with `.env`. SIGTERM flattens and records positions (90 s grace) |
+| `paper-trader-stop.timer` | 13:10 | stops the trader after the close so each day starts with a fresh warmup |
+| `preopen-check.timer` | 06:15 | `claude -p "/preopen-check"` (sonnet, ≤ $0.50) |
+| `intraday-review.timer` | 06:35, 06:50, then every 15 min 07:05–12:50, 13:05 | `claude -p "/intraday-review"` (sonnet, ≤ $1) — cheap short-circuit once flat after `force_exit_by` |
+| `eod-review.timer` | 13:30 | `claude -p "/eod-review"` (opus, ≤ $5): same-day backtest diff, one validated change for tomorrow or a falsifiable hold |
+
+controls: `systemctl --user status paper-trader.service`, `journalctl --user -u paper-trader.service -f`,
+`systemctl --user start eod-review.service` (run a job now), `systemctl --user disable --now intraday-review.timer` (pause a job).
+check-in transcripts append to `logs/checkins/<job>.jsonl` (one JSON per run: `result`, `total_cost_usd`, `session_id`).
+
+**before monday you must rebuild the release binary after any code change** (`cargo build --release -p data_feed -p backtest`); the service runs `target/release/paper_trader` as-is.
+
+### why systemd timers + `claude -p`, not the alternatives
+
+| option | verdict |
+|---|---|
+| cloud routines (`/schedule`) | 1-hour minimum, run in anthropic's cloud with a fresh clone: cannot reach the local postgres or the running process. fine later for an overnight research job on the repo, not for check-ins |
+| `/loop` / in-session cron | needs an open terminal session; jobs die with it and expire after 7 days |
+| systemd timer → `claude -p "/skill"` | 1-minute granularity, local DB access, survives logout/reboot, no TTY, one JSON per run. **chosen** |
+| agent SDK | only worth it if the check-in needs approval callbacks or to be embedded in a larger program. not needed |
+
+headless auth: the interactive login is not usable by non-interactive runs on this machine, so the units load
+`ANTHROPIC_API_KEY` from `.env` (console billing). to bill the subscription instead, run `claude setup-token`
+once and put the resulting `CLAUDE_CODE_OAUTH_TOKEN` in `.env` (expires after a year).
+tools are pre-approved in `.claude/settings.json` (psql, the scripts, the backtest binary, read-only alpaca
+GETs); everything else is denied, not prompted (`--permission-mode dontAsk --permission-prompts none`).
+`git push`, `rm -rf`, and `systemctl start/stop` are explicitly denied.
+
+notifications: `scripts/notify.sh <level> "<msg>"` logs to `logs/notifications.log` and, if `NOTIFY_TOPIC` is
+set in `.env`, pushes to `https://ntfy.sh/<topic>` (install the ntfy app on your phone, subscribe to a
+hard-to-guess topic name). the skills call it on WARNING/CRITICAL and for the EOD one-liner.
+
+### the prompt philosophy: bias for action without over-correcting
+
+three jobs with different authority, so "act" and "don't over-correct" are never in tension inside one prompt:
+
+- **pre-open** (`preopen-check`): verifies the day's data will be trustworthy. no config authority. acts by notifying.
+- **intraday** (`intraday-review`): watchdog with judgement. acts fast on *safety and plumbing* (stale feed, orphaned
+  position, drawdown, a gate vetoing everything, a broken ticker) and is explicitly told that today's P&L is noise.
+  strategy tuning is out of scope. max 1 change per tick, 3 per day, allowed-knob list, forbidden-knob list,
+  5-day backtest gate on non-safety changes, no changes in the first/last 30 minutes.
+- **end of day** (`eod-review`): the only job with tuning authority, and it acts on the *next* session, never a live
+  position. it must **decide something every day** — either one validated change or an explicit hold with a
+  falsifiable trigger — which keeps the bias for action without letting "hold" become inertia. guardrails against
+  over-correction: plumbing verdict before any strategy verdict (paper vs same-day backtest must match); evidence
+  thresholds stated in trades (≥ 15–20), not days or dollars; one parameter per change; 20-day backtest validation
+  with explicit pass criteria; **never correct a correction** (a change < 3 sessions old isn't re-judged until it has
+  ≥ 15 trades); fridays list candidates for the human instead of applying them.
+
+the memo table (`agent_memos`) is the shared memory between runs, so each job reads what the others decided and
+why. every config change carries `parent_version_id`, the evidence, the validation numbers, and the revert condition.
+
+### found by the first end-of-day dry run (2026-09-11 evening) and fixed
+
+the eod skill was run once against the (idle) system. it correctly refused to tune and reported three plumbing defects, all fixed the same evening:
+
+1. **the backtest replayed pre-market and overnight bars** (557–710 bars/day vs 390 in regular hours) while the live engine filters to 09:30–16:00 ET. `crates/backtest/src/alpaca_loader.rs` now filters too. **every earlier backtest number in this repo — v6 through v11 — was produced with extended-hours bars in the indicator windows**; the v12 sweep was restarted on corrected data and is the only baseline to trust from here on.
+2. the postgres image lacks the `US/Eastern` tz alias; all check-in SQL now uses `America/New_York` (rust code is unaffected: `chrono_tz::US::Eastern` is fine).
+3. no native `psql` on this host: `scripts/psql.sh` wraps psql-in-container and `update_config.sh` uses it.
+
+also: the backtest lookback is now 8 calendar days (`scripts/backtest_range.sh`, the eod skill) to match the live warmup — 5 calendar days gave only 18 hourly candles, fewer than the hourly EMA/Bollinger need.
+
+### the pre-monday sweep
+
+`scripts/run_v12_sweep.sh` (log: `data/sweep_progress.log`, ~6 h sequential to respect alpaca's free-plan rate limit):
+
+| tag | period | question |
+|---|---|---|
+| `v12` | 2026-01-02 → 09-10 | **out-of-sample** (v11 was tuned on 2022–2025). the number that matters |
+| `v12` | 2025 | in-sample comparison against the v11 claims |
+| `v12_fullday` | 2026, 2025 | is holding to 15:55 ET better than the morning-only session v11 actually tested? |
+| `v12_5pct` | 2026 | the same trades at 5 % sizing: how much of the P&L is leverage |
+| `v12_avoid30` | 2026 | does skipping the first 30 minutes (now actually enforced) help? |
+| `v12_core4` | 2026 | the validated universe (SPY/QQQ/AAPL/MSFT) vs the promoted one (AMZN/NVDA in, SPY out) |
+
+read results with `scripts/report_backtest.py --compare v12 v12_fullday v12_5pct v12_avoid30 v12_core4` and
+`scripts/report_backtest.py v12` for the per-month / ticker / window / exit breakdown.

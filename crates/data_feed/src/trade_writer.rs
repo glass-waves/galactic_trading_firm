@@ -1,22 +1,24 @@
 use engine::TradeRecord;
 use types::action::{ExitReason, TradeDirection};
-use types::scoring::TimescaleScores;
+
+use crate::live_session::TradeWithScores;
 
 /// writes completed trades to the postgres trades table.
-/// all trades are marked as paper trades (is_paper = true).
+/// all trades are marked as paper trades (is_paper = true); `source`
+/// distinguishes live paper trading from demo/synthetic runs.
 pub struct TradeWriter {
     pool: sqlx::PgPool,
-    config_version_id: i64,
+    source: String,
 }
 
-fn direction_to_str(d: &TradeDirection) -> &'static str {
+pub fn direction_to_str(d: &TradeDirection) -> &'static str {
     match d {
         TradeDirection::Long => "long",
         TradeDirection::Short => "short",
     }
 }
 
-fn exit_reason_to_str(r: &ExitReason) -> &'static str {
+pub fn exit_reason_to_str(r: &ExitReason) -> &'static str {
     match r {
         ExitReason::TrailingStop => "trailing_stop",
         ExitReason::HardStop => "hard_stop",
@@ -32,25 +34,35 @@ fn exit_reason_to_str(r: &ExitReason) -> &'static str {
 }
 
 impl TradeWriter {
-    pub fn new(pool: sqlx::PgPool, config_version_id: i64) -> Self {
+    /// `source` is written to `trades.source` ("paper" or "demo").
+    pub fn new(pool: sqlx::PgPool, source: &str) -> Self {
         Self {
             pool,
-            config_version_id,
+            source: source.to_string(),
         }
     }
 
-    pub fn set_config_version(&mut self, version_id: i64) {
-        self.config_version_id = version_id;
+    pub fn source(&self) -> &str {
+        &self.source
     }
 
     /// write a completed trade with entry and exit scores to the trades table.
-    /// returns the inserted row's id.
+    /// the trade is attributed to the config version the producing engine was
+    /// built from. returns the inserted row's id.
     pub async fn write_trade(
         &self,
-        trade: &TradeRecord,
-        entry_scores: &TimescaleScores,
-        exit_scores: &TimescaleScores,
+        tws: &TradeWithScores,
+        broker_exit_price: Option<f64>,
     ) -> Result<i64, sqlx::Error> {
+        let trade: &TradeRecord = &tws.trade;
+        let entry_scores = &tws.entry_scores;
+        let exit_scores = &tws.exit_scores;
+        let entry_reason = if tws.entry_reason.is_empty() {
+            None
+        } else {
+            Some(tws.entry_reason.as_str())
+        };
+
         let row: (i64,) = sqlx::query_as(
             r#"
             INSERT INTO trades (
@@ -62,7 +74,7 @@ impl TradeWriter {
                 entry_score_daily, entry_score_monthly, entry_score_composite,
                 exit_score_1min, exit_score_5min, exit_score_hourly,
                 exit_score_daily, exit_score_monthly, exit_score_composite,
-                is_paper
+                is_paper, entry_reason, source, broker_entry_price, broker_exit_price
             ) VALUES (
                 $1, $2::trade_direction, $3, $4, $5,
                 $6, $7, $8, $9,
@@ -70,7 +82,7 @@ impl TradeWriter {
                 $14,
                 $15, $16, $17, $18, $19, $20,
                 $21, $22, $23, $24, $25, $26,
-                true
+                true, $27, $28, $29, $30
             ) RETURNING id
             "#,
         )
@@ -79,15 +91,15 @@ impl TradeWriter {
         .bind(trade.entry_price)
         .bind(trade.exit_price)
         .bind(trade.size)
-        .bind(trade.entry_time)  // entry_signal_at
-        .bind(trade.entry_time)  // entry_fill_at (same for paper trading)
-        .bind(trade.exit_time)   // exit_signal_at
-        .bind(trade.exit_time)   // exit_fill_at (same for paper trading)
+        .bind(trade.entry_time) // entry_signal_at
+        .bind(trade.entry_time) // entry_fill_at (same bar for paper trading)
+        .bind(trade.exit_time) // exit_signal_at
+        .bind(trade.exit_time) // exit_fill_at
         .bind(trade.pnl)
         .bind(trade.pnl_pct)
         .bind(trade.hold_duration_ms)
         .bind(exit_reason_to_str(&trade.exit_reason))
-        .bind(self.config_version_id)
+        .bind(tws.config_version_id)
         .bind(entry_scores.one_minute)
         .bind(entry_scores.five_minute)
         .bind(entry_scores.one_hour)
@@ -100,6 +112,10 @@ impl TradeWriter {
         .bind(exit_scores.one_day)
         .bind(exit_scores.one_month)
         .bind(exit_scores.composite)
+        .bind(entry_reason)
+        .bind(&self.source)
+        .bind(tws.broker_entry_price)
+        .bind(broker_exit_price)
         .fetch_one(&self.pool)
         .await?;
 
@@ -114,16 +130,8 @@ mod tests {
     #[tokio::test]
     async fn trade_writer_construction() {
         let pool = sqlx::PgPool::connect_lazy("postgres://localhost/test").unwrap();
-        let writer = TradeWriter::new(pool, 42);
-        assert_eq!(writer.config_version_id, 42);
-    }
-
-    #[tokio::test]
-    async fn set_config_version() {
-        let pool = sqlx::PgPool::connect_lazy("postgres://localhost/test").unwrap();
-        let mut writer = TradeWriter::new(pool, 1);
-        writer.set_config_version(99);
-        assert_eq!(writer.config_version_id, 99);
+        let writer = TradeWriter::new(pool, "paper");
+        assert_eq!(writer.source(), "paper");
     }
 
     #[test]
@@ -142,5 +150,7 @@ mod tests {
         assert_eq!(exit_reason_to_str(&ExitReason::FilterAlignment), "filter_alignment");
         assert_eq!(exit_reason_to_str(&ExitReason::ManualOverride), "manual_override");
         assert_eq!(exit_reason_to_str(&ExitReason::ConfigChange), "config_change");
+        assert_eq!(exit_reason_to_str(&ExitReason::ScoreExit), "score_exit");
+        assert_eq!(exit_reason_to_str(&ExitReason::DailyLossLimit), "daily_loss_limit");
     }
 }

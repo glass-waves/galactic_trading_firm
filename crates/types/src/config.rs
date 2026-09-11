@@ -156,6 +156,12 @@ pub struct SessionConfig {
     /// block new entries for the rest of the session.
     #[serde(default)]
     pub max_daily_loss_pct: Option<f64>,
+
+    /// hard cap on a single position as a fraction of available capital.
+    /// applied after sizing actions; `None` means clamp to 1.0 (never exceed
+    /// available capital). this is a safety clamp, not a sizing knob.
+    #[serde(default)]
+    pub max_position_pct: Option<f64>,
 }
 
 impl SessionConfig {
@@ -246,6 +252,7 @@ mod tests {
                 max_capital_deployed_pct: 0.15,
                 entry_cooldown_ms: 0,
                 max_daily_loss_pct: None,
+                max_position_pct: None,
             },
             ticker_overrides: HashMap::new(),
         };

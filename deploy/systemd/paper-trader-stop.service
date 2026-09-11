@@ -1,0 +1,6 @@
+[Unit]
+Description=stop the paper trader after the US close (flattens anything still open)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/systemctl --user stop paper-trader.service

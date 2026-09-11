@@ -1,0 +1,8 @@
+[Unit]
+Description=pre-open readiness check (weekdays 06:15 America/Los_Angeles)
+[Timer]
+OnCalendar=Mon..Fri *-*-* 06:15:00
+Unit=preopen-check.service
+Persistent=false
+[Install]
+WantedBy=timers.target

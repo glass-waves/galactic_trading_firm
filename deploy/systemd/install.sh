@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# install (or refresh) the user-level systemd units for unattended paper trading.
+# idempotent. run from anywhere. requires: podman socket, docker-compose shim,
+# ~/.cargo/bin/sqlx, a release build (cargo build --release -p data_feed).
+set -euo pipefail
+HERE="$(cd "$(dirname "$0")" && pwd)"
+DEST="$HOME/.config/systemd/user"
+mkdir -p "$DEST"
+for f in "$HERE"/*.service "$HERE"/*.timer; do
+    install -m 0644 "$f" "$DEST/$(basename "$f")"
+done
+systemctl --user daemon-reload
+systemctl --user enable --now podman.socket
+systemctl --user enable trading-postgres.service
+systemctl --user enable --now paper-trader.timer paper-trader-stop.timer preopen-check.timer intraday-review.timer eod-review.timer
+# keep user services alive without an interactive login (survives logout / reboot)
+loginctl enable-linger "$USER" || echo "warning: could not enable linger (run: sudo loginctl enable-linger $USER)"
+echo
+systemctl --user list-timers --all --no-pager | grep -E "paper-trader|preopen|intraday|eod|NEXT" || true
+echo
+echo "units installed. manual controls:"
+echo "  systemctl --user start|stop|status paper-trader.service"
+echo "  journalctl --user -u paper-trader.service -f"
+echo "  systemctl --user start intraday-review.service   # run a check-in now; output in logs/checkins/"

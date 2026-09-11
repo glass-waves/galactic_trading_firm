@@ -73,6 +73,8 @@ struct ConfigOverrides {
     // session overrides
     tickers_override: Option<String>,
     no_new_entries_after: Option<String>,
+    /// override session.force_exit_by (HH:MM US/Eastern) and the session_close action param.
+    force_exit_by: Option<String>,
     // per-ticker overrides: --ticker-override "NVDA:entry_threshold=0.35,stop_loss_pct=0.03"
     ticker_overrides: HashMap<String, types::config::TickerOverrides>,
     // entry windows: --use-entry-windows [--only-window NAME] [--disable-window NAME]
@@ -130,6 +132,7 @@ impl ConfigOverrides {
             || self.score_scaled_max.is_some()
             || self.add_rvol_weight.is_some()
             || self.avoid_first_minutes.is_some()
+            || self.force_exit_by.is_some()
             || self.max_concurrent_positions.is_some()
             || self.entry_threshold.is_some()
             || self.exit_threshold.is_some()
@@ -702,6 +705,7 @@ fn parse_overrides(args: &[String]) -> ConfigOverrides {
         extra_indicators,
         tickers_override: get_arg(args, "--tickers"),
         no_new_entries_after: get_arg(args, "--no-new-entries-after"),
+        force_exit_by: get_arg(args, "--force-exit-by"),
         ticker_overrides: parse_ticker_overrides(args),
         use_entry_windows: args.iter().any(|a| a == "--use-entry-windows"),
         only_window: get_arg(args, "--only-window"),
@@ -874,6 +878,16 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
     }
 
     // session time override
+    if let Some(ref time) = overrides.force_exit_by {
+        config.session.force_exit_by = time.clone();
+        for action in &mut config.actions {
+            if action.action_type == "session_close" {
+                action
+                    .params
+                    .insert("force_exit_by".to_string(), serde_json::json!(time));
+            }
+        }
+    }
     if let Some(ref time) = overrides.no_new_entries_after {
         config.session.no_new_entries_after = time.clone();
     }
@@ -1021,6 +1035,7 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
                         config_version_id,
                         &filtered_trades,
                         &filtered_scores,
+                        &filtered_reasons,
                     )
                     .await
                     {

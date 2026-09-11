@@ -1,0 +1,10 @@
+[Unit]
+Description=stop the paper trader after the US close (weekdays 13:10 America/Los_Angeles)
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 13:10:00
+Unit=paper-trader-stop.service
+Persistent=false
+
+[Install]
+WantedBy=timers.target

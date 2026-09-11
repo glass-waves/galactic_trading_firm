@@ -1,11 +1,21 @@
+use chrono::Timelike;
 use types::action::{Action, ActionConfig, ActionPhase, ActionSignal, ExitReason, Position};
 use types::market::MarketState;
 use types::scoring::TimescaleScores;
 
+/// force-exit any open position once the exchange-local (US/Eastern) clock
+/// reaches `force_exit_by`. timestamps on `MarketState` are UTC; they are
+/// converted to Eastern before comparing, matching the entry cutoff in the engine.
 #[allow(dead_code)]
 pub struct SessionCloseExit {
-    force_exit_by: String, // "HH:MM" format
+    force_exit_by: String, // "HH:MM" format, US/Eastern
     instance_id: String,
+}
+
+/// minutes since midnight in US/Eastern for a UTC timestamp.
+pub fn eastern_minutes(ts: chrono::DateTime<chrono::Utc>) -> u32 {
+    let local = ts.with_timezone(&chrono_tz::US::Eastern);
+    local.hour() * 60 + local.minute()
 }
 
 impl SessionCloseExit {
@@ -48,9 +58,7 @@ impl Action for SessionCloseExit {
         }
 
         if let Some((exit_hour, exit_min)) = self.parse_hm() {
-            let ts = market.timestamp;
-            let current_minutes = ts.format("%H").to_string().parse::<u32>().unwrap_or(0) * 60
-                + ts.format("%M").to_string().parse::<u32>().unwrap_or(0);
+            let current_minutes = eastern_minutes(market.timestamp);
             let exit_minutes = exit_hour * 60 + exit_min;
 
             if current_minutes >= exit_minutes {

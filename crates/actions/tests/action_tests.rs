@@ -201,8 +201,8 @@ fn fixed_pct_holds_within_tolerance() {
 fn session_close_exits_after_time() {
     let action = SessionCloseExit::new("15:55".to_string(), "sc1".into());
     let mut ms = make_market_state(Timescale::FiveMinute, &[100.0]);
-    // set timestamp to 15:56 UTC
-    ms.timestamp = Utc.with_ymd_and_hms(2024, 1, 15, 15, 56, 0).unwrap();
+    // 20:56 UTC on 2024-01-15 = 15:56 US/Eastern (EST, UTC-5)
+    ms.timestamp = Utc.with_ymd_and_hms(2024, 1, 15, 20, 56, 0).unwrap();
     let pos = long_position(100.0, 100.5, 100.5);
     let scores = default_scores(0.5);
     match action.evaluate(Some(&pos), &ms, &scores) {
@@ -215,9 +215,35 @@ fn session_close_exits_after_time() {
 fn session_close_holds_before_time() {
     let action = SessionCloseExit::new("15:55".to_string(), "sc1".into());
     let mut ms = make_market_state(Timescale::FiveMinute, &[100.0]);
-    ms.timestamp = Utc.with_ymd_and_hms(2024, 1, 15, 14, 30, 0).unwrap();
+    // 19:30 UTC = 14:30 US/Eastern in January
+    ms.timestamp = Utc.with_ymd_and_hms(2024, 1, 15, 19, 30, 0).unwrap();
     let pos = long_position(100.0, 100.5, 100.5);
     let scores = default_scores(0.5);
+    assert!(matches!(action.evaluate(Some(&pos), &ms, &scores), ActionSignal::Hold));
+}
+
+#[test]
+fn session_close_compares_eastern_not_utc() {
+    // regression: 15:56 UTC is 10:56 ET in january — must NOT exit.
+    let action = SessionCloseExit::new("15:55".to_string(), "sc1".into());
+    let mut ms = make_market_state(Timescale::FiveMinute, &[100.0]);
+    ms.timestamp = Utc.with_ymd_and_hms(2024, 1, 15, 15, 56, 0).unwrap();
+    let pos = long_position(100.0, 100.5, 100.5);
+    let scores = default_scores(0.5);
+    assert!(matches!(action.evaluate(Some(&pos), &ms, &scores), ActionSignal::Hold));
+}
+
+#[test]
+fn session_close_handles_daylight_saving() {
+    // 19:56 UTC on 2024-07-15 = 15:56 US/Eastern (EDT, UTC-4)
+    let action = SessionCloseExit::new("15:55".to_string(), "sc1".into());
+    let mut ms = make_market_state(Timescale::FiveMinute, &[100.0]);
+    ms.timestamp = Utc.with_ymd_and_hms(2024, 7, 15, 19, 56, 0).unwrap();
+    let pos = long_position(100.0, 100.5, 100.5);
+    let scores = default_scores(0.5);
+    assert!(matches!(action.evaluate(Some(&pos), &ms, &scores), ActionSignal::Exit { .. }));
+    // and 19:54 UTC = 15:54 EDT holds
+    ms.timestamp = Utc.with_ymd_and_hms(2024, 7, 15, 19, 54, 0).unwrap();
     assert!(matches!(action.evaluate(Some(&pos), &ms, &scores), ActionSignal::Hold));
 }
 

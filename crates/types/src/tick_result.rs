@@ -23,6 +23,16 @@ pub struct TickResult {
     pub event: TickEvent,
     /// entry reason string (e.g. "window:candle_reversal"). only populated on PositionOpened.
     pub entry_reason: String,
+    /// why no entry was evaluated this tick, when flat and blocked by a session
+    /// gate or a reject gate (e.g. "avoid_first_minutes", "reject_gate:1m noise filter").
+    /// `None` when in a position, when an entry fired, or when windows were
+    /// evaluated and simply did not fire.
+    pub entry_blocked_by: Option<String>,
+    /// when flat, unblocked, and no window fired: a compact description of the
+    /// closest windows and which conditions failed, e.g.
+    /// "5m thrust: FiveMinute 0.31<0.50 | strong core: OneHour 0.12<0.30".
+    /// only populated when at least one window's composite floor was met.
+    pub near_miss: Option<String>,
 }
 
 #[cfg(test)]
@@ -35,6 +45,8 @@ mod tests {
             scores: TimescaleScores::default(),
             event: TickEvent::Nothing,
             entry_reason: String::new(),
+            entry_blocked_by: None,
+            near_miss: None,
         };
         assert!(matches!(result.event, TickEvent::Nothing));
         assert!((result.scores.composite - 0.0).abs() < f64::EPSILON);
@@ -50,6 +62,8 @@ mod tests {
             },
             event: TickEvent::PositionOpened,
             entry_reason: "window:5m_thrust".to_string(),
+            entry_blocked_by: None,
+            near_miss: None,
         };
         assert!(matches!(result.event, TickEvent::PositionOpened));
         assert_eq!(result.scores.five_minute, Some(0.7));
@@ -65,6 +79,8 @@ mod tests {
             },
             event: TickEvent::PositionClosed,
             entry_reason: String::new(),
+            entry_blocked_by: None,
+            near_miss: None,
         };
         assert!(matches!(result.event, TickEvent::PositionClosed));
     }
@@ -80,6 +96,8 @@ mod tests {
             },
             event: TickEvent::PositionOpened,
             entry_reason: "score_threshold".to_string(),
+            entry_blocked_by: None,
+            near_miss: None,
         };
         let cloned = result.clone();
         assert_eq!(cloned.scores.one_minute, Some(0.3));

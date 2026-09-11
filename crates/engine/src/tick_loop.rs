@@ -1,7 +1,8 @@
 use std::collections::HashMap;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 
-use chrono::{DateTime, Timelike, Utc};
+use actions::exit::session_close::eastern_minutes;
+use chrono::{DateTime, NaiveDate, TimeZone, Timelike, Utc};
 use tracing::warn;
 use types::action::{Action, ActionSignal, ExitReason, TradeDirection};
 use types::config::SessionConfig;
@@ -32,7 +33,10 @@ pub struct TradingEngine {
     fill_price_override: Option<f64>,
     /// session constraints (avoid_first_minutes, no_new_entries_after, cooldown, circuit breaker).
     session_config: Option<SessionConfig>,
-    /// timestamp of the first tick seen (for avoid_first_minutes).
+    /// exchange-local (US/Eastern) calendar date of the current trading session.
+    /// when a tick arrives with a different date, per-day state is reset.
+    current_session_date: Option<NaiveDate>,
+    /// 09:30 US/Eastern of the current session date, in UTC (for avoid_first_minutes).
     session_start_time: Option<DateTime<Utc>>,
     /// timestamp when the last position was closed (for re-entry cooldown).
     last_exit_time: Option<DateTime<Utc>>,
@@ -91,6 +95,7 @@ impl TradingEngine {
             completed_trades: Vec::new(),
             fill_price_override: None,
             session_config,
+            current_session_date: None,
             session_start_time: None,
             last_exit_time: None,
             cumulative_realized_pnl: 0.0,
@@ -111,9 +116,15 @@ impl TradingEngine {
     /// process a single tick. never panics — indicator failures are caught and logged.
     /// returns a TickResult with computed scores and what event occurred.
     pub fn on_tick(&mut self, market: &mut MarketState) -> TickResult {
-        // track session start time
-        if self.session_start_time.is_none() {
-            self.session_start_time = Some(market.timestamp);
+        // 0. detect a new trading day (US/Eastern) and reset per-day state.
+        //    this makes avoid_first_minutes count from the 09:30 open rather than
+        //    from process start, and makes the daily loss breaker actually daily.
+        let et_date = market
+            .timestamp
+            .with_timezone(&chrono_tz::US::Eastern)
+            .date_naive();
+        if self.current_session_date != Some(et_date) {
+            self.start_new_session(et_date, market.timestamp);
         }
 
         // 1. inject position context from current (stale) position state
@@ -171,8 +182,37 @@ impl TradingEngine {
         // 6. evaluate actions based on position state
         let fill_price = self.fill_price_override.unwrap_or(market.last_price);
         let mut entry_reason_out = String::new();
+        let mut blocked_by_out: Option<String> = None;
+        let mut near_miss_out: Option<String> = None;
 
         let event = if self.position_manager.has_position() {
+            // session force-exit safety net: independent of whether a
+            // session_close action is configured, never hold past force_exit_by (ET).
+            if let Some(cutoff) = self
+                .session_config
+                .as_ref()
+                .and_then(|sc| sc.force_exit_by_minutes())
+            {
+                if eastern_minutes(market.timestamp) >= cutoff {
+                    if let Some(trade) = self.position_manager.close_position(
+                        fill_price,
+                        market.timestamp,
+                        ExitReason::SessionClose,
+                    ) {
+                        self.available_capital += trade.size * trade.entry_price + trade.pnl;
+                        self.record_exit(&trade, market.timestamp);
+                        self.completed_trades.push(trade);
+                        return TickResult {
+                            scores,
+                            event: TickEvent::PositionClosed,
+                            entry_reason: String::new(),
+                            entry_blocked_by: None,
+                            near_miss: None,
+                        };
+                    }
+                }
+            }
+
             // check score-based exit first (before action-based exits)
             // uses per-window override if active, otherwise config default
             if scores.composite <= self.active_score_exit_threshold {
@@ -193,7 +233,13 @@ impl TradingEngine {
                         self.available_capital += trade.size * trade.entry_price + trade.pnl;
                         self.record_exit(&trade, market.timestamp);
                         self.completed_trades.push(trade);
-                        return TickResult { scores, event: TickEvent::PositionClosed, entry_reason: String::new() };
+                        return TickResult {
+                            scores,
+                            event: TickEvent::PositionClosed,
+                            entry_reason: String::new(),
+                            entry_blocked_by: None,
+                            near_miss: None,
+                        };
                     }
                 }
             }
@@ -236,8 +282,14 @@ impl TradingEngine {
             exit_event
         } else {
             // no position — check if entries are allowed
-            if self.is_entry_blocked(market) {
-                return TickResult { scores, event: TickEvent::Nothing, entry_reason: String::new() };
+            if let Some(reason) = self.entry_block_reason(market) {
+                return TickResult {
+                    scores,
+                    event: TickEvent::Nothing,
+                    entry_reason: String::new(),
+                    entry_blocked_by: Some(reason.to_string()),
+                    near_miss: None,
+                };
             }
 
             // check entry actions (sorted by priority — reject gates first, then windows)
@@ -245,7 +297,9 @@ impl TradingEngine {
             for action in &self.entry_actions {
                 let signal = action.evaluate(None, market, &scores);
                 if matches!(signal, ActionSignal::RejectEntry) {
-                    break; // reject gate fired — no entry this tick
+                    // reject gate fired — no entry this tick
+                    blocked_by_out = Some(format!("reject_gate:{}", action.name()));
+                    break;
                 }
                 if let ActionSignal::Enter {
                     direction,
@@ -290,45 +344,140 @@ impl TradingEngine {
                         }
                     }
 
-                    let position_dollars = size_fraction * self.available_capital;
-                    let num_shares = position_dollars / fill_price;
-                    let _ = self.position_manager.open_position(
-                        self.ticker.clone(),
-                        direction,
-                        fill_price,
-                        num_shares,
-                        market.timestamp,
-                    );
-                    self.available_capital -= position_dollars;
-                    entry_event = TickEvent::PositionOpened;
-                    entry_reason_out = reason;
+                    // hard safety clamp on position size, independent of sizing actions.
+                    // a mis-set fraction must never drive available_capital negative.
+                    let max_pos = self
+                        .session_config
+                        .as_ref()
+                        .and_then(|sc| sc.max_position_pct)
+                        .unwrap_or(1.0)
+                        .clamp(0.0, 1.0);
+                    if !size_fraction.is_finite() || size_fraction <= 0.0 {
+                        warn!(
+                            ticker = %self.ticker,
+                            size_fraction,
+                            "sizing produced a non-positive fraction, skipping entry"
+                        );
+                        break;
+                    }
+                    if size_fraction > max_pos {
+                        warn!(
+                            ticker = %self.ticker,
+                            requested = size_fraction,
+                            clamped_to = max_pos,
+                            "size_fraction exceeds max_position_pct, clamping"
+                        );
+                        size_fraction = max_pos;
+                    }
+                    if fill_price <= 0.0 || !fill_price.is_finite() || self.available_capital <= 0.0 {
+                        warn!(
+                            ticker = %self.ticker,
+                            fill_price,
+                            available_capital = self.available_capital,
+                            "cannot size position, skipping entry"
+                        );
+                        break;
+                    }
+
+                    // whole shares only — this is what the broker will actually fill,
+                    // so the engine's P&L must be computed on the same quantity.
+                    let requested_dollars = size_fraction * self.available_capital;
+                    let num_shares = (requested_dollars / fill_price).floor();
+                    if num_shares < 1.0 {
+                        warn!(
+                            ticker = %self.ticker,
+                            requested_dollars,
+                            fill_price,
+                            "position would be less than one share, skipping entry"
+                        );
+                        break;
+                    }
+                    let position_dollars = num_shares * fill_price;
+                    if self
+                        .position_manager
+                        .open_position(
+                            self.ticker.clone(),
+                            direction,
+                            fill_price,
+                            num_shares,
+                            market.timestamp,
+                        )
+                        .is_ok()
+                    {
+                        self.available_capital -= position_dollars;
+                        entry_event = TickEvent::PositionOpened;
+                        entry_reason_out = reason;
+                    }
                     break;
+                }
+            }
+
+            // no entry and no gate: ask entry actions why (near-miss diagnostics)
+            if matches!(entry_event, TickEvent::Nothing) && blocked_by_out.is_none() {
+                let parts: Vec<String> = self
+                    .entry_actions
+                    .iter()
+                    .filter_map(|a| a.diagnose(market, &scores))
+                    .collect();
+                if !parts.is_empty() {
+                    near_miss_out = Some(parts.join(" | "));
                 }
             }
             entry_event
         };
 
-        TickResult { scores, event, entry_reason: entry_reason_out }
+        TickResult {
+            scores,
+            event,
+            entry_reason: entry_reason_out,
+            entry_blocked_by: blocked_by_out,
+            near_miss: near_miss_out,
+        }
     }
 
-    /// check all entry-blocking conditions.
-    fn is_entry_blocked(&self, market: &MarketState) -> bool {
+    /// reset per-day state at the first tick of a new exchange-local trading day.
+    fn start_new_session(&mut self, et_date: NaiveDate, tick_ts: DateTime<Utc>) {
+        let open = et_date
+            .and_hms_opt(9, 30, 0)
+            .and_then(|naive| chrono_tz::US::Eastern.from_local_datetime(&naive).single())
+            .map(|dt| dt.with_timezone(&Utc))
+            .unwrap_or(tick_ts);
+        if self.current_session_date.is_some() {
+            tracing::info!(
+                ticker = %self.ticker,
+                date = %et_date,
+                realized_pnl_prev_day = self.cumulative_realized_pnl,
+                breaker_was_active = self.daily_loss_breaker_active,
+                "new trading session, resetting daily state"
+            );
+        }
+        self.current_session_date = Some(et_date);
+        self.session_start_time = Some(open);
+        self.cumulative_realized_pnl = 0.0;
+        self.daily_loss_breaker_active = false;
+        self.last_exit_time = None;
+    }
+
+    /// check all entry-blocking conditions. returns the first gate that blocks,
+    /// or `None` when entries may be evaluated.
+    pub fn entry_block_reason(&self, market: &MarketState) -> Option<&'static str> {
         // entries_blocked flag from cross-ticker position limit
         if market.entries_blocked {
-            return true;
+            return Some("entries_blocked");
         }
 
         // daily loss circuit breaker
         if self.daily_loss_breaker_active {
-            return true;
+            return Some("daily_loss_breaker");
         }
 
         if let Some(ref sc) = self.session_config {
-            // avoid_first_minutes
+            // avoid_first_minutes — measured from the 09:30 ET open of the
+            // current session. pre-open ticks have negative elapsed and are blocked.
             if let Some(start) = self.session_start_time {
                 let elapsed = (market.timestamp - start).num_minutes();
                 if elapsed < sc.avoid_first_minutes as i64 {
-                    return true;
+                    return Some("avoid_first_minutes");
                 }
             }
 
@@ -338,7 +487,7 @@ impl TradingEngine {
                 let local = market.timestamp.with_timezone(&eastern);
                 let current_minutes = local.hour() * 60 + local.minute();
                 if current_minutes >= cutoff {
-                    return true;
+                    return Some("no_new_entries_after");
                 }
             }
 
@@ -347,13 +496,13 @@ impl TradingEngine {
                 if let Some(last_exit) = self.last_exit_time {
                     let elapsed = (market.timestamp - last_exit).num_milliseconds();
                     if elapsed < sc.entry_cooldown_ms {
-                        return true;
+                        return Some("entry_cooldown");
                     }
                 }
             }
         }
 
-        false
+        None
     }
 
     /// record state changes after a position exits.
@@ -465,5 +614,15 @@ impl TradingEngine {
     /// whether the daily loss circuit breaker has been triggered.
     pub fn is_daily_loss_breaker_active(&self) -> bool {
         self.daily_loss_breaker_active
+    }
+
+    /// exchange-local date of the session the engine is currently in, if any tick has been seen.
+    pub fn current_session_date(&self) -> Option<NaiveDate> {
+        self.current_session_date
+    }
+
+    /// the engine's ticker symbol.
+    pub fn ticker(&self) -> &str {
+        &self.ticker
     }
 }

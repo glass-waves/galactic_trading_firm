@@ -91,6 +91,15 @@ pub trait Action: Send + Sync {
         market: &MarketState,
         scores: &TimescaleScores,
     ) -> ActionSignal;
+
+    /// optional diagnostics for entry actions: when the action did NOT fire,
+    /// return a short human-readable list of the conditions that failed
+    /// (e.g. "FiveMinute 0.31<0.50"). return `None` when there is nothing
+    /// useful to say (default), or when the action is not "close" to firing.
+    /// used by the engine to populate `TickResult::near_miss` for observability.
+    fn diagnose(&self, _market: &MarketState, _scores: &TimescaleScores) -> Option<String> {
+        None
+    }
 }
 
 /// when in the trade lifecycle an action is relevant.

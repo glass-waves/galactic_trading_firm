@@ -5,6 +5,8 @@ use tokio::sync::mpsc;
 use tracing::{error, info, warn};
 use types::market::Candle;
 
+use crate::session_clock::is_regular_hours;
+
 /// a bar event received from the data feed.
 #[derive(Debug, Clone)]
 pub struct BarEvent {
@@ -78,18 +80,31 @@ impl AlpacaFeed {
 
         loop {
             info!(symbols = ?self.symbols, "connecting to alpaca data stream");
+            let connected_at = std::time::Instant::now();
 
-            match self.run_stream(&client, &tx).await {
-                Ok(()) => {
-                    info!("stream ended cleanly");
+            let outcome = self.run_stream(&client, &tx).await;
+
+            // a connection that lived a while earns a fresh backoff schedule
+            if connected_at.elapsed() > std::time::Duration::from_secs(60) {
+                backoff_ms = 1000;
+            }
+
+            match outcome {
+                Ok(StreamEnd::ChannelClosed) => {
+                    info!("bar channel closed, stopping stream");
                     break Ok(());
+                }
+                Ok(StreamEnd::ServerClosed) => {
+                    // alpaca closes idle/rotated connections without an error frame.
+                    // this is a disconnect, not a shutdown — reconnect.
+                    warn!(backoff_ms, "stream closed by server, reconnecting");
                 }
                 Err(e) => {
                     warn!(error = %e, backoff_ms, "stream disconnected, reconnecting");
-                    tokio::time::sleep(tokio::time::Duration::from_millis(backoff_ms)).await;
-                    backoff_ms = (backoff_ms * 2).min(max_backoff_ms);
                 }
             }
+            tokio::time::sleep(tokio::time::Duration::from_millis(backoff_ms)).await;
+            backoff_ms = (backoff_ms * 2).min(max_backoff_ms);
         }
     }
 
@@ -97,7 +112,7 @@ impl AlpacaFeed {
         &self,
         client: &apca::Client,
         tx: &mpsc::Sender<BarEvent>,
-    ) -> Result<(), DataFeedError> {
+    ) -> Result<StreamEnd, DataFeedError> {
         use apca::data::v2::stream;
         use futures::StreamExt;
 
@@ -140,8 +155,7 @@ impl AlpacaFeed {
                     };
 
                     if tx.send(event).await.is_err() {
-                        info!("bar channel closed, stopping stream");
-                        return Ok(());
+                        return Ok(StreamEnd::ChannelClosed);
                     }
                 }
                 Ok(Ok(_)) => {
@@ -157,17 +171,19 @@ impl AlpacaFeed {
             }
         }
 
-        Ok(())
+        Ok(StreamEnd::ServerClosed)
     }
 
-    /// fetch historical bars for bootstrapping indicator lookback windows.
-    /// lookback is the number of minutes of data to fetch.
+    /// fetch historical 1-minute bars covering the last `lookback_days` calendar
+    /// days, restricted to regular trading hours, oldest first. paginates the
+    /// alpaca response so multi-day windows are complete. used to warm the
+    /// 5-minute and hourly candle windows at startup (hourly indicators need
+    /// ~21 hourly candles ≈ 3+ trading days).
     pub async fn fetch_historical_bars(
         &self,
         symbol: &str,
-        lookback: usize,
+        lookback_days: i64,
     ) -> Result<Vec<Candle>, DataFeedError> {
-        use apca::data::v2::bars;
         use apca::ApiInfo;
         use apca::Client;
 
@@ -180,35 +196,74 @@ impl AlpacaFeed {
 
         let client = Client::new(api_info);
 
-        let end = Utc::now();
-        let start = end - chrono::Duration::minutes(lookback as i64);
+        // the free data plan refuses consolidated (SIP) bars from the last 15
+        // minutes. lag the window so SIP works; if the plan still refuses,
+        // fall back to IEX (the same feed the live stream uses).
+        let end = Utc::now() - chrono::Duration::minutes(16);
+        let start = end - chrono::Duration::days(lookback_days);
 
-        let req = bars::ListReqInit {
-            limit: Some(lookback),
-            ..Default::default()
+        match Self::fetch_bars_paged(&client, symbol, start, end, None).await {
+            Ok(c) => Ok(c),
+            Err(sip_err) => {
+                warn!(symbol, error = %sip_err, "SIP historical bars unavailable, retrying with IEX feed");
+                Self::fetch_bars_paged(&client, symbol, start, end, Some(apca::data::v2::Feed::IEX)).await
+            }
         }
-        .init(symbol, start, end, bars::TimeFrame::OneMinute);
+    }
 
-        let response = client
-            .issue::<bars::List>(&req)
-            .await
-            .map_err(|e| DataFeedError::HistoricalFetchError(format!("{e}")))?;
+    async fn fetch_bars_paged(
+        client: &apca::Client,
+        symbol: &str,
+        start: chrono::DateTime<Utc>,
+        end: chrono::DateTime<Utc>,
+        feed: Option<apca::data::v2::Feed>,
+    ) -> Result<Vec<Candle>, DataFeedError> {
+        use apca::data::v2::bars;
 
-        let candles: Vec<Candle> = response
-            .bars
-            .iter()
-            .map(|bar| Candle {
+        let mut candles: Vec<Candle> = Vec::new();
+        let mut page_token: Option<String> = None;
+        for _page in 0..20 {
+            let req = bars::ListReqInit {
+                limit: Some(10_000),
+                page_token: page_token.take(),
+                feed,
+                ..Default::default()
+            }
+            .init(symbol, start, end, bars::TimeFrame::OneMinute);
+
+            let response = client
+                .issue::<bars::List>(&req)
+                .await
+                .map_err(|e| DataFeedError::HistoricalFetchError(format!("{e:?}")))?;
+
+            candles.extend(response.bars.iter().map(|bar| Candle {
                 timestamp: bar.time,
                 open: num_to_f64(&bar.open),
                 high: num_to_f64(&bar.high),
                 low: num_to_f64(&bar.low),
                 close: num_to_f64(&bar.close),
                 volume: bar.volume as f64,
-            })
-            .collect();
+            }));
 
+            match response.next_page_token {
+                Some(tok) if !tok.is_empty() => page_token = Some(tok),
+                _ => break,
+            }
+        }
+
+        candles.retain(|c| is_regular_hours(c.timestamp));
+        candles.sort_by_key(|c| c.timestamp);
         Ok(candles)
     }
+}
+
+/// how a streaming session ended.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum StreamEnd {
+    /// the receiving side dropped the channel (process shutting down).
+    ChannelClosed,
+    /// the server ended the websocket without a transport error.
+    ServerClosed,
 }
 
 /// convert an alpaca stream bar into our Candle type.
@@ -304,7 +359,7 @@ mod tests {
                 std::env::var("APCA_API_SECRET_KEY").unwrap(),
                 vec!["SPY".to_string()],
             );
-            let candles = feed.fetch_historical_bars("SPY", 10).await.unwrap();
+            let candles = feed.fetch_historical_bars("SPY", 2).await.unwrap();
             assert!(!candles.is_empty());
         });
     }

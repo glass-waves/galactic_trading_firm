@@ -1,0 +1,15 @@
+[Unit]
+Description=galactic trading firm — postgres (podman via docker compose)
+Requires=podman.socket
+After=podman.socket network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/home/dylmet/Projects/galactic_trading_firm
+ExecStart=/usr/bin/docker compose up -d postgres
+# leave postgres running when this unit stops; data lives in the pgdata volume
+ExecStop=/bin/true
+
+[Install]
+WantedBy=default.target

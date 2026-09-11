@@ -1,0 +1,8 @@
+[Unit]
+Description=end-of-day review (weekdays 13:30 America/Los_Angeles)
+[Timer]
+OnCalendar=Mon..Fri *-*-* 13:30:00
+Unit=eod-review.service
+Persistent=false
+[Install]
+WantedBy=timers.target

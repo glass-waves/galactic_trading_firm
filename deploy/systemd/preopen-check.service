@@ -1,0 +1,14 @@
+[Unit]
+Description=claude check-in: pre-open readiness (06:15 PT)
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dylmet/Projects/galactic_trading_firm
+EnvironmentFile=/home/dylmet/Projects/galactic_trading_firm/.env
+Environment=PATH=/home/dylmet/.local/bin:/home/dylmet/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+Environment=TZ=America/Los_Angeles
+# headless: no TTY, no approvals possible. tools are pre-approved in .claude/settings.json;
+# anything else is denied rather than waited on.
+ExecStart=/bin/sh -c 'mkdir -p logs/checkins && /home/dylmet/.local/bin/claude -p "/preopen-check" --model sonnet --output-format json --max-turns 25 --max-budget-usd 0.50 --permission-mode dontAsk --permission-prompts none >> logs/checkins/preopen-check.jsonl'
+TimeoutStartSec=900

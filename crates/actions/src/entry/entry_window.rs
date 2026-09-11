@@ -2,7 +2,7 @@ use types::action::{Action, ActionConfig, ActionPhase, ActionSignal, Position, T
 use types::market::MarketState;
 use types::scoring::TimescaleScores;
 
-use super::conditions::{all_conditions_met, parse_conditions, WindowCondition};
+use super::conditions::{all_conditions_met, failing_conditions, parse_conditions, WindowCondition};
 
 pub struct EntryWindowAction {
     name: String,
@@ -49,6 +49,26 @@ impl Action for EntryWindowAction {
             }
         } else {
             ActionSignal::Hold
+        }
+    }
+
+    /// report failing conditions, but only when the window's composite floor
+    /// (if any) is already met — i.e. the window was "close". windows with no
+    /// composite floor always report.
+    fn diagnose(&self, _market: &MarketState, scores: &TimescaleScores) -> Option<String> {
+        let indicator_scores = scores.indicator_scores.as_ref();
+        let composite_ok = self.conditions.iter().all(|c| match c {
+            WindowCondition::CompositeMin { .. } => c.evaluate(scores, indicator_scores),
+            _ => true,
+        });
+        if !composite_ok {
+            return None;
+        }
+        let failing = failing_conditions(&self.conditions, scores, indicator_scores);
+        if failing.is_empty() {
+            None
+        } else {
+            Some(format!("{}: {}", self.name, failing.join(", ")))
         }
     }
 }

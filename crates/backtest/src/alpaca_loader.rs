@@ -79,9 +79,15 @@ pub async fn fetch_day_bars(
     for attempt in 0..=MAX_RETRIES {
         match client.issue::<bars::List>(&req).await {
             Ok(response) => {
+                // the request spans several days, so alpaca returns overnight and
+                // pre-market bars for the intermediate days. the live engine only
+                // ever sees regular-hours bars (data_feed filters them), so the
+                // backtest must too — otherwise indicator state, 5m/1h bucket
+                // boundaries and VWAP differ at 09:31 and paper never matches.
                 let candles: Vec<Candle> = response
                     .bars
                     .iter()
+                    .filter(|bar| is_regular_hours(bar.time))
                     .map(|bar| Candle {
                         timestamp: bar.time,
                         open: num_to_f64(&bar.open),
@@ -112,6 +118,19 @@ pub async fn fetch_day_bars(
     }
 
     Err(format!("alpaca bars request failed after {} attempts: {last_err}", MAX_RETRIES + 1))
+}
+
+/// true when `ts` falls inside regular trading hours (09:30 ≤ t < 16:00 America/New_York)
+/// on a weekday. mirrors `data_feed::session_clock::is_regular_hours`.
+pub fn is_regular_hours(ts: DateTime<Utc>) -> bool {
+    use chrono::Datelike;
+    let local = ts.with_timezone(&New_York);
+    let wd = local.weekday();
+    if wd == chrono::Weekday::Sat || wd == chrono::Weekday::Sun {
+        return false;
+    }
+    let m = local.hour() * 60 + local.minute();
+    (9 * 60 + 30..16 * 60).contains(&m)
 }
 
 /// return (market_open_utc, market_close_utc) for a given date.
@@ -170,9 +189,15 @@ pub async fn fetch_bars_range(
     for attempt in 0..=MAX_RETRIES {
         match client.issue::<bars::List>(&req).await {
             Ok(response) => {
+                // the request spans several days, so alpaca returns overnight and
+                // pre-market bars for the intermediate days. the live engine only
+                // ever sees regular-hours bars (data_feed filters them), so the
+                // backtest must too — otherwise indicator state, 5m/1h bucket
+                // boundaries and VWAP differ at 09:31 and paper never matches.
                 let candles: Vec<Candle> = response
                     .bars
                     .iter()
+                    .filter(|bar| is_regular_hours(bar.time))
                     .map(|bar| Candle {
                         timestamp: bar.time,
                         open: num_to_f64(&bar.open),

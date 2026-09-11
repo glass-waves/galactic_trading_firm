@@ -34,6 +34,15 @@ impl fmt::Display for BrokerError {
 
 impl std::error::Error for BrokerError {}
 
+/// a position the broker currently holds.
+#[derive(Debug, Clone)]
+pub struct BrokerPosition {
+    pub ticker: String,
+    pub direction: TradeDirection,
+    pub quantity: f64,
+    pub entry_price: f64,
+}
+
 /// trait for order execution. implementations can be live (alpaca) or simulated.
 #[async_trait]
 pub trait Broker: Send + Sync {
@@ -45,6 +54,9 @@ pub trait Broker: Send + Sync {
     ) -> Result<OrderFill, BrokerError>;
 
     async fn close_position(&self, ticker: &str) -> Result<OrderFill, BrokerError>;
+
+    /// positions the broker currently holds (for startup reconciliation).
+    async fn open_positions(&self) -> Result<Vec<BrokerPosition>, BrokerError>;
 
     /// update the market price. default no-op for brokers that don't need it.
     fn set_last_price(&self, _price: f64) {}
@@ -123,6 +135,19 @@ impl Broker for SimulatedBroker {
         })
     }
 
+    async fn open_positions(&self) -> Result<Vec<BrokerPosition>, BrokerError> {
+        let positions = self.positions.lock().await;
+        Ok(positions
+            .iter()
+            .map(|(t, (d, q, p))| BrokerPosition {
+                ticker: t.clone(),
+                direction: *d,
+                quantity: *q,
+                entry_price: *p,
+            })
+            .collect())
+    }
+
     async fn close_position(&self, ticker: &str) -> Result<OrderFill, BrokerError> {
         let mut positions = self.positions.lock().await;
         let (direction, quantity, _entry_price) = positions
@@ -172,6 +197,108 @@ impl AlpacaBroker {
     }
 }
 
+/// how long to wait for a market order to fill before giving up.
+const FILL_TIMEOUT_MS: u64 = 15_000;
+const FILL_POLL_MS: u64 = 250;
+
+impl AlpacaBroker {
+    /// alpaca's create/close responses come back as `accepted`/`pending_new`
+    /// before the fill. poll the order until it is filled (or terminal), so the
+    /// caller gets the real average fill price. on timeout the order is
+    /// cancelled and an error returned so the engine can roll back.
+    async fn wait_for_fill(
+        &self,
+        order: apca::api::v2::order::Order,
+    ) -> Result<apca::api::v2::order::Order, BrokerError> {
+        use apca::api::v2::order::{self, Status};
+
+        let deadline = std::time::Instant::now() + std::time::Duration::from_millis(FILL_TIMEOUT_MS);
+        let mut current = order;
+        loop {
+            match current.status {
+                Status::Filled => return Ok(current),
+                Status::Canceled | Status::Expired | Status::Rejected | Status::Stopped | Status::Suspended => {
+                    return Err(BrokerError::OrderRejected(format!(
+                        "order {} ended in status {:?}",
+                        current.id.0, current.status
+                    )));
+                }
+                _ => {}
+            }
+            if std::time::Instant::now() >= deadline {
+                let id = current.id;
+                let _ = self.client.issue::<order::Delete>(&id).await;
+                return Err(BrokerError::OrderRejected(format!(
+                    "order {} not filled within {}ms (last status {:?}); cancel requested",
+                    id.0, FILL_TIMEOUT_MS, current.status
+                )));
+            }
+            tokio::time::sleep(std::time::Duration::from_millis(FILL_POLL_MS)).await;
+            let id = current.id;
+            current = self
+                .client
+                .issue::<order::Get>(&id)
+                .await
+                .map_err(|e| BrokerError::ConnectionError(format!("order status poll failed: {e:?}")))?;
+        }
+    }
+
+    /// wait for a fill with a caller-supplied timeout (used by tests).
+    #[doc(hidden)]
+    pub async fn submit_market_order_with_timeout(
+        &self,
+        ticker: &str,
+        direction: TradeDirection,
+        shares: i64,
+        timeout_ms: u64,
+    ) -> Result<OrderFill, BrokerError> {
+        use apca::api::v2::order::{self, Status};
+
+        let side = match direction {
+            TradeDirection::Long => order::Side::Buy,
+            TradeDirection::Short => order::Side::Sell,
+        };
+        let req = order::CreateReqInit {
+            type_: order::Type::Market,
+            time_in_force: order::TimeInForce::Day,
+            ..Default::default()
+        }
+        .init(ticker, side, order::Amount::quantity(shares));
+
+        let created = self
+            .client
+            .issue::<order::Create>(&req)
+            .await
+            .map_err(|e| BrokerError::OrderRejected(format!("{e:?}")))?;
+
+        // short-circuit for tests that want to observe the cancel path quickly
+        let filled = if timeout_ms == 0 && created.status != Status::Filled {
+            let _ = self.client.issue::<order::Delete>(&created.id).await;
+            return Err(BrokerError::OrderRejected(format!(
+                "order {} not filled immediately (status {:?}); cancelled",
+                created.id.0, created.status
+            )));
+        } else {
+            self.wait_for_fill(created).await?
+        };
+
+        let fill_price = filled.average_fill_price.as_ref().map(num_to_f64).unwrap_or(0.0);
+        if fill_price <= 0.0 {
+            return Err(BrokerError::OrderRejected(format!(
+                "filled order {} reported no average fill price",
+                filled.id.0
+            )));
+        }
+        Ok(OrderFill {
+            ticker: ticker.to_string(),
+            direction,
+            quantity: num_to_f64(&filled.filled_quantity),
+            fill_price,
+            filled_at: filled.filled_at.unwrap_or_else(Utc::now),
+        })
+    }
+}
+
 #[async_trait]
 impl Broker for AlpacaBroker {
     async fn submit_order(
@@ -180,13 +307,6 @@ impl Broker for AlpacaBroker {
         direction: TradeDirection,
         quantity: f64,
     ) -> Result<OrderFill, BrokerError> {
-        use apca::api::v2::order;
-
-        let side = match direction {
-            TradeDirection::Long => order::Side::Buy,
-            TradeDirection::Short => order::Side::Sell,
-        };
-
         // truncate to whole shares for alpaca
         let shares = quantity.floor() as i64;
         if shares <= 0 {
@@ -194,42 +314,31 @@ impl Broker for AlpacaBroker {
                 "quantity must be at least 1 share".to_string(),
             ));
         }
-
-        let req = order::CreateReqInit {
-            type_: order::Type::Market,
-            time_in_force: order::TimeInForce::Day,
-            ..Default::default()
-        }
-        .init(ticker, side, order::Amount::quantity(shares));
-
-        let order = self
-            .client
-            .issue::<order::Create>(&req)
+        self.submit_market_order_with_timeout(ticker, direction, shares, FILL_TIMEOUT_MS)
             .await
-            .map_err(|e| BrokerError::OrderRejected(format!("{e}")))?;
+    }
 
-        let fill_price = order
-            .average_fill_price
-            .as_ref()
-            .map(num_to_f64)
-            .unwrap_or(0.0);
+    async fn open_positions(&self) -> Result<Vec<BrokerPosition>, BrokerError> {
+        use apca::api::v2::{position, positions};
 
-        if fill_price <= 0.0 {
-            return Err(BrokerError::OrderRejected(format!(
-                "order not filled (status: {:?})",
-                order.status
-            )));
-        }
+        let list = self
+            .client
+            .issue::<positions::List>(&())
+            .await
+            .map_err(|e| BrokerError::ConnectionError(format!("{e:?}")))?;
 
-        let filled_at = order.filled_at.unwrap_or_else(Utc::now);
-
-        Ok(OrderFill {
-            ticker: ticker.to_string(),
-            direction,
-            quantity: num_to_f64(&order.filled_quantity),
-            fill_price,
-            filled_at,
-        })
+        Ok(list
+            .into_iter()
+            .map(|p| BrokerPosition {
+                ticker: p.symbol.clone(),
+                direction: match p.side {
+                    position::Side::Long => TradeDirection::Long,
+                    position::Side::Short => TradeDirection::Short,
+                },
+                quantity: num_to_f64(&p.quantity).abs(),
+                entry_price: num_to_f64(&p.average_entry_price),
+            })
+            .collect())
     }
 
     async fn close_position(&self, ticker: &str) -> Result<OrderFill, BrokerError> {
@@ -243,7 +352,7 @@ impl Broker for AlpacaBroker {
             .await
             .map_err(|e| {
                 // check if the error is a NotFound
-                let msg = format!("{e}");
+                let msg = format!("{e:?}");
                 if msg.contains("404") || msg.contains("not found") || msg.contains("NotFound") {
                     BrokerError::NoPosition(ticker.to_string())
                 } else {
@@ -251,26 +360,23 @@ impl Broker for AlpacaBroker {
                 }
             })?;
 
-        let fill_price = order
-            .average_fill_price
-            .as_ref()
-            .map(num_to_f64)
-            .unwrap_or(0.0);
-
-        let filled_at = order.filled_at.unwrap_or_else(Utc::now);
-
         // the closing order side tells us the close direction
         let direction = match order.side {
             apca::api::v2::order::Side::Buy => TradeDirection::Long,
             apca::api::v2::order::Side::Sell => TradeDirection::Short,
         };
 
+        // a close that does not fill leaves the position open at the broker —
+        // surface that loudly rather than pretending it closed.
+        let filled = self.wait_for_fill(order).await?;
+
+        let fill_price = filled.average_fill_price.as_ref().map(num_to_f64).unwrap_or(0.0);
         Ok(OrderFill {
             ticker: ticker.to_string(),
             direction,
-            quantity: num_to_f64(&order.filled_quantity),
+            quantity: num_to_f64(&filled.filled_quantity),
             fill_price,
-            filled_at,
+            filled_at: filled.filled_at.unwrap_or_else(Utc::now),
         })
     }
 }
@@ -340,6 +446,20 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn simulated_open_positions_reflects_state() {
+        let broker = SimulatedBroker::new(0.0);
+        broker.set_last_price(100.0);
+        assert!(broker.open_positions().await.unwrap().is_empty());
+        broker.submit_order("SPY", TradeDirection::Long, 5.0).await.unwrap();
+        let open = broker.open_positions().await.unwrap();
+        assert_eq!(open.len(), 1);
+        assert_eq!(open[0].ticker, "SPY");
+        assert!((open[0].quantity - 5.0).abs() < f64::EPSILON);
+        broker.close_position("SPY").await.unwrap();
+        assert!(broker.open_positions().await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
     async fn simulated_close_no_position_errors() {
         let broker = SimulatedBroker::new(0.0);
         broker.set_last_price(100.0);
@@ -374,6 +494,39 @@ mod tests {
         assert!(matches!(close.direction, TradeDirection::Short));
         // closing a long means selling (Short slippage direction) → price decreases
         assert!(close.fill_price < 210.0);
+    }
+
+    /// live: creates a 1-share order with zero fill timeout and expects it to be
+    /// cancelled (outside market hours it cannot fill; inside, it may fill — the
+    /// test then closes it). exercises apca order create/get/delete deserialization.
+    /// run: cargo test -p data_feed -- --ignored live_order_roundtrip --nocapture
+    #[tokio::test]
+    #[ignore]
+    async fn live_order_roundtrip() {
+        let _ = dotenvy::dotenv();
+        let broker = AlpacaBroker::new(
+            std::env::var("APCA_API_KEY_ID").unwrap(),
+            std::env::var("APCA_API_SECRET_KEY").unwrap(),
+        )
+        .unwrap();
+        let r = broker
+            .submit_market_order_with_timeout("AAPL", TradeDirection::Long, 1, 0)
+            .await;
+        println!("order result: {r:?}");
+        match r {
+            Ok(fill) => {
+                // market must be open: clean up
+                let c = broker.close_position("AAPL").await;
+                println!("close result: {c:?}");
+                assert!(fill.fill_price > 0.0);
+            }
+            Err(BrokerError::OrderRejected(msg)) => {
+                assert!(msg.contains("cancelled"), "unexpected rejection: {msg}");
+            }
+            Err(e) => panic!("unexpected error: {e:?}"),
+        }
+        let open = broker.open_positions().await.unwrap();
+        assert!(open.iter().all(|p| p.ticker != "AAPL"), "AAPL position left open: {open:?}");
     }
 
     #[test]
