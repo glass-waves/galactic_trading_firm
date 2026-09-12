@@ -312,6 +312,7 @@ pub fn build_backtest_data(
     BacktestData {
         candles,
         primary_timescale,
+        cross_by_ts: None,
     }
 }
 

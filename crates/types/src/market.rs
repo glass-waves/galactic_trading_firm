@@ -77,4 +77,23 @@ pub struct MarketState {
 
     /// cross-ticker correlation coefficient for cross-correlation indicator.
     pub cross_ticker_correlation: Option<f64>,
+    /// cross-ticker context (index + peers) for the current bar. filled by the backtest
+    /// from the bar cache (`--cross-index`); `None` in live until the feed populates it,
+    /// so any window condition on it fails safe.
+    pub cross: Option<CrossContext>,
+}
+
+/// what the index and the other traded names are doing on this bar.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct CrossContext {
+    /// index close / index session open − 1
+    pub index_session_ret: f64,
+    /// index close / index close 5 bars ago − 1
+    pub index_ret_5m: f64,
+    /// index close / index close 15 bars ago − 1
+    pub index_ret_15m: f64,
+    /// fraction of the *other* traded tickers whose close is below their session open
+    pub peers_red_frac: f64,
+    /// mean session return of the other traded tickers
+    pub peers_mean_session_ret: f64,
 }

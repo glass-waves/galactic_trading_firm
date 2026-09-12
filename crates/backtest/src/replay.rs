@@ -8,7 +8,7 @@ use chrono::Timelike;
 use engine::TradingEngine;
 use types::action::{ActionConfig, ExitReason, Position, TradeDirection};
 use types::indicator::IndicatorConfig;
-use types::market::{Candle, MarketState, Timescale};
+use types::market::{Candle, CrossContext, MarketState, Timescale};
 use types::scoring::{ScoringConfig, TimescaleScores};
 use types::tick_result::TickEvent;
 
@@ -118,6 +118,8 @@ pub struct TickRow {
     pub entry_reason: String,
     pub entry_blocked_by: String,
     pub near_miss: String,
+    /// per-indicator scores and `{id}.{meta}` values, as the entry windows see them.
+    pub indicator_scores: HashMap<String, Option<f64>>,
 }
 
 /// historical candle data for replay, keyed by timescale.
@@ -127,6 +129,8 @@ pub struct BacktestData {
     /// which timescale drives the tick loop. each candle in this
     /// timescale produces one tick.
     pub primary_timescale: Timescale,
+    /// optional cross-ticker context keyed by bar timestamp (see `--cross-index`).
+    pub cross_by_ts: Option<HashMap<DateTime<Utc>, CrossContext>>,
 }
 
 /// rolling candle window per timescale, matching the live `MarketStateBuilder::new(200)`.
@@ -347,6 +351,7 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
             total_initial_capital: None,
             index_return: None,
             cross_ticker_correlation: None,
+            cross: None,
         };
 
         // position state as the engine sees it going into this tick
@@ -388,6 +393,7 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
                 entry_reason: result.entry_reason.clone(),
                 entry_blocked_by: result.entry_blocked_by.clone().unwrap_or_default(),
                 near_miss: result.near_miss.clone().unwrap_or_default(),
+                indicator_scores: result.scores.indicator_scores.clone().unwrap_or_default(),
             });
         }
 

@@ -1,0 +1,33 @@
+{
+  "_comment": "entry research round two (2026-09-12): every candidate feature as a weight-0 indicator instance so the tick dump carries its value on every bar. used with: --patch-json research/entries/screen_indicators.json --cross-index SPY --dump-ticks ...",
+  "indicators": [
+    {"indicator_type": "candle_sequence", "instance_id": "cs_engulfing_1m", "timescale": "OneMinute", "weight": 0.0, "enabled": true, "params": {"pattern": "engulfing"}},
+    {"indicator_type": "candle_sequence", "instance_id": "cs_star_1m", "timescale": "OneMinute", "weight": 0.0, "enabled": true, "params": {"pattern": "star"}},
+    {"indicator_type": "candle_sequence", "instance_id": "cs_three_1m", "timescale": "OneMinute", "weight": 0.0, "enabled": true, "params": {"pattern": "three_soldiers"}},
+    {"indicator_type": "candle_sequence", "instance_id": "cs_pin_1m", "timescale": "OneMinute", "weight": 0.0, "enabled": true, "params": {"pattern": "pin_bar"}},
+    {"indicator_type": "candle_sequence", "instance_id": "cs_cloud_1m", "timescale": "OneMinute", "weight": 0.0, "enabled": true, "params": {"pattern": "cloud_cover"}},
+    {"indicator_type": "candle_sequence", "instance_id": "cs_harami_1m", "timescale": "OneMinute", "weight": 0.0, "enabled": true, "params": {"pattern": "harami"}},
+    {"indicator_type": "candle_sequence", "instance_id": "cs_inside_1m", "timescale": "OneMinute", "weight": 0.0, "enabled": true, "params": {"pattern": "inside_break"}},
+    {"indicator_type": "candle_sequence", "instance_id": "cs_3bar_1m", "timescale": "OneMinute", "weight": 0.0, "enabled": true, "params": {"pattern": "three_bar_reversal"}},
+    {"indicator_type": "candle_sequence", "instance_id": "cs_first_1m", "timescale": "OneMinute", "weight": 0.0, "enabled": true, "params": {"pattern": "first_reversal", "run_len": 3}},
+    {"indicator_type": "candle_sequence", "instance_id": "cs_engulfing_5m", "timescale": "FiveMinute", "weight": 0.0, "enabled": true, "params": {"pattern": "engulfing"}},
+    {"indicator_type": "candle_sequence", "instance_id": "cs_star_5m", "timescale": "FiveMinute", "weight": 0.0, "enabled": true, "params": {"pattern": "star"}},
+    {"indicator_type": "candle_sequence", "instance_id": "cs_three_5m", "timescale": "FiveMinute", "weight": 0.0, "enabled": true, "params": {"pattern": "three_soldiers"}},
+    {"indicator_type": "candle_sequence", "instance_id": "cs_pin_5m", "timescale": "FiveMinute", "weight": 0.0, "enabled": true, "params": {"pattern": "pin_bar"}},
+    {"indicator_type": "candle_sequence", "instance_id": "cs_cloud_5m", "timescale": "FiveMinute", "weight": 0.0, "enabled": true, "params": {"pattern": "cloud_cover"}},
+    {"indicator_type": "candle_sequence", "instance_id": "cs_harami_5m", "timescale": "FiveMinute", "weight": 0.0, "enabled": true, "params": {"pattern": "harami"}},
+    {"indicator_type": "candle_sequence", "instance_id": "cs_inside_5m", "timescale": "FiveMinute", "weight": 0.0, "enabled": true, "params": {"pattern": "inside_break"}},
+    {"indicator_type": "candle_sequence", "instance_id": "cs_3bar_5m", "timescale": "FiveMinute", "weight": 0.0, "enabled": true, "params": {"pattern": "three_bar_reversal"}},
+    {"indicator_type": "candle_sequence", "instance_id": "cs_first_5m", "timescale": "FiveMinute", "weight": 0.0, "enabled": true, "params": {"pattern": "first_reversal", "run_len": 3}},
+    {"indicator_type": "prior_day_levels", "instance_id": "pdl_5m", "timescale": "FiveMinute", "weight": 0.0, "enabled": true, "params": {"scale_pct": 0.005}},
+    {"indicator_type": "opening_range", "instance_id": "or15_1m", "timescale": "OneMinute", "weight": 0.0, "enabled": true, "params": {"range_minutes": 15}},
+    {"indicator_type": "opening_range", "instance_id": "or30_1m", "timescale": "OneMinute", "weight": 0.0, "enabled": true, "params": {"range_minutes": 30}},
+    {"indicator_type": "gap", "instance_id": "gap_5m", "timescale": "FiveMinute", "weight": 0.0, "enabled": true, "params": {"scale_pct": 0.01}},
+    {"indicator_type": "cross_context", "instance_id": "cross_1m", "timescale": "OneMinute", "weight": 0.0, "enabled": true, "params": {"field": "index_session_ret", "scale_pct": 0.005}},
+    {"indicator_type": "ofi", "instance_id": "ofi_1m", "timescale": "OneMinute", "weight": 0.0, "enabled": true, "params": {"period": 10}},
+    {"indicator_type": "ofi", "instance_id": "ofi_5m", "timescale": "FiveMinute", "weight": 0.0, "enabled": true, "params": {"period": 6}},
+    {"indicator_type": "vpin", "instance_id": "vpin_1m", "timescale": "OneMinute", "weight": 0.0, "enabled": true, "params": {"bucket_count": 20}},
+    {"indicator_type": "relative_volume", "instance_id": "rvol_1m", "timescale": "OneMinute", "weight": 0.0, "enabled": true, "params": {"lookback_days": 5}},
+    {"indicator_type": "event_calendar", "instance_id": "cal_fomc", "timescale": "OneMinute", "weight": 0.0, "enabled": true, "params": {"dates": ["fomc"], "before_days": 0, "after_days": 0}}
+  ]
+}

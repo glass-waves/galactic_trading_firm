@@ -250,7 +250,7 @@ mod tests {
         MarketState {
             last_price: last.close, bid: last.close, ask: last.close, timestamp: last.timestamp, candles: m,
             spread: 0.0, session_vwap: last.close, session_volume: 0.0, position_context: None, session_progress: None,
-            entries_blocked: false, total_deployed_capital: None, total_initial_capital: None, index_return: None, cross_ticker_correlation: None,
+            entries_blocked: false, total_deployed_capital: None, total_initial_capital: None, index_return: None, cross_ticker_correlation: None, cross: None,
         }
     }
 

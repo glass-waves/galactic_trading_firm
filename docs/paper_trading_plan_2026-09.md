@@ -627,3 +627,20 @@ v16 per year: PF 1.26 / 0.91 / 1.10 / 1.04 / 1.08, win rate ~34 %, exit mix 62 %
   less), so the §8 long-book numbers stand; only the short-side numbers were inflated.
 - not done: the reject gates are inert at current thresholds and could be removed; the exact
   losing-limit optimum (30–40 min) is within noise and was not tuned further.
+
+## 11. entry research, round two (2026-09-12 afternoon →)
+
+**target set by the user: overall honest-cost profit factor > 1.3 over 2022–2026 before the
+config is "good enough for the week".** v16 is at 1.12.
+
+method: every entry idea is one indicator instance (score −1..+1, fires on the bar it completes),
+tested (a) standalone as a short window and (b) as an added condition on v16's windows, five-year
+cached replay, honest costs, one variant at a time. screening first on the labelled bar set from
+§10 (does the feature separate top-5 % bars from the rest, per year), replay only for survivors.
+mixing is window JSON only — nothing is baked into the engine.
+
+candidates: multi-bar candle sequences (`candle_sequence` indicator: engulfing, star,
+three_crows, pin_bar, cloud_cover, harami, inside_break, three_bar_reversal, first_reversal; 1m and
+5m); cross-ticker context (SPY/QQQ session return, peers already red); gap and prior-day levels
+(prior-day low break, opening-range low break as a short trigger); OFI / VPIN as hard conditions;
+calendar exclusions (FOMC, earnings-adjacent).

@@ -1007,7 +1007,11 @@ async fn main() {
         let write_db = args.iter().any(|a| a == "--write-db");
         let bars_dir = get_arg(&args, "--bars-dir");
         let dump_ticks = get_arg(&args, "--dump-ticks");
-        run_date_mode(&date_str, lookback_days, write_db, capital, &cost_config, verbose, output_equity, output_trades_csv, &overrides, bars_dir.as_deref(), dump_ticks.as_deref()).await;
+        let cross_index = get_arg(&args, "--cross-index");
+        if args.iter().any(|a| a == "--dump-window-only") {
+            std::env::set_var("BACKTEST_DUMP_WINDOW_ONLY", "1");
+        }
+        run_date_mode(&date_str, lookback_days, write_db, capital, &cost_config, verbose, output_equity, output_trades_csv, &overrides, bars_dir.as_deref(), dump_ticks.as_deref(), cross_index.as_deref()).await;
     } else if let Some(dir) = get_arg(&args, "--fetch-bars") {
         // build / extend the local 1-minute bar cache used by `--bars-dir`
         let start = get_arg(&args, "--start").expect("--fetch-bars needs --start YYYY-MM-DD");
@@ -1020,7 +1024,7 @@ async fn main() {
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capital: f64, cost_config: &Option<BacktestCostConfig>, verbose: bool, output_equity: bool, output_trades_csv: bool, overrides: &ConfigOverrides, bars_dir: Option<&str>, dump_ticks: Option<&str>) {
+async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capital: f64, cost_config: &Option<BacktestCostConfig>, verbose: bool, output_equity: bool, output_trades_csv: bool, overrides: &ConfigOverrides, bars_dir: Option<&str>, dump_ticks: Option<&str>, cross_index: Option<&str>) {
     dotenvy::dotenv().ok();
 
     // file + console layered logging
@@ -1152,6 +1156,30 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
         println!();
     }
 
+    // cross-ticker context (research): per-symbol session-return series for the index
+    // and every traded ticker, from the bar cache. requires --bars-dir.
+    let cross_series: Option<HashMap<String, HashMap<chrono::DateTime<chrono::Utc>, SessionPoint>>> = match (cross_index, bars_dir) {
+        (Some(index), Some(dir)) => {
+            let mut m = HashMap::new();
+            let mut syms: Vec<String> = config.tickers.clone();
+            syms.push(index.to_string());
+            for sym in syms {
+                match load_cached_bars(dir, &sym, lookback_start, date) {
+                    Ok(c) => {
+                        m.insert(sym, session_points(&c));
+                    }
+                    Err(e) => eprintln!("  {:<6} cross-context load error: {}", sym, e),
+                }
+            }
+            Some(m)
+        }
+        (Some(_), None) => {
+            eprintln!("error: --cross-index needs --bars-dir");
+            process::exit(1);
+        }
+        _ => None,
+    };
+
     let mut total_pnl = 0.0;
     #[allow(clippy::type_complexity)]
     let mut ticker_results: Vec<(String, f64, usize, Vec<TradeRecord>, Vec<(TimescaleScores, TimescaleScores)>, Vec<String>, f64, Option<chrono::DateTime<chrono::Utc>>, usize, usize)> = Vec::new();
@@ -1192,7 +1220,10 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
         }
         eprintln!("DATA_QUALITY:{ticker}:{candle_count}:{lookback_days}");
 
-        let backtest_data = build_backtest_data(candles, &required_timescales);
+        let mut backtest_data = build_backtest_data(candles, &required_timescales);
+        if let (Some(series), Some(index)) = (cross_series.as_ref(), cross_index) {
+            backtest_data.cross_by_ts = Some(build_cross_context(series, index, ticker, &config.tickers));
+        }
 
         // build effective config: base + config-level ticker overrides + CLI ticker overrides
         let mut effective = config.clone();
@@ -1247,7 +1278,16 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
                 total_pnl += pnl;
 
                 if let Some(path) = dump_ticks {
-                    if let Err(e) = append_tick_dump(path, date_str, ticker, &result.ticks, target_open_utc, target_close_utc) {
+                    // --dump-window-only: stop the dump at session.no_new_entries_after (ET)
+                    let dump_close = if std::env::var("BACKTEST_DUMP_WINDOW_ONLY").is_ok() {
+                        use chrono::Timelike;
+                        let cutoff = &effective.session.no_new_entries_after;
+                        let mins: u32 = cutoff.split_once(':').and_then(|(h, m)| Some(h.parse::<u32>().ok()? * 60 + m.parse::<u32>().ok()?)).unwrap_or(24 * 60);
+                        result.ticks.iter().map(|t| t.timestamp).filter(|ts| { let l = ts.with_timezone(&chrono_tz::US::Eastern); l.hour() * 60 + l.minute() < mins }).max().unwrap_or(target_open_utc)
+                    } else {
+                        target_close_utc
+                    };
+                    if let Err(e) = append_tick_dump(path, date_str, ticker, &result.ticks, target_open_utc, dump_close) {
                         eprintln!("  {:<6} tick dump error: {}", ticker, e);
                     }
                 }
@@ -1505,6 +1545,7 @@ fn run_legacy_mode(args: &[String], capital: f64, cost_config: &Option<BacktestC
     let backtest_data = BacktestData {
         candles: candle_map,
         primary_timescale: Timescale::FiveMinute,
+        cross_by_ts: None,
     };
 
     // run backtest
@@ -1653,12 +1694,12 @@ fn append_tick_dump(
         .map_err(|e| format!("open {path}: {e}"))?;
     let mut buf = String::new();
     if need_header {
-        buf.push_str("date,ticker,ts,open,high,low,close,volume,vwap,composite,s1m,s5m,s1h,position,unrealized_pct,hold_min,event,entry_reason,blocked_by,near_miss\n");
+        buf.push_str("date,ticker,ts,open,high,low,close,volume,vwap,composite,s1m,s5m,s1h,position,unrealized_pct,hold_min,event,entry_reason,blocked_by,near_miss,indicators\n");
     }
     let opt = |v: Option<f64>| v.map(|x| format!("{:.4}", x)).unwrap_or_default();
     for t in ticks.iter().filter(|t| t.timestamp >= open_utc && t.timestamp <= close_utc) {
         buf.push_str(&format!(
-            "{},{},{},{:.4},{:.4},{:.4},{:.4},{},{:.4},{:.4},{},{},{},{},{},{},{},{},{},{}\n",
+            "{},{},{},{:.4},{:.4},{:.4},{:.4},{},{:.4},{:.4},{},{},{},{},{},{},{},{},{},{},{}\n",
             date_str,
             ticker,
             t.timestamp.to_rfc3339(),
@@ -1672,7 +1713,101 @@ fn append_tick_dump(
             csv_quote(&t.entry_reason),
             csv_quote(&t.entry_blocked_by),
             csv_quote(&t.near_miss),
+            csv_quote(&indicator_json(&t.indicator_scores)),
         ));
     }
     f.write_all(buf.as_bytes()).map_err(|e| format!("write {path}: {e}"))
+}
+
+/// compact json of the per-indicator scores: `{"ofi_1m":0.12,"vpin_5m":null,...}`, keys sorted.
+fn indicator_json(m: &HashMap<String, Option<f64>>) -> String {
+    let mut keys: Vec<&String> = m.keys().collect();
+    keys.sort();
+    let mut out = String::from("{");
+    for (i, k) in keys.iter().enumerate() {
+        if i > 0 {
+            out.push(',');
+        }
+        match m[*k] {
+            Some(v) if v.is_finite() => out.push_str(&format!("\"{}\":{:.4}", k, v)),
+            _ => out.push_str(&format!("\"{}\":null", k)),
+        }
+    }
+    out.push('}');
+    out
+}
+
+/// per-bar session state of one symbol, for cross-ticker context.
+#[derive(Debug, Clone, Copy)]
+struct SessionPoint {
+    session_ret: f64,
+    ret_5m: f64,
+    ret_15m: f64,
+}
+
+/// session return (vs the first RTH bar's open of that eastern date) and short lookback
+/// returns for every bar of a 1-minute series.
+fn session_points(candles: &[types::market::Candle]) -> HashMap<chrono::DateTime<chrono::Utc>, SessionPoint> {
+    use chrono_tz::US::Eastern;
+    let mut out = HashMap::with_capacity(candles.len());
+    let mut day: Option<chrono::NaiveDate> = None;
+    let mut day_open = 0.0_f64;
+    let mut closes: Vec<f64> = Vec::new();
+    for c in candles {
+        let d = c.timestamp.with_timezone(&Eastern).date_naive();
+        if day != Some(d) {
+            day = Some(d);
+            day_open = c.open;
+            closes.clear();
+        }
+        closes.push(c.close);
+        let n = closes.len();
+        let r = |k: usize| if n > k { c.close / closes[n - 1 - k] - 1.0 } else { 0.0 };
+        out.insert(
+            c.timestamp,
+            SessionPoint { session_ret: c.close / day_open - 1.0, ret_5m: r(5), ret_15m: r(15) },
+        );
+    }
+    out
+}
+
+/// cross context for `ticker`: index series + the other traded tickers as peers.
+fn build_cross_context(
+    series: &HashMap<String, HashMap<chrono::DateTime<chrono::Utc>, SessionPoint>>,
+    index: &str,
+    ticker: &str,
+    tickers: &[String],
+) -> HashMap<chrono::DateTime<chrono::Utc>, types::market::CrossContext> {
+    let Some(idx) = series.get(index) else { return HashMap::new() };
+    let peers: Vec<&HashMap<_, SessionPoint>> = tickers
+        .iter()
+        .filter(|t| t.as_str() != ticker)
+        .filter_map(|t| series.get(t))
+        .collect();
+    let mut out = HashMap::with_capacity(idx.len());
+    for (ts, ip) in idx {
+        let mut red = 0usize;
+        let mut n = 0usize;
+        let mut sum = 0.0;
+        for p in &peers {
+            if let Some(sp) = p.get(ts) {
+                n += 1;
+                sum += sp.session_ret;
+                if sp.session_ret < 0.0 {
+                    red += 1;
+                }
+            }
+        }
+        out.insert(
+            *ts,
+            types::market::CrossContext {
+                index_session_ret: ip.session_ret,
+                index_ret_5m: ip.ret_5m,
+                index_ret_15m: ip.ret_15m,
+                peers_red_frac: if n > 0 { red as f64 / n as f64 } else { 0.5 },
+                peers_mean_session_ret: if n > 0 { sum / n as f64 } else { 0.0 },
+            },
+        );
+    }
+    out
 }

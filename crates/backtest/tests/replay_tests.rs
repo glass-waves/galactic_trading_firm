@@ -87,6 +87,7 @@ fn make_backtest_data(ohlcv: Vec<(f64, f64, f64, f64, f64)>) -> BacktestData {
     BacktestData {
         candles: candle_map,
         primary_timescale: Timescale::FiveMinute,
+        cross_by_ts: None,
     }
 }
 
@@ -141,6 +142,7 @@ fn empty_data_returns_error() {
     let data = BacktestData {
         candles: HashMap::new(),
         primary_timescale: Timescale::FiveMinute,
+        cross_by_ts: None,
     };
     let result = run_backtest(&config, &data);
     assert!(result.is_err());

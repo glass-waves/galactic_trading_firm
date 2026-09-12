@@ -481,6 +481,7 @@ fn no_new_entries_after_blocks_entry() {
             total_initial_capital: None,
             index_return: None,
             cross_ticker_correlation: None,
+            cross: None,
         };
         engine.on_tick(&mut ms);
     }
@@ -685,6 +686,7 @@ fn market_state_at(
         total_initial_capital: None,
         index_return: None,
         cross_ticker_correlation: None,
+        cross: None,
     }
 }
 

@@ -90,6 +90,7 @@ impl MarketStateBuilder {
             total_initial_capital: None,
             index_return: None,
             cross_ticker_correlation: None,
+            cross: None,
         }
     }
 

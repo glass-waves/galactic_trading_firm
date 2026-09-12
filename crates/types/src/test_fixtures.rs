@@ -74,6 +74,7 @@ pub fn make_market_state(timescale: Timescale, prices: &[f64]) -> MarketState {
         total_initial_capital: None,
         index_return: None,
         cross_ticker_correlation: None,
+        cross: None,
     }
 }
 
@@ -110,6 +111,7 @@ pub fn make_market_state_ohlcv(
         total_initial_capital: None,
         index_return: None,
         cross_ticker_correlation: None,
+        cross: None,
     }
 }
 
