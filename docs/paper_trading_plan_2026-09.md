@@ -480,3 +480,26 @@ vs +$2,065 with) — a candidate simplification for a later EOD review, not a mo
 the long book is a bet on positive morning drift and loses over five years. the short book is positive every
 year with max drawdowns of $412–$867 (4–9 % at 36 % sizing). this split is post-hoc (one position at a time, so
 longs sometimes occupied the slot); `v15_shortonly` legs on all five years are the decision-grade test.
+
+## 9. v15 — short-only (promoted 2026-09-12 ~02:20 PT, row 9)
+
+real short-only runs (long windows disabled, 36 % sizing) reproduce the post-hoc split:
+
+| year | short-only P&L | PF | trades | maxDD | 5m thrust short / strong core short |
+|---|---|---|---|---|---|
+| 2022 | +3,564 | 1.56 | 416 | −602 | +2,194 / +1,370 |
+| 2023 | see below | | | | +357 / +46 (partial at 189 days: +423) |
+| 2024 | +395 | 1.13 | 212 | −870 | +369 / +26 |
+| 2025 | +699 | 1.20 | 244 | −660 | +533 / +166 |
+| 2026 | +665 | 1.26 | 207 | −533 | −97 / +761 |
+
+positive every year; both windows contribute and each carries a year the other doesn't. v15 =
+`migrations/20260912000005`: v14 with `window_5m_thrust`, `window_strong_core`, `window_candle_reversal`
+disabled (not removed). sizing stays 0.30. the promoted blob reproduces the short-only sweep exactly on
+three checked days (2022-06-13, 2025-04-04, 2026-06-04); the live binary builds it.
+
+**what to expect on paper at 30 %:** ~1 trade a day, all shorts, roughly +$300–600 in a typical year
+(2022-like years much more), max drawdown ~5–7 %. quiet weeks with zero trades will happen.
+
+sizing note: the earlier "kelly ≈ 0.17" shortcut was wrong (a losing trade loses ~0.6 % of the position,
+not the position); kelly is not the binding constraint here, drawdown tolerance is. 30 % is a preference.

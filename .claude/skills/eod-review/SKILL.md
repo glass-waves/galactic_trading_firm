@@ -13,12 +13,14 @@ session only** — nothing you do affects a live position.
 
 ## what the strategy is (read before judging it)
 
-v13 is a symmetric morning book on AMZN/AAPL/NVDA/MSFT: long windows ("5m thrust", "strong core",
-"candle reversal") and mirrored short twins ("5m thrust short", "strong core short"), entries until
-11:30 ET, flat by 11:55 ET, 15 % sizing. corrected-replay evidence (docs/paper_trading_plan_2026-09.md):
-2026 +$2,743 at 36 % sizing (≈ +$1,140 at 15 %), 2025 −$1,932 (≈ −$800). the long book is a bet on
-positive morning drift; the short book is small and positive in both years. **a losing week is
-consistent with the strategy working as designed** — do not tune the long book on drift.
+v15 is a **short-only** morning book on AMZN/AAPL/NVDA/MSFT: two short windows ("5m thrust short",
+"strong core short"), entries until 11:30 ET, flat by 11:55 ET, 30 % sizing, ~1 trade/day. the three
+long windows exist in the config but are disabled. corrected-replay evidence over five years at 36 %
+sizing (docs/paper_trading_plan_2026-09.md §8–9): the short book was positive every year
+(2022 +$3,564 · 2023 ≈ +$4xx · 2024 +$395 · 2025 +$699 · 2026 +$665; max drawdown 4–9 %); the long
+book was net negative (−$2,790, positive in two years). **a quiet week with few trades is normal.
+do not re-enable the long windows on a good week for the market** — that is exactly the regime bet
+the evidence rejects. a change to the long book requires the five-year sweep, not a 20-day one.
 
 ## the balance you must strike
 
