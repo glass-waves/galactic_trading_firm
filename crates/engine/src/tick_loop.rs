@@ -55,6 +55,11 @@ pub struct TradingEngine {
     window_exit_overrides: HashMap<String, WindowExitOverrides>,
     /// active score exit threshold (may differ from config when a window override is active).
     active_score_exit_threshold: f64,
+    /// stop price installed by a monitor action (`ModifyStop`) for the open position.
+    /// long: exit when price <= stop; short: exit when price >= stop. cleared when flat.
+    /// before 2026-09-12 `ModifyStop` was received and ignored, so `breakeven_stop`
+    /// never did anything in five years of backtests.
+    monitor_stop_price: Option<f64>,
 }
 
 /// per-window exit parameter overrides.
@@ -105,6 +110,7 @@ impl TradingEngine {
             default_max_hold_ms: 2_700_000,
             window_exit_overrides: HashMap::new(),
             active_score_exit_threshold: exit_threshold,
+            monitor_stop_price: None,
         }
     }
 
@@ -116,6 +122,9 @@ impl TradingEngine {
     /// process a single tick. never panics — indicator failures are caught and logged.
     /// returns a TickResult with computed scores and what event occurred.
     pub fn on_tick(&mut self, market: &mut MarketState) -> TickResult {
+        if self.position_manager.current_position().is_none() {
+            self.monitor_stop_price = None;
+        }
         // 0. detect a new trading day (US/Eastern) and reset per-day state.
         //    this makes avoid_first_minutes count from the 09:30 open rather than
         //    from process start, and makes the daily loss breaker actually daily.
@@ -260,16 +269,47 @@ impl TradingEngine {
                 }
             }
 
-            // check monitor actions (e.g., breakeven stop)
+            // check monitor actions (e.g., breakeven stop). a ModifyStop installs a
+            // stop that only ever tightens (long: max, short: min).
             for action in &self.monitor_actions {
                 let signal = action.evaluate(
                     self.position_manager.current_position(),
                     market,
                     &scores,
                 );
-                if let ActionSignal::ModifyStop { .. } = signal {
-                    // in a real system this would modify the stop
-                    // for now we just note it happened
+                if let ActionSignal::ModifyStop { new_stop_price } = signal {
+                    let tightened = match (self.monitor_stop_price, direction) {
+                        (None, _) => new_stop_price,
+                        (Some(cur), TradeDirection::Long) => cur.max(new_stop_price),
+                        (Some(cur), TradeDirection::Short) => cur.min(new_stop_price),
+                    };
+                    self.monitor_stop_price = Some(tightened);
+                }
+            }
+
+            // monitor-installed stop hit?
+            if let Some(stop) = self.monitor_stop_price {
+                let hit = match direction {
+                    TradeDirection::Long => market.last_price <= stop,
+                    TradeDirection::Short => market.last_price >= stop,
+                };
+                if hit {
+                    if let Some(trade) = self.position_manager.close_position(
+                        fill_price,
+                        market.timestamp,
+                        ExitReason::BreakevenStop,
+                    ) {
+                        self.available_capital += trade.size * trade.entry_price + trade.pnl;
+                        self.record_exit(&trade, market.timestamp);
+                        self.completed_trades.push(trade);
+                        return TickResult {
+                            scores,
+                            event: TickEvent::PositionClosed,
+                            entry_reason: String::new(),
+                            entry_blocked_by: None,
+                            near_miss: None,
+                        };
+                    }
                 }
             }
 

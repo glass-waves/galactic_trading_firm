@@ -583,3 +583,23 @@ tests that followed are in §10.3 onward.
 **what this means for the "short book positive five of five years" claim in §8**: it was true under
 a cost model that paid the short side. the honest picture is one good year (2022) and four roughly
 break-even years before the exit change. the exit change is where the evidence now points.
+
+### 10.4 everything again under the corrected (direction-aware) cost model
+
+same five-year cached replay, 36 % sizing, 3 bps + $0.005 charged *against* the trade on both legs.
+tags `h_*` in `data/`.
+
+| variant | 2022 | 2023 | 2024 | 2025 | 2026 | 5y | trades | PF | maxDD |
+|---|---|---|---|---|---|---|---|---|---|
+| `h_base` — v15 as promoted | +1,852 | −463 | −496 | −470 | −312 | **+112** | 1,286 | 1.01 | 2,333 |
+| `h_l30w90` — losing limit 30 min, winning limit 90 | +1,675 | −677 | −187 | −63 | +16 | **+764** | 1,422 | 1.04 | 1,404 |
+| `h_stop15` — hard stop 1.5 % | +2,021 | −469 | −456 | −483 | −150 | +463 | 1,305 | | |
+| `h_l30w90s15` — L30/W90 + stop 1.5 % | +1,403 | −634 | −215 | +18 | +73 | +645 | 1,430 | | |
+| `h_l40w90` — losing limit 40, winning 90 | +1,577 | −449 | −56 | −254 | +57 | +875 | 1,369 | | |
+| `h_core40` — strong-core window s1h ≤ −0.40 | +1,791 | +48 | −374 | −71 | −310 | +1,084 | 1,078 | | |
+
+read: under honest costs nothing turns the short book into a real earner — every variant is within
+about ±$1,000 over five years on a $10,000 account. what the variants do is cut drawdown (base
+$2,333 → ~$1,400) and move the 2024–2026 years from clearly negative to about flat. the two changes
+with the most consistent sign are the time stop (`h_l40w90`: 4/5 years better than base) and the
+tighter strong-core hourly condition (`h_core40`: 3/5 better, 1 flat, 2022 −61).

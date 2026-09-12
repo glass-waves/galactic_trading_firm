@@ -86,6 +86,7 @@ fn exit_reason_to_str(r: &ExitReason) -> &'static str {
         ExitReason::ConfigChange => "config_change",
         ExitReason::ScoreExit => "score_exit",
         ExitReason::DailyLossLimit => "daily_loss_limit",
+        ExitReason::BreakevenStop => "breakeven_stop",
     }
 }
 

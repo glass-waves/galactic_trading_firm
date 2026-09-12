@@ -30,6 +30,7 @@ pub fn exit_reason_to_str(r: &ExitReason) -> &'static str {
         ExitReason::ConfigChange => "config_change",
         ExitReason::ScoreExit => "score_exit",
         ExitReason::DailyLossLimit => "daily_loss_limit",
+        ExitReason::BreakevenStop => "breakeven_stop",
     }
 }
 
@@ -152,5 +153,6 @@ mod tests {
         assert_eq!(exit_reason_to_str(&ExitReason::ConfigChange), "config_change");
         assert_eq!(exit_reason_to_str(&ExitReason::ScoreExit), "score_exit");
         assert_eq!(exit_reason_to_str(&ExitReason::DailyLossLimit), "daily_loss_limit");
+        assert_eq!(exit_reason_to_str(&ExitReason::BreakevenStop), "breakeven_stop");
     }
 }

@@ -1020,7 +1020,6 @@ async fn main() {
 }
 
 #[allow(clippy::too_many_arguments)]
-#[allow(clippy::too_many_arguments)]
 async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capital: f64, cost_config: &Option<BacktestCostConfig>, verbose: bool, output_equity: bool, output_trades_csv: bool, overrides: &ConfigOverrides, bars_dir: Option<&str>, dump_ticks: Option<&str>) {
     dotenvy::dotenv().ok();
 

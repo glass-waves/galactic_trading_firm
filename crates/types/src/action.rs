@@ -57,6 +57,8 @@ pub enum ExitReason {
     ConfigChange,
     ScoreExit,
     DailyLossLimit,
+    /// breakeven monitor moved the stop to entry and price came back to it.
+    BreakevenStop,
 }
 
 /// current state of an open position.
