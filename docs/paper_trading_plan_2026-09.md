@@ -415,6 +415,12 @@ defensible only on 2026.
 trade selection is identical to the 36 %-sized mirrored sweep (same 560 / 748 trades, same win rates); only the
 size differs. this is the config the trader will start on monday 2026-09-14 at 06:10 PT.
 
+### v14 (2026-09-11, late): sizing 0.30 by operator decision
+
+row 8, `migrations/20260912000004`. identical trade selection to v13; at 30 % of $10k the corrected-replay
+expectation is 2026 ≈ +$2,280 with max drawdown ≈ 4 %, 2025 ≈ −$1,610 with max drawdown ≈ 20 %. this is the
+config the trader starts on monday 2026-09-14.
+
 ### the pre-monday sweep
 
 `scripts/run_v12_sweep.sh` (log: `data/sweep_progress.log`, ~6 h sequential to respect alpaca's free-plan rate limit):
