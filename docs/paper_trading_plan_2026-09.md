@@ -449,7 +449,7 @@ and gates disabled) at 36 % sizing against the v13 long book alone as the contro
 |---|---|---|---|
 | long-book control (gates off) | +2,125 · PF 1.53 | −2,632 · PF 0.63 | the bar |
 | ORB-30 + rel. volume | +816 · PF 1.32 | −2,204 · PF 0.56 | loses in a down-drift year too — breakouts get faded |
-| ORB-15 + rel. volume | +510 · PF 1.12 | (see log) | weaker ORB-30 |
+| ORB-15 + rel. volume | +510 · PF 1.12 | −2,709 · PF 0.61 | same as control in 2025 |
 | strong core behind hourly-trend gate | +1,694 | −2,194 | the gate saves ~$440 in 2025 and costs ~$430 in 2026: a wash |
 | squeeze breakout after 10:00 | +305 · PF 1.09 | — | eliminated |
 | gap-and-go | +193 · PF 1.08 | — | eliminated |
@@ -465,3 +465,18 @@ but flips sign across years and thresholds with small samples — not a signal w
 property. no intraday long pattern tested is regime-robust; the symmetric short book (v13/v14) remains the only
 component positive in both years. side finding: both reject gates are slightly negative on 2026 (+$2,125 without
 vs +$2,065 with) — a candidate simplification for a later EOD review, not a monday change.
+
+## 8. five-year regime picture (promoted logic at 36 % sizing, corrected replay; run 2026-09-12 00:30–01:10 PT)
+
+| year | long book | short book | both |
+|---|---|---|---|
+| 2022 | −2,049 · PF 0.79 (529) | **+3,566 · PF 1.56 · t 3.5** (416) | +1,516 |
+| 2023 | +512 · PF 1.07 (529) | +469 · PF 1.17 (209) | +982 |
+| 2024 | −690 · PF 0.90 (549) | +412 · PF 1.14 (212) | −278 |
+| 2025 | −2,659 · PF 0.62 (504) | +704 · PF 1.20 (244) | −1,955 |
+| 2026 | +2,095 · PF 1.53 (353) | +648 · PF 1.25 (207) | +2,743 |
+| **5-yr** | **−2,790 (2 of 5 years positive)** | **+5,798 (5 of 5 years positive)** | +3,008 |
+
+the long book is a bet on positive morning drift and loses over five years. the short book is positive every
+year with max drawdowns of $412–$867 (4–9 % at 36 % sizing). this split is post-hoc (one position at a time, so
+longs sometimes occupied the slot); `v15_shortonly` legs on all five years are the decision-grade test.
