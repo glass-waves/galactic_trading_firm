@@ -405,6 +405,16 @@ regime switch in the data I have; the short book is real but thin. if you want r
 research step is a different long signal, not more threshold tuning. sizing at 15 % is my call; 36 % is
 defensible only on 2026.
 
+### final: the promoted v13 blob, no overrides (run 2026-09-11 21:53 PT)
+
+| | 2026 (Jan 2–Sep 10) | 2025 (full year) |
+|---|---|---|
+| v12 @ 36 % | +1,450 · PF 1.28 · maxDD −416 (4 %) | −3,369 · PF 0.60 · maxDD −3,555 (36 %) |
+| **v13 @ 15 % (promoted, row 7)** | **+1,087 · PF 1.43 · maxDD −198 (2 %) · 560 trades · tune +732 / holdout +356** | **−775 · PF 0.82 · maxDD −974 (10 %) · 748 trades** |
+
+trade selection is identical to the 36 %-sized mirrored sweep (same 560 / 748 trades, same win rates); only the
+size differs. this is the config the trader will start on monday 2026-09-14 at 06:10 PT.
+
 ### the pre-monday sweep
 
 `scripts/run_v12_sweep.sh` (log: `data/sweep_progress.log`, ~6 h sequential to respect alpaca's free-plan rate limit):
