@@ -316,6 +316,61 @@ sees bars as they arrive. the replay now feeds bars through that same aggregator
 `crates/engine/src/candle_aggregator.rs`), with the same 200-candle rolling window, so backtest and live build
 identical windows. the v12 sweep was restarted a third time on this code; only its results are trustworthy.
 
+### honest v12 baseline — 2026-01-02 → 09-10, corrected replay (run 2026-09-11 17:15 PT)
+
+| | |
+|---|---|
+| P&L on $10k, 36 % sizing | **+$1,407** (+14 %) · 476 trades · 2.6/day |
+| win rate / PF / avg trade | 44.1 % / 1.27 / +$2.96 |
+| max drawdown / longest DD | −$416 (4.2 %) / 55 days |
+| daily sharpe / positive days | 1.93 / 48 % |
+| tuning half (Jan–Jun) vs holdout (Jul 1–Sep 10) | +$786 (330 trades) vs +$664 (144 trades) — the edge survives out of sample |
+| by ticker | MSFT +631 · AAPL +589 · AMZN +524 · NVDA +109 · **QQQ −446 (PF 0.54)** |
+| by window | strong core +1,282 (309) · 5m thrust +334 (67) · **candle reversal −209 (100, PF 0.85)** |
+| by exit | max-hold +3,584 (54 % win) · session-close +940 · hard-stop −272 (3) · **score-exit −2,845 (132 trades, 13 % win)** |
+| by entry time | 09:30 bar carries 303 of 476 trades at +$4.33 avg; 11:15–11:30 entries lose (−$90) because the 11:55 flat cuts them at ~40 min |
+
+reading: a modest, real, long-only morning momentum edge on the mega-caps. losses are concentrated in one exit
+(score-exit at −0.15) and one instrument (QQQ). the naive open→11:25 baseline on the same days was flat, so this is
+selection, not drift. everything below is measured against this table.
+
+### batch 1 — single-factor variants on 2026 (corrected replay, all 180 days complete)
+
+| variant | P&L | PF | trades | maxDD | tune (Jan–Jun) | holdout (Jul–Sep 10) | verdict |
+|---|---|---|---|---|---|---|---|
+| v12 (baseline) | +1,450 | 1.28 | 474 | −416 | +786 | +664 | — |
+| full-day session (entries to 15:30, flat 15:55) | +108 | 1.01 | 860 | −723 | −33 | +141 | **rejected** — the afternoon has no edge; morning-only stands |
+| score exit −0.30 (was −0.15) | +1,623 | 1.32 | 467 | −420 | +851 | +772 | **adopt** — better on both halves |
+| score exit −0.50 | +1,578 | 1.31 | 467 | −435 | +836 | +741 | better than base, slightly worse than −0.30 |
+| drop QQQ | +1,896 | 1.45 | 363 | −269 | +1,082 | +814 | **adopt** — better on both halves, drawdown −35 % |
+| drop candle-reversal window | +1,445 | 1.29 | 445 | −422 | +771 | +674 | neutral — leave it |
+
+v13 candidate = v12 + `scoring.exit_threshold` −0.30 + tickers AMZN/AAPL/NVDA/MSFT. batch 2 tests the combination
+on 2026 and 2025, and stacks seven single factors on top of it (open skip 15 min, hard stop 1.5 %, ATR trail 3×,
+entries by 11:00, profit extension 60 min, strong-core composite floor 0.45, SPY as the fifth ticker).
+
+### batch 2, first results — the 2025 problem
+
+| | 2026 (Jan–Sep 10) | 2025 (full year) |
+|---|---|---|
+| v12 | +1,450 · PF 1.28 | **−3,369 · PF 0.60 · 34 % win** |
+| v13 candidate (no QQQ, score exit −0.30) | +2,065 · PF 1.51 · tune +1,112 / holdout +953 | **−2,758 · PF 0.62 · 11 of 12 months negative** |
+| naive buy 09:35 / sell 11:25, same 4 tickers | +387 | **−3,108** (every ticker, every quarter negative) |
+
+the strategy is a long-only morning-momentum book whose P&L is dominated by the sign of the morning drift in the
+mega-caps: 2025 mornings sold off, 2026 mornings rallied. the selection adds value over naive in both years
+(+$350 in 2025, +$1,700 in 2026), but it cannot overcome a −0.09 %/day headwind. 392 of 521 trades in 2025
+entered on the 09:30 bar — the first bar's scores are yesterday's state plus one minute, so the dominant trade
+is "buy the open after an up day".
+
+**consequences for monday:** the honest expectation for a long-only v12/v13 is "profitable if mornings trend up,
+loses steadily if they don't", with ~2 trades/day and a 3–4 % drawdown either way at 36 % sizing. that is a
+plumbing test, not an edge. the experiment that could change the picture is symmetry — mirrored short windows so
+a negative-drift regime is tradeable — which required: `composite_max` / `timescale_lag` conditions, a
+direction-aware score exit (it was long-only and closed every short one bar later), and dropping the hourly hard
+gate under `--mirror-short` (it floors the composite at 0 whenever the hourly score is negative, so shorts could
+never fire). those are in; `v13a_mirror` legs on 2026 and 2025 decide it.
+
 ### the pre-monday sweep
 
 `scripts/run_v12_sweep.sh` (log: `data/sweep_progress.log`, ~6 h sequential to respect alpaca's free-plan rate limit):
