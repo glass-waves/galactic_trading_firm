@@ -488,7 +488,7 @@ real short-only runs (long windows disabled, 36 % sizing) reproduce the post-hoc
 | year | short-only P&L | PF | trades | maxDD | 5m thrust short / strong core short |
 |---|---|---|---|---|---|
 | 2022 | +3,564 | 1.56 | 416 | −602 | +2,194 / +1,370 |
-| 2023 | see below | | | | +357 / +46 (partial at 189 days: +423) |
+| 2023 | +479 | 1.17 | 209 | −412 | +512 / −33 |
 | 2024 | +395 | 1.13 | 212 | −870 | +369 / +26 |
 | 2025 | +699 | 1.20 | 244 | −660 | +533 / +166 |
 | 2026 | +665 | 1.26 | 207 | −533 | −97 / +761 |

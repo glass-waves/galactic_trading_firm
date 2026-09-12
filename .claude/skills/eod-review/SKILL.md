@@ -17,7 +17,7 @@ v15 is a **short-only** morning book on AMZN/AAPL/NVDA/MSFT: two short windows (
 "strong core short"), entries until 11:30 ET, flat by 11:55 ET, 30 % sizing, ~1 trade/day. the three
 long windows exist in the config but are disabled. corrected-replay evidence over five years at 36 %
 sizing (docs/paper_trading_plan_2026-09.md §8–9): the short book was positive every year
-(2022 +$3,564 · 2023 ≈ +$4xx · 2024 +$395 · 2025 +$699 · 2026 +$665; max drawdown 4–9 %); the long
+(2022 +$3,564 · 2023 +$479 · 2024 +$395 · 2025 +$699 · 2026 +$665; max drawdown 4–9 %); the long
 book was net negative (−$2,790, positive in two years). **a quiet week with few trades is normal.
 do not re-enable the long windows on a good week for the market** — that is exactly the regime bet
 the evidence rejects. a change to the long book requires the five-year sweep, not a 20-day one.
