@@ -7,13 +7,14 @@ usage: scripts/report_backtest.py <tag> [<tag> ...]        # one block per tag
 daily P&L comes from the summary rows (one per ticker per day), so drawdown is on
 the day-to-day equity curve at fixed $CAPITAL per day (no compounding).
 """
-import csv, glob, sys, math
+import csv, glob, sys, math, re
 from collections import defaultdict
 
 def load(tag):
     trades, daily = [], defaultdict(float)
     days = set()
-    for f in sorted(glob.glob(f"data/{tag}_*_trades.csv")):
+    for f in sorted(f for f in glob.glob(f"data/{tag}_*_trades.csv")
+                    if re.fullmatch(rf"data/{re.escape(tag)}_\d{{4}}_trades\.csv", f)):
         with open(f) as fh:
             for row in csv.DictReader(fh):
                 if row.get("row_type") == "trade":
@@ -43,12 +44,17 @@ def sharpe(daily):
     m = sum(xs) / len(xs); v = sum((x - m) ** 2 for x in xs) / (len(xs) - 1)
     return (m / math.sqrt(v)) * math.sqrt(252) if v > 0 else float("nan")
 
+HOLDOUT_START = "2026-07-01"
+
 def headline(tag):
     trades, daily, days = load(tag)
     pnls = [float(t["pnl"]) for t in trades]
     wins = [p for p in pnls if p > 0]
     mdd, longest = drawdown(daily)
-    return dict(tag=tag, days=len(days), trades=len(trades), pnl=sum(pnls),
+    h1 = sum(float(t["pnl"]) for t in trades if t["date"] < HOLDOUT_START)
+    h2 = sum(float(t["pnl"]) for t in trades if t["date"] >= HOLDOUT_START)
+    n2 = sum(1 for t in trades if t["date"] >= HOLDOUT_START)
+    return dict(tag=tag, days=len(days), trades=len(trades), pnl=sum(pnls), h1=h1, h2=h2, n2=n2,
                 win=100 * len(wins) / len(pnls) if pnls else 0, pf=pf(pnls),
                 avg=sum(pnls) / len(pnls) if pnls else 0, tpd=len(trades) / len(days) if days else 0,
                 mdd=mdd, dd_days=longest, sharpe=sharpe(daily),
@@ -79,10 +85,10 @@ if __name__ == "__main__":
     args = sys.argv[1:]
     if not args: print(__doc__); sys.exit(1)
     if args[0] == "--compare":
-        print(f"{'tag':<14}{'days':>5}{'trades':>7}{'t/day':>6}{'P&L':>10}{'win%':>6}{'PF':>6}{'avg':>8}{'sharpe':>7}{'maxDD':>9}{'DDdays':>7}{'+days%':>7}")
+        print(f"{'tag':<16}{'days':>5}{'trades':>7}{'t/day':>6}{'P&L':>9}{'win%':>6}{'PF':>6}{'avg':>7}{'sharpe':>7}{'maxDD':>8}{'DDd':>5}{'tune':>8}{'holdout':>9}{'n_ho':>5}")
         for tag in args[1:]:
             h = headline(tag)
-            print(f"{h['tag']:<14}{h['days']:>5}{h['trades']:>7}{h['tpd']:>6.2f}{h['pnl']:>+10.2f}{h['win']:>6.1f}{h['pf']:>6.2f}"
-                  f"{h['avg']:>+8.2f}{h['sharpe']:>7.2f}{h['mdd']:>9.2f}{h['dd_days']:>7}{h['pos_days']:>7.0f}")
+            print(f"{h['tag']:<16}{h['days']:>5}{h['trades']:>7}{h['tpd']:>6.2f}{h['pnl']:>+9.0f}{h['win']:>6.1f}{h['pf']:>6.2f}"
+                  f"{h['avg']:>+7.2f}{h['sharpe']:>7.2f}{h['mdd']:>8.0f}{h['dd_days']:>5}{h['h1']:>+8.0f}{h['h2']:>+9.0f}{h['n2']:>5}")
     else:
         for tag in args: block(tag)

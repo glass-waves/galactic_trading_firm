@@ -38,8 +38,11 @@ for d in $DATES; do
     year="${d:0:4}"
     out="$ROOT/data/${TAG}_${year}_trades.csv"
     tmp=$(mktemp)
-    if "$BIN" --date "$d" --lookback-days "$LOOKBACK" --capital "$CAPITAL" $COST_ARGS --output-trades-csv "${EXTRA[@]}" > "$tmp" 2>/dev/null \
-       && grep -q "^summary," "$tmp"; then
+    # a day counts only if every ticker produced a summary row and nothing errored
+    # (alpaca rate limits fail individual tickers; a partial day would silently bias the leg)
+    if "$BIN" --date "$d" --lookback-days "$LOOKBACK" --capital "$CAPITAL" $COST_ARGS --output-trades-csv "${EXTRA[@]}" > "$tmp" 2>"$tmp.err" \
+       && grep -q "^summary," "$tmp" \
+       && ! grep -qiE "error|failed" "$tmp.err" "$tmp"; then
         if [[ -z "${HEADER_DONE[$year]:-}" ]]; then
             if [[ ! -s "$out" ]]; then head -1 "$tmp" > "$out"; fi
             HEADER_DONE[$year]=1
@@ -53,7 +56,7 @@ for d in $DATES; do
         SKIP=$((SKIP+1))
         echo "[$TAG] $N/$TOTAL $d skipped (no data / error)" >&2
     fi
-    rm -f "$tmp"
+    rm -f "$tmp" "$tmp.err"
     sleep "$DAY_SLEEP"
 done
 echo "[$TAG] done: $OK days, $SKIP skipped" >&2
