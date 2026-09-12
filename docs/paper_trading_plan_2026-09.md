@@ -503,3 +503,39 @@ three checked days (2022-06-13, 2025-04-04, 2026-06-04); the live binary builds 
 
 sizing note: the earlier "kelly ≈ 0.17" shortcut was wrong (a losing trade loses ~0.6 % of the position,
 not the position); kelly is not the binding constraint here, drawdown tolerance is. 30 % is a preference.
+
+## 10. trade-path analysis round (2026-09-12, afternoon)
+
+goal: instead of sweeping knobs blind, look at *what the trades actually did* — for losers and
+breakevens, did we exit too late or too early; for the best shorts of each day, which condition
+kept the engine out — and then test the changes that evidence suggests, one at a time.
+
+### 10.1 tooling added (commits 7069a05, 9504db8)
+
+- **local bar cache** `backtest --fetch-bars data/bars --start … --end … --tickers …` writes
+  `data/bars/<TICKER>.csv` (RTH 1-minute, epoch seconds). `--bars-dir data/bars` replays from it:
+  no alpaca calls, ~0.5 s per day, so a five-year sweep runs in ~3 minutes with one process per year
+  (`scripts/run_cached_sweep.sh <tag> [backtest args]`, `DUMP_TICKS=1` for diagnostics).
+- **per-tick dump** `--dump-ticks FILE`: one row per bar with ohlcv, vwap, composite/1m/5m/1h scores,
+  position state, event, `entry_blocked_by`, `near_miss`. ~1M rows / 50 MB per year.
+- **pagination bug found and fixed**: alpaca pages at 10,000 bars and the limit counts the
+  pre/post-market bars we filter client-side; `fetch_bars_range` ignored `next_page_token`, so any
+  request spanning more than ~10k raw bars lost its tail silently. the first cache build lost 91
+  whole NVDA days. the loader now follows the token. the 8-day lookback fetch used by every sweep
+  so far stayed under the limit on the days checked — the cached `v15c` sweep reproduces the
+  alpaca-fed `v15_shortonly` sweep trade-for-trade for 2023–2026 (2022 differs only in the first
+  week of january, where the cache has no prior-year warm-up).
+
+### 10.2 cached baseline `v15c` (v15 short-only, 36 % sizing)
+
+| year | P&L | trades |
+|---|---|---|
+| 2022 | +3,654 | 414 |
+| 2023 | +479 | 209 |
+| 2024 | +395 | 212 |
+| 2025 | +699 | 244 |
+| 2026 (to 09-10) | +665 | 207 |
+| total | +5,892 | 1,286 (PF 1.32, maxDD $870, sharpe 1.22) |
+
+two analysis agents were run on this data (exit timing; missed setups). findings and the variant
+tests that followed are in §10.3 onward.

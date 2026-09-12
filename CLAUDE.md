@@ -228,9 +228,9 @@ validates strategy configs against historical data. both a library and a CLI bin
 | `src/lib.rs` | module exports: alpaca_loader, config_loader, replay, report |
 | `src/replay.rs` | `run_backtest()` — replays candles through `TradingEngine`, records trades, computes metrics |
 | `src/report.rs` | `BacktestResult`, `BacktestMetrics` (P&L, sharpe, win_rate, max_drawdown, profit_factor), `compute_metrics()`, JSON/CSV export, `compare_configs()` |
-| `src/alpaca_loader.rs` | `fetch_bars_range()` — async historical bar fetch from alpaca API |
+| `src/alpaca_loader.rs` | `fetch_bars_range()` — async historical bar fetch from alpaca API, RTH-filtered, follows `next_page_token` (the 10k page limit counts extended-hours bars) |
 | `src/config_loader.rs` | `load_promoted_config_with_id()`, `write_backtest_trades()` — postgres integration |
-| `src/main.rs` | CLI: `--date YYYY-MM-DD [--lookback-days N] [--write-db]` or legacy `--config X --data Y --ticker Z`. supports walk-forward mode, per-ticker overrides (`--ticker-override "NVDA:entry_threshold=0.35"`), and `ConfigOverrides` for A/B testing |
+| `src/main.rs` | CLI: `--date YYYY-MM-DD [--lookback-days N] [--write-db]` or legacy `--config X --data Y --ticker Z`. supports walk-forward mode, per-ticker overrides (`--ticker-override "NVDA:entry_threshold=0.35"`), and `ConfigOverrides` for A/B testing. `--fetch-bars DIR --start --end --tickers` builds a local 1m bar cache; `--bars-dir DIR` replays from it (no alpaca calls); `--dump-ticks FILE` writes per-bar scores + gate/near-miss diagnostics |
 
 **tests:** 40 (15 metrics, 13 replay, 8 report/serialization, 4 integration)
 
