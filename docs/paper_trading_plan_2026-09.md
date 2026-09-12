@@ -436,3 +436,32 @@ config the trader starts on monday 2026-09-14.
 
 read results with `scripts/report_backtest.py --compare v12 v12_fullday v12_5pct v12_avoid30 v12_core4` and
 `scripts/report_backtest.py v12` for the per-month / ticker / window / exit breakdown.
+
+---
+
+## 7. long-signal research, round one (2026-09-11 night → 09-12 early)
+
+harness: `research/signals/*.json` + `backtest --patch-json`, four session-anchored indicators
+(`opening_range`, `gap`, `hourly_trend`, `session_clock`). each candidate measured in isolation (promoted windows
+and gates disabled) at 36 % sizing against the v13 long book alone as the control.
+
+| candidate | 2026 | 2025 | verdict |
+|---|---|---|---|
+| long-book control (gates off) | +2,125 · PF 1.53 | −2,632 · PF 0.63 | the bar |
+| ORB-30 + rel. volume | +816 · PF 1.32 | −2,204 · PF 0.56 | loses in a down-drift year too — breakouts get faded |
+| ORB-15 + rel. volume | +510 · PF 1.12 | (see log) | weaker ORB-30 |
+| strong core behind hourly-trend gate | +1,694 | −2,194 | the gate saves ~$440 in 2025 and costs ~$430 in 2026: a wash |
+| squeeze breakout after 10:00 | +305 · PF 1.09 | — | eliminated |
+| gap-and-go | +193 · PF 1.08 | — | eliminated |
+| VWAP reclaim after 10:00 | +89 · PF 1.07 | — | eliminated |
+| morning reversal 10:00–10:30 | +12 · PF 1.01 | — | eliminated |
+| pullback in hourly uptrend | −2,515 · 7.9 trades/day | — | eliminated (churn) |
+
+market-confirmation premise (SPY's first 15 minutes / overnight gap vs the rest of the morning, 2022–2026, from
+raw bars): no direction-following effect in any year; a fade effect after a strong SPY open exists in some cells
+but flips sign across years and thresholds with small samples — not a signal worth plumbing.
+
+**conclusion:** the long book's dependence on morning drift is a market property, not an entry-trigger
+property. no intraday long pattern tested is regime-robust; the symmetric short book (v13/v14) remains the only
+component positive in both years. side finding: both reject gates are slightly negative on 2026 (+$2,125 without
+vs +$2,065 with) — a candidate simplification for a later EOD review, not a monday change.
