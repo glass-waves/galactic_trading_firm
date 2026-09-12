@@ -351,7 +351,7 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
             total_initial_capital: None,
             index_return: None,
             cross_ticker_correlation: None,
-            cross: None,
+            cross: data.cross_by_ts.as_ref().and_then(|m| m.get(&last_candle.timestamp).copied()),
         };
 
         // position state as the engine sees it going into this tick

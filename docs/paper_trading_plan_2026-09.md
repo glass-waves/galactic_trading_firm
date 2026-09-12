@@ -662,3 +662,33 @@ calendar exclusions (FOMC, earnings-adjacent).
   per-window P&L / PF / drawdown for any set of sweep tags.
 - process: offline screen (agent, on the labelled bars from §10) → real five-year replay under
   honest costs for survivors, one variant at a time → combine only what survived alone.
+
+### 11.2 offline screen results (agent; full report `docs/analysis/2026-09-12_entry_screen.md`)
+
+564,474 morning bars, join rate 100 %. the reference is v16's own windows simulated with its exit
+stack (+1,723 / 1,179 trades / PF 1.12, within 2 % of the real replay).
+
+- **no feature works as a trigger.** all 28 features (and 90 bucket definitions) have negative mean
+  short value on the bars where they fire, and all lose money as standalone short windows. v16's
+  window is the only positive standalone trigger in the set.
+- **multi-bar candle patterns are confirmations, not early signals.** in 16 of 18 pattern/timescale
+  cases the pattern is better when the 5-minute score is already ≤ −0.40 than when it is bullish,
+  and in every case the "5m still bullish" cell (where the best shorts live) is at or below the
+  base rate. none survives as a window condition. a 5m bearish harami *after* a sell-off is the
+  strongest negative signal in the set (−0.35 % mean, 235 episodes, negative every year).
+- **two filters on v16's windows pass the bar** (keep ≥ 40 % of trades, raise the per-trade mean in
+  ≥ 4 of 5 years, smooth threshold sensitivity):
+  1. require SPY session return within ±0.2 % → sim +2,741 / 752 trades / PF 1.33 (±0.3 %: PF 1.31)
+  2. exclude bars already > 1 % below the prior-day low → sim +2,498 / 778 / PF 1.31
+- **one pair beats both parents in 5/5 years:** SPY flat ±0.2 % **and** VPIN top quintile (raw
+  ≥ 0.217) → sim +2,769 / 468 trades / **PF 1.64**, every year positive (2023 +31). robust to the
+  band (±0.3 % → 1.50) and the VPIN cut (0.18 → 1.53, 0.26 → 1.63). adding filter 2 → PF 2.01 on
+  278 trades (about one a week).
+- reading: short idiosyncratic weakness; don't chase a market-wide or already-extended move.
+  v16's 2022 profit came largely from big gap-down / SPY-down mornings; in 2023–2026 those mornings
+  are where it loses.
+- negative: opening-range breaks (2022-only), OFI quintiles, peers-red, gap-holding, FOMC and
+  earnings-day exclusions (v16 barely trades those days), time-of-day.
+- caveat found by the agent: `cross_1m` was null on every bar of the dump — the replay never
+  assigned `MarketState.cross` (a failed text replacement in `replay.rs`); the SPY features were
+  recomputed offline from `data/bars/SPY.csv`. fixed before the replay tests below.

@@ -1,0 +1,100 @@
+{
+ "disable": [
+  "window_5m_thrust_short",
+  "window_strong_core_short"
+ ],
+ "indicators": [],
+ "actions": [
+  {
+   "instance_id": "window_5m_thrust_short_x",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 10,
+   "enabled": true,
+   "params": {
+    "name": "5m thrust short +cond",
+    "direction": "short",
+    "conditions": [
+     {
+      "type": "composite_max",
+      "max_score": -0.35
+     },
+     {
+      "type": "timescale_lag",
+      "lag_by": 0.1,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_max",
+      "max_score": -0.5,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_max",
+      "max_score": 0.0,
+      "timescale": "OneHour"
+     },
+     {
+      "type": "indicator_max",
+      "instance_id": "cs_cloud_5m",
+      "max_score": -0.5
+     }
+    ]
+   }
+  },
+  {
+   "instance_id": "window_strong_core_short_x",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 20,
+   "enabled": true,
+   "params": {
+    "name": "strong core short +cond",
+    "direction": "short",
+    "conditions": [
+     {
+      "type": "composite_max",
+      "max_score": -0.35
+     },
+     {
+      "type": "timescale_max",
+      "max_score": -0.4,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_max",
+      "max_score": -0.4,
+      "timescale": "OneHour"
+     },
+     {
+      "type": "indicator_max",
+      "instance_id": "cs_cloud_5m",
+      "max_score": -0.5
+     }
+    ]
+   }
+  },
+  {
+   "instance_id": "window_research_short",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 30,
+   "enabled": true,
+   "params": {
+    "name": "cs cloud 5m",
+    "direction": "short",
+    "conditions": [
+     {
+      "type": "composite_max",
+      "max_score": -0.2
+     },
+     {
+      "type": "indicator_max",
+      "instance_id": "cs_cloud_5m",
+      "max_score": -0.5
+     }
+    ]
+   }
+  }
+ ]
+}
