@@ -5,3 +5,4 @@ pub mod ofi;
 pub mod position_context;
 pub mod rvol;
 pub mod vpin;
+pub mod session_signals;

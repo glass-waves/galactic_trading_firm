@@ -1,0 +1,62 @@
+{
+  "_note": "gap up >= 0.5% holding above today's open, after 09:45",
+  "disable": [
+    "window_5m_thrust",
+    "window_strong_core",
+    "window_candle_reversal",
+    "window_5m_thrust_short",
+    "window_strong_core_short",
+    "reject_1m_noise",
+    "reject_1m_noise_short"
+  ],
+  "indicators": [
+    {
+      "indicator_type": "session_clock",
+      "instance_id": "clock_1m",
+      "timescale": "OneMinute",
+      "enabled": true,
+      "weight": 0.0,
+      "params": {}
+    },
+    {
+      "indicator_type": "gap",
+      "instance_id": "gap_1m",
+      "timescale": "OneMinute",
+      "enabled": true,
+      "weight": 0.0,
+      "params": {
+        "scale_pct": 1.0
+      }
+    }
+  ],
+  "actions": [
+    {
+      "action_type": "entry_window",
+      "instance_id": "w_gapgo",
+      "phase": "Entry",
+      "enabled": true,
+      "priority": 10,
+      "params": {
+        "name": "gapgo",
+        "direction": "long",
+        "conditions": [
+          {
+            "type": "indicator_min",
+            "instance_id": "gap_1m",
+            "min_score": 0.5
+          },
+          {
+            "type": "indicator_min",
+            "instance_id": "gap_1m.above_open",
+            "min_score": 0.0
+          },
+          {
+            "type": "indicator_min",
+            "instance_id": "clock_1m",
+            "min_score": 0.038
+          }
+        ]
+      }
+    }
+  ]
+}

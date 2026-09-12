@@ -1,0 +1,11 @@
+{
+  "_note": "control: the v13 long windows alone, gates off (same isolation as the candidates)",
+  "disable": [
+    "window_5m_thrust_short",
+    "window_strong_core_short",
+    "reject_1m_noise",
+    "reject_1m_noise_short"
+  ],
+  "indicators": [],
+  "actions": []
+}

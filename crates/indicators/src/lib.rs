@@ -48,6 +48,10 @@ pub fn default_indicator_registry() -> IndicatorRegistry {
     reg.register("hold_duration", custom::position_context::hold_duration_factory);
     reg.register("session_remaining", custom::position_context::session_remaining_factory);
     reg.register("relative_volume", custom::rvol::rvol_factory);
+    reg.register("opening_range", custom::session_signals::opening_range_factory);
+    reg.register("gap", custom::session_signals::gap_factory);
+    reg.register("hourly_trend", custom::session_signals::hourly_trend_factory);
+    reg.register("session_clock", custom::session_signals::session_clock_factory);
     reg.register("market_breadth", custom::market_breadth::market_breadth_factory);
     reg.register("cross_ticker_correlation", custom::cross_correlation::cross_correlation_factory);
     reg.register("candle_pattern", custom::candle_pattern::candle_pattern_factory);

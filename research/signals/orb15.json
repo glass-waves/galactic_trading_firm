@@ -1,0 +1,61 @@
+{
+  "_note": "opening-range breakout, 15 min, with relative volume >= 1.5x",
+  "disable": [
+    "window_5m_thrust",
+    "window_strong_core",
+    "window_candle_reversal",
+    "window_5m_thrust_short",
+    "window_strong_core_short",
+    "reject_1m_noise",
+    "reject_1m_noise_short"
+  ],
+  "indicators": [
+    {
+      "indicator_type": "opening_range",
+      "instance_id": "or_1m",
+      "timescale": "OneMinute",
+      "enabled": true,
+      "weight": 0.0,
+      "params": {
+        "range_minutes": 15
+      }
+    },
+    {
+      "indicator_type": "relative_volume",
+      "instance_id": "rvol_1m",
+      "timescale": "OneMinute",
+      "enabled": true,
+      "weight": 0.0,
+      "params": {
+        "lookback_period": 20,
+        "high_threshold": 1.5,
+        "low_threshold": 0.5
+      }
+    }
+  ],
+  "actions": [
+    {
+      "action_type": "entry_window",
+      "instance_id": "w_orb15",
+      "phase": "Entry",
+      "enabled": true,
+      "priority": 10,
+      "params": {
+        "name": "orb15",
+        "direction": "long",
+        "conditions": [
+          {
+            "type": "indicator_min",
+            "instance_id": "or_1m",
+            "min_score": 0.5
+          },
+          {
+            "type": "indicator_min",
+            "instance_id": "rvol_1m",
+            "min_score": 0.0
+          }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,68 @@
+{
+  "_note": "morning reversal: 10:00-10:30, down >= 0.3% from open, 1m turning up, 5m >= 0",
+  "disable": [
+    "window_5m_thrust",
+    "window_strong_core",
+    "window_candle_reversal",
+    "window_5m_thrust_short",
+    "window_strong_core_short",
+    "reject_1m_noise",
+    "reject_1m_noise_short"
+  ],
+  "indicators": [
+    {
+      "indicator_type": "session_clock",
+      "instance_id": "clock_1m",
+      "timescale": "OneMinute",
+      "enabled": true,
+      "weight": 0.0,
+      "params": {}
+    },
+    {
+      "indicator_type": "gap",
+      "instance_id": "gap_1m",
+      "timescale": "OneMinute",
+      "enabled": true,
+      "weight": 0.0,
+      "params": {
+        "scale_pct": 1.0
+      }
+    }
+  ],
+  "actions": [
+    {
+      "action_type": "entry_window",
+      "instance_id": "w_reversal",
+      "phase": "Entry",
+      "enabled": true,
+      "priority": 10,
+      "params": {
+        "name": "reversal",
+        "direction": "long",
+        "conditions": [
+          {
+            "type": "indicator_range",
+            "instance_id": "clock_1m",
+            "min_score": 0.077,
+            "max_score": 0.154
+          },
+          {
+            "type": "indicator_max",
+            "instance_id": "gap_1m.above_open",
+            "max_score": -0.3
+          },
+          {
+            "type": "timescale_min",
+            "timescale": "OneMinute",
+            "min_score": 0.3
+          },
+          {
+            "type": "timescale_min",
+            "timescale": "FiveMinute",
+            "min_score": 0.0
+          }
+        ]
+      }
+    }
+  ]
+}

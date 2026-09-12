@@ -120,6 +120,12 @@ struct ConfigOverrides {
     short_only: bool,
     /// --max-position-pct: override session.max_position_pct (the hard size clamp).
     max_position_pct: Option<f64>,
+    /// --patch-json <file>: research patch. JSON object with optional keys
+    ///   "disable": [instance_id, ...]        (actions to disable)
+    ///   "indicators": [IndicatorConfig, ...] (appended)
+    ///   "actions": [ActionConfig, ...]       (appended)
+    /// applied after every other override. repeatable.
+    patch_files: Vec<String>,
 }
 
 impl ConfigOverrides {
@@ -188,6 +194,7 @@ impl ConfigOverrides {
             || !self.set_action_params.is_empty()
             || self.mirror_short
             || self.max_position_pct.is_some()
+            || !self.patch_files.is_empty()
     }
 
     fn apply(&self, config: &mut StrategyConfig) {
@@ -564,6 +571,35 @@ impl ConfigOverrides {
             }
             config.actions.extend(twins);
         }
+        for file in &self.patch_files {
+            let text = match std::fs::read_to_string(file) {
+                Ok(t) => t,
+                Err(e) => { eprintln!("error: --patch-json {file}: {e}"); std::process::exit(2); }
+            };
+            let patch: serde_json::Value = match serde_json::from_str(&text) {
+                Ok(v) => v,
+                Err(e) => { eprintln!("error: --patch-json {file}: invalid json: {e}"); std::process::exit(2); }
+            };
+            if let Some(ids) = patch.get("disable").and_then(|v| v.as_array()) {
+                for action in &mut config.actions {
+                    if ids.iter().any(|x| x.as_str() == Some(action.instance_id.as_str())) {
+                        action.enabled = false;
+                    }
+                }
+            }
+            if let Some(inds) = patch.get("indicators") {
+                match serde_json::from_value::<Vec<IndicatorConfig>>(inds.clone()) {
+                    Ok(v) => config.indicators.extend(v),
+                    Err(e) => { eprintln!("error: --patch-json {file}: indicators: {e}"); std::process::exit(2); }
+                }
+            }
+            if let Some(acts) = patch.get("actions") {
+                match serde_json::from_value::<Vec<ActionConfig>>(acts.clone()) {
+                    Ok(v) => config.actions.extend(v),
+                    Err(e) => { eprintln!("error: --patch-json {file}: actions: {e}"); std::process::exit(2); }
+                }
+            }
+        }
         for (id, path, value) in &self.set_action_params {
             let Some(action) = config.actions.iter_mut().find(|a| &a.instance_id == id) else {
                 eprintln!("warning: --set-action-param: no action with instance_id '{id}'");
@@ -840,6 +876,7 @@ fn parse_overrides(args: &[String]) -> ConfigOverrides {
             .collect(),
         mirror_short: args.iter().any(|a| a == "--mirror-short"),
         max_position_pct: get_arg(args, "--max-position-pct").and_then(|s| s.parse().ok()),
+        patch_files: get_all_args(args, "--patch-json"),
         short_only: args.iter().any(|a| a == "--short-only"),
         set_action_params: get_all_args(args, "--set-action-param")
             .iter()

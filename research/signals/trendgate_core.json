@@ -1,0 +1,59 @@
+{
+  "_note": "control: existing strong core long window + hourly_trend regime gate >= 0",
+  "disable": [
+    "window_5m_thrust",
+    "window_strong_core",
+    "window_candle_reversal",
+    "window_5m_thrust_short",
+    "window_strong_core_short",
+    "reject_1m_noise",
+    "reject_1m_noise_short"
+  ],
+  "indicators": [
+    {
+      "indicator_type": "hourly_trend",
+      "instance_id": "trend_1h",
+      "timescale": "OneHour",
+      "enabled": true,
+      "weight": 0.0,
+      "params": {
+        "lookback": 30,
+        "scale_pct": 3.0
+      }
+    }
+  ],
+  "actions": [
+    {
+      "action_type": "entry_window",
+      "instance_id": "w_core_gated",
+      "phase": "Entry",
+      "enabled": true,
+      "priority": 10,
+      "params": {
+        "name": "strong core gated",
+        "direction": "long",
+        "conditions": [
+          {
+            "type": "composite_min",
+            "min_score": 0.35
+          },
+          {
+            "type": "timescale_min",
+            "timescale": "FiveMinute",
+            "min_score": 0.4
+          },
+          {
+            "type": "timescale_min",
+            "timescale": "OneHour",
+            "min_score": 0.3
+          },
+          {
+            "type": "indicator_min",
+            "instance_id": "trend_1h",
+            "min_score": 0.0
+          }
+        ]
+      }
+    }
+  ]
+}

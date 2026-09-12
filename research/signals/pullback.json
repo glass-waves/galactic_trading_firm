@@ -1,0 +1,52 @@
+{
+  "_note": "pullback in hourly uptrend: 5m RSI <= 40, supertrend_1hr >= 0.3, after 10:00",
+  "disable": [
+    "window_5m_thrust",
+    "window_strong_core",
+    "window_candle_reversal",
+    "window_5m_thrust_short",
+    "window_strong_core_short",
+    "reject_1m_noise",
+    "reject_1m_noise_short"
+  ],
+  "indicators": [
+    {
+      "indicator_type": "session_clock",
+      "instance_id": "clock_1m",
+      "timescale": "OneMinute",
+      "enabled": true,
+      "weight": 0.0,
+      "params": {}
+    }
+  ],
+  "actions": [
+    {
+      "action_type": "entry_window",
+      "instance_id": "w_pullback",
+      "phase": "Entry",
+      "enabled": true,
+      "priority": 10,
+      "params": {
+        "name": "pullback",
+        "direction": "long",
+        "conditions": [
+          {
+            "type": "indicator_max",
+            "instance_id": "rsi_14_5min",
+            "max_score": -0.5
+          },
+          {
+            "type": "indicator_min",
+            "instance_id": "supertrend_1hr",
+            "min_score": 0.3
+          },
+          {
+            "type": "indicator_min",
+            "instance_id": "clock_1m",
+            "min_score": 0.077
+          }
+        ]
+      }
+    }
+  ]
+}
