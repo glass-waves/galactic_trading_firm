@@ -623,6 +623,7 @@ v16 per year: PF 1.26 / 0.91 / 1.10 / 1.04 / 1.08, win rate ~34 %, exit mix 62 %
   engines, subscribes. migration 20260912000006 (`breakeven_stop` enum value) applied.
 - the honest frame for monday: PF 1.12 over five years, thin. week 1 = does live behave like the
   replay (fills vs bar opens, exit mix, ~1.2 trades/day, many small breakeven exits).
-- not done: the long book was never re-run under the corrected cost model (it would only get
-  *worse* for the short leg's twin; longs were credited nothing — actually longs were charged
-  correctly, so their §8 numbers stand). the reject gates are inert and could be removed.
+- note on the long book: the old cost model charged longs correctly (buy pays up, sell receives
+  less), so the §8 long-book numbers stand; only the short-side numbers were inflated.
+- not done: the reject gates are inert at current thresholds and could be removed; the exact
+  losing-limit optimum (30–40 min) is within noise and was not tuned further.

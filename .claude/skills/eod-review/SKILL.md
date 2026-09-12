@@ -13,7 +13,7 @@ session only** — nothing you do affects a live position.
 
 ## what the strategy is (read before judging it)
 
-v15 is a **short-only** morning book on AMZN/AAPL/NVDA/MSFT: two short windows ("5m thrust short",
+v16 (row 10) is a **short-only** morning book on AMZN/AAPL/NVDA/MSFT: two short windows ("5m thrust short",
 "strong core short"), entries until 11:30 ET, flat by 11:55 ET, 30 % sizing, ~1 trade/day. the three
 long windows exist in the config but are disabled. corrected-replay evidence over five years at 36 %
 sizing (docs/paper_trading_plan_2026-09.md §8–9): the short book was positive every year
