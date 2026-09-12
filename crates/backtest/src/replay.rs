@@ -45,14 +45,25 @@ impl Default for BacktestCostConfig {
 }
 
 impl BacktestCostConfig {
-    /// apply cost model to an entry (buy) fill price.
-    pub fn adjust_entry_price(&self, raw_price: f64) -> f64 {
-        raw_price + raw_price * self.slippage_bps / 10_000.0 + self.half_spread
+    /// apply cost model to an entry fill. a long BUYS (pays up), a short SELLS
+    /// (receives less). before 2026-09-12 this was direction-blind, which credited
+    /// every short with favourable slippage on both legs (~$4.5/trade at 36 % sizing).
+    pub fn adjust_entry_price(&self, raw_price: f64, direction: TradeDirection) -> f64 {
+        let cost = raw_price * self.slippage_bps / 10_000.0 + self.half_spread;
+        match direction {
+            TradeDirection::Long => raw_price + cost,
+            TradeDirection::Short => raw_price - cost,
+        }
     }
 
-    /// apply cost model to an exit (sell) fill price.
-    pub fn adjust_exit_price(&self, raw_price: f64) -> f64 {
-        raw_price - raw_price * self.slippage_bps / 10_000.0 - self.half_spread
+    /// apply cost model to an exit fill. a long SELLS (receives less), a short
+    /// BUYS back (pays up).
+    pub fn adjust_exit_price(&self, raw_price: f64, direction: TradeDirection) -> f64 {
+        let cost = raw_price * self.slippage_bps / 10_000.0 + self.half_spread;
+        match direction {
+            TradeDirection::Long => raw_price - cost,
+            TradeDirection::Short => raw_price + cost,
+        }
     }
 
     /// compute sell-side regulatory fees for a trade.
@@ -273,7 +284,7 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
 
         // execute deferred fills from previous bar's signals at this bar's open
         if let Some(entry) = deferred_entry.take() {
-            let adjusted_fill = cost.adjust_entry_price(last_candle.open);
+            let adjusted_fill = cost.adjust_entry_price(last_candle.open, entry.position.direction);
             let _ = engine.force_open_position(
                 entry.position.ticker,
                 entry.position.direction,
@@ -286,7 +297,8 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
         }
 
         if let Some(exit) = deferred_exit.take() {
-            let adjusted_fill = cost.adjust_exit_price(last_candle.open);
+            let exit_direction = engine.current_position().map(|p| p.direction).unwrap_or(TradeDirection::Long);
+            let adjusted_fill = cost.adjust_exit_price(last_candle.open, exit_direction);
             if let Some(trade) = engine.force_close_position(
                 adjusted_fill,
                 last_candle.timestamp,
