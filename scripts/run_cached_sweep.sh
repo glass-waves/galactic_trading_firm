@@ -9,7 +9,7 @@ YEARS="${YEARS:-2022 2023 2024 2025 2026}"
 mkdir -p "$ROOT/logs/sweeps"
 for y in $YEARS; do
     rm -f "$ROOT/data/${TAG}_${y}_trades.csv" "$ROOT/data/${TAG}_${y}_ticks.csv"
-    start="$y-01-03"; end="$y-12-31"
+    start="$y-01-01"; end="$y-12-31"
     [[ "$y" == "2026" ]] && end="2026-09-10"
     "$ROOT/scripts/backtest_cached_range.sh" "$TAG" "$start" "$end" "$@" > "$ROOT/logs/sweeps/${TAG}_${y}.log" 2>&1 &
 done

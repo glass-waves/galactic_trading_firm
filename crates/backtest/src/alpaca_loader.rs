@@ -179,55 +179,65 @@ pub async fn fetch_bars_range(
     let (start_utc, _) = market_hours_utc(start_date)?;
     let (_, end_utc) = market_hours_utc(end_date)?;
 
-    let req = bars::ListReqInit {
-        limit: Some(10_000),
-        ..Default::default()
-    }
-    .init(symbol, start_utc, end_utc, bars::TimeFrame::OneMinute);
+    // alpaca pages at 10,000 bars per response and the limit counts pre/post-market
+    // bars too (they are filtered out below), so a multi-day request can span
+    // several pages. follow `next_page_token` until it is exhausted; ignoring it
+    // silently drops the tail of the range (whole days for heavily traded names).
+    let mut all: Vec<Candle> = Vec::new();
+    let mut page_token: Option<String> = None;
+    loop {
+        let req = bars::ListReqInit {
+            limit: Some(10_000),
+            page_token: page_token.clone(),
+            ..Default::default()
+        }
+        .init(symbol, start_utc, end_utc, bars::TimeFrame::OneMinute);
 
-    let mut last_err = String::new();
-    for attempt in 0..=MAX_RETRIES {
-        match client.issue::<bars::List>(&req).await {
-            Ok(response) => {
-                // the request spans several days, so alpaca returns overnight and
-                // pre-market bars for the intermediate days. the live engine only
-                // ever sees regular-hours bars (data_feed filters them), so the
-                // backtest must too — otherwise indicator state, 5m/1h bucket
-                // boundaries and VWAP differ at 09:31 and paper never matches.
-                let candles: Vec<Candle> = response
-                    .bars
-                    .iter()
-                    .filter(|bar| is_regular_hours(bar.time))
-                    .map(|bar| Candle {
-                        timestamp: bar.time,
-                        open: num_to_f64(&bar.open),
-                        high: num_to_f64(&bar.high),
-                        low: num_to_f64(&bar.low),
-                        close: num_to_f64(&bar.close),
-                        volume: bar.volume as f64,
-                    })
-                    .collect();
-                return Ok(candles);
-            }
-            Err(e) => {
-                last_err = format!("{e}");
-                if attempt < MAX_RETRIES && is_retryable_error(&last_err) {
-                    let delay_ms = RETRY_BASE_MS * 2u64.pow(attempt);
-                    eprintln!(
-                        "  {:<6} rate limited (attempt {}/{}), retrying in {}ms...",
-                        symbol,
-                        attempt + 1,
-                        MAX_RETRIES + 1,
-                        delay_ms
-                    );
-                    tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
-                    continue;
+        let mut last_err = String::new();
+        let mut page: Option<bars::Bars> = None;
+        for attempt in 0..=MAX_RETRIES {
+            match client.issue::<bars::List>(&req).await {
+                Ok(response) => {
+                    page = Some(response);
+                    break;
+                }
+                Err(e) => {
+                    last_err = format!("{e}");
+                    if attempt < MAX_RETRIES && is_retryable_error(&last_err) {
+                        let delay_ms = RETRY_BASE_MS * 2u64.pow(attempt);
+                        eprintln!(
+                            "  {:<6} rate limited (attempt {}/{}), retrying in {}ms...",
+                            symbol,
+                            attempt + 1,
+                            MAX_RETRIES + 1,
+                            delay_ms
+                        );
+                        tokio::time::sleep(std::time::Duration::from_millis(delay_ms)).await;
+                        continue;
+                    }
                 }
             }
         }
+        let Some(response) = page else {
+            return Err(format!("alpaca bars request failed after {} attempts: {last_err}", MAX_RETRIES + 1));
+        };
+        // the live engine only ever sees regular-hours bars (data_feed filters them),
+        // so the backtest must too — otherwise indicator state, 5m/1h bucket
+        // boundaries and VWAP differ at 09:31 and paper never matches.
+        all.extend(response.bars.iter().filter(|bar| is_regular_hours(bar.time)).map(|bar| Candle {
+            timestamp: bar.time,
+            open: num_to_f64(&bar.open),
+            high: num_to_f64(&bar.high),
+            low: num_to_f64(&bar.low),
+            close: num_to_f64(&bar.close),
+            volume: bar.volume as f64,
+        }));
+        match response.next_page_token {
+            Some(token) if !token.is_empty() => page_token = Some(token),
+            _ => break,
+        }
     }
-
-    Err(format!("alpaca bars request failed after {} attempts: {last_err}", MAX_RETRIES + 1))
+    Ok(all)
 }
 
 /// aggregate 1-minute candles into a coarser timescale using clock-aligned boundaries.
