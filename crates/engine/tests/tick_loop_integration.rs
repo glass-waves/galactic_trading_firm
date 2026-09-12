@@ -872,3 +872,35 @@ fn reject_gate_and_near_miss_are_reported() {
     assert_eq!(r2.entry_blocked_by.as_deref(), Some("reject_gate:always"));
     assert!(r2.near_miss.is_none());
 }
+
+#[test]
+fn short_position_score_exit_is_direction_aware() {
+    // a short must NOT exit on a very negative composite (that is confirmation);
+    // it exits when the composite rises to -exit_threshold.
+    let scoring = make_scoring(vec![(Timescale::FiveMinute, 1.0)], 0.5, -0.30, vec![]);
+    let session = default_session();
+    let mut engine = build_windows_only_engine(scoring, vec![], session);
+    let down = trending_down_ohlcv(20, 200.0, 1.0);
+
+    let mut ms = market_state_at(&down, utc(2024, 6, 3, 14, 0));
+    engine.on_tick(&mut ms);
+    engine
+        .force_open_position("SPY".into(), TradeDirection::Short, 190.0, 10.0, utc(2024, 6, 3, 14, 19))
+        .unwrap();
+
+    // strongly negative composite on trending-down data: the short stays open
+    let mut ms2 = market_state_at(&down, utc(2024, 6, 3, 14, 1));
+    let r = engine.on_tick(&mut ms2);
+    assert!(r.scores.composite < -0.30, "test premise: composite {}", r.scores.composite);
+    assert!(engine.has_position(), "short must not be score-exited on a negative composite");
+
+    // reversal: strongly positive composite → score exit fires for the short
+    let up = trending_up_ohlcv(20, 150.0, 1.0);
+    let mut ms3 = market_state_at(&up, utc(2024, 6, 3, 14, 30));
+    let r3 = engine.on_tick(&mut ms3);
+    assert!(r3.scores.composite >= 0.30, "test premise: composite {}", r3.scores.composite);
+    assert!(!engine.has_position());
+    let t = engine.completed_trades().last().unwrap();
+    assert_eq!(t.exit_reason, ExitReason::ScoreExit);
+    assert_eq!(t.direction, TradeDirection::Short);
+}

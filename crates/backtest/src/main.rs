@@ -118,6 +118,8 @@ struct ConfigOverrides {
     mirror_short: bool,
     /// --short-only: with --mirror-short, disable the original long windows.
     short_only: bool,
+    /// --max-position-pct: override session.max_position_pct (the hard size clamp).
+    max_position_pct: Option<f64>,
 }
 
 impl ConfigOverrides {
@@ -185,6 +187,7 @@ impl ConfigOverrides {
             || !self.enable_actions.is_empty()
             || !self.set_action_params.is_empty()
             || self.mirror_short
+            || self.max_position_pct.is_some()
     }
 
     fn apply(&self, config: &mut StrategyConfig) {
@@ -218,6 +221,9 @@ impl ConfigOverrides {
         }
         if let Some(max_deployed) = self.max_capital_deployed_pct {
             config.session.max_capital_deployed_pct = max_deployed;
+        }
+        if let Some(cap) = self.max_position_pct {
+            config.session.max_position_pct = Some(cap);
         }
         if let Some(ext) = self.profit_extension_ms {
             for action in &mut config.actions {
@@ -833,6 +839,7 @@ fn parse_overrides(args: &[String]) -> ConfigOverrides {
             .filter(|x| !x.is_empty())
             .collect(),
         mirror_short: args.iter().any(|a| a == "--mirror-short"),
+        max_position_pct: get_arg(args, "--max-position-pct").and_then(|s| s.parse().ok()),
         short_only: args.iter().any(|a| a == "--short-only"),
         set_action_params: get_all_args(args, "--set-action-param")
             .iter()

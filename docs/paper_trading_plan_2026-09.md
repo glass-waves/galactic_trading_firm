@@ -371,6 +371,40 @@ direction-aware score exit (it was long-only and closed every short one bar late
 gate under `--mirror-short` (it floors the composite at 0 whenever the hourly score is negative, so shorts could
 never fire). those are in; `v13a_mirror` legs on 2026 and 2025 decide it.
 
+### batch 2 results and the v13 decision (2026-09-11, ~19:30 PT)
+
+single factors stacked on the candidate (2026, both halves must improve to adopt):
+
+| variant | P&L | tune | holdout | verdict |
+|---|---|---|---|---|
+| candidate (no QQQ, exit −0.30) | +2,065 | +1,112 | +953 | — |
+| + mirrored short windows (hard gate off) | **+2,743** | +1,790 | +953 | **adopt** (also +$826 better on 2025) |
+| + hard stop 1.5 % | +1,990 | +1,135 | +855 | wash; revisit on 2025 |
+| + entries by 11:00 | +2,082 | +1,142 | +939 | neutral simplification; not adopted |
+| + ATR trail 3× | +1,686 | +968 | +718 | rejected |
+| + profit extension 60 min | +1,979 | +1,090 | +889 | rejected |
+| + strong-core composite floor 0.45 | +1,960 | +1,044 | +917 | rejected |
+| + skip first 15 min | +997 | +460 | +538 | rejected (the 09:30 entries are the edge in an up-drift year) |
+| + SPY as 5th ticker | +1,844 | +995 | +849 | rejected |
+
+direction breakdown of the mirrored candidate: 2025 longs −$2,635 / shorts +$704; 2026 longs +$2,095 / shorts +$648.
+a post-hoc trailing-morning-drift regime filter (10/20/40-day, per-ticker or market-wide) reduces the 2025 loss
+at best to −$792 while costing 2026 — not adopted; the drift signal is too slow to be a clean switch.
+
+**v13 = v12 + no QQQ + score exit −0.30 + hourly hard gate removed + short twins of both windows and the reject gate
++ sizing 0.15 (`migrations/20260912000003`).** each step beats the previous in both years. promoted as row 7;
+the promoted blob reproduces the CLI-mirrored sweep exactly at equal sizing (3 days checked, trade-for-trade);
+the live binary builds it (4 engines, short windows, warmup 35 hourly candles). a final no-override sweep of the
+promoted blob on 2026 and 2025 is the last check.
+
+**what to expect on paper at 15 % sizing:** ~3 trades/day, roughly +$100/week if 2026-like, −$40/week if
+2025-like, max drawdown ~2 % (2026) to ~10 % (2025). a losing week does not mean the plumbing is wrong.
+
+**open questions for you (not blockers):** the long book is a bet on morning drift and there is no clean
+regime switch in the data I have; the short book is real but thin. if you want regime robustness, the next
+research step is a different long signal, not more threshold tuning. sizing at 15 % is my call; 36 % is
+defensible only on 2026.
+
 ### the pre-monday sweep
 
 `scripts/run_v12_sweep.sh` (log: `data/sweep_progress.log`, ~6 h sequential to respect alpaca's free-plan rate limit):

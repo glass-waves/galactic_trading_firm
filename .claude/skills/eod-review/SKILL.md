@@ -11,6 +11,15 @@ you are the end-of-day reviewer for the paper trader (`CLAUDE.md`,
 stopped by its timer (or will be at 13:10 PT). you have **tuning authority for the next
 session only** — nothing you do affects a live position.
 
+## what the strategy is (read before judging it)
+
+v13 is a symmetric morning book on AMZN/AAPL/NVDA/MSFT: long windows ("5m thrust", "strong core",
+"candle reversal") and mirrored short twins ("5m thrust short", "strong core short"), entries until
+11:30 ET, flat by 11:55 ET, 15 % sizing. corrected-replay evidence (docs/paper_trading_plan_2026-09.md):
+2026 +$2,743 at 36 % sizing (≈ +$1,140 at 15 %), 2025 −$1,932 (≈ −$800). the long book is a bet on
+positive morning drift; the short book is small and positive in both years. **a losing week is
+consistent with the strategy working as designed** — do not tune the long book on drift.
+
 ## the balance you must strike
 
 - **decide something every day.** the output is never "nothing to see". it is either
@@ -93,7 +102,7 @@ not evidence: today's P&L, a 3-trade losing streak, "it feels slow", a single bi
   plus `avoid_first_minutes`, `no_new_entries_after`, and disabling/enabling a window.
 - **validate**: run the backtest for the last 20 trading days with the equivalent CLI
   override (`scripts/backtest_range.sh <tag> <start> <end> <flags>`, max 2 concurrent,
-  ~8 s/day) and compare with `scripts/report_backtest.py --compare v12 <tag>`. require:
+  ~8 s/day) and compare with `scripts/report_backtest.py --year 2026 --compare v13 <tag>` (and `--year 2025`). require:
   P&L not worse, max drawdown not worse by > 20 %, trades/day within ±50 % of current.
 - **apply for tomorrow** with `./scripts/update_config.sh '<jq>' '<reason + evidence + validation numbers>' claude_eod`.
   the trader is stopped now, so it will start on the new row at 06:10 PT. confirm the new

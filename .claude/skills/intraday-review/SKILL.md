@@ -12,7 +12,8 @@ default to **hold steady**. a bad config change is worse than no change.
 
 all times below are US/Eastern. market hours are 09:30–16:00 ET; the promoted config
 takes no new entries after `session.no_new_entries_after` and is flat by
-`session.force_exit_by` (11:30 / 11:55 ET in v12).
+`session.force_exit_by` (11:30 / 11:55 ET in v13). positions may be LONG or SHORT (mirrored windows);
+a short with a very negative composite is healthy, not a warning.
 
 ## 0. environment
 
