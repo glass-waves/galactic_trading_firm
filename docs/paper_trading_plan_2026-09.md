@@ -539,3 +539,47 @@ kept the engine out — and then test the changes that evidence suggests, one at
 
 two analysis agents were run on this data (exit timing; missed setups). findings and the variant
 tests that followed are in §10.3 onward.
+
+### 10.3 agent findings (full reports: `docs/analysis/2026-09-12_exit_timing.md`, `_missed_setups.md`; scripts in `scripts/analysis/`)
+
+**exit timing** (reconstructed every trade's minute path; simulator reproduced 1,285/1,286 exits):
+
+- losers show their hand early: 74 % of eventual losers are underwater at 15 min, 82 % at 30, 90 %
+  at 45, and the loss keeps growing. only 7 % of losers ever had ≥ 1 % open profit — "gave back a
+  win" is the minority case. winners are the mirror image (89 % positive at 30 min).
+- winners are exited about right: MaxHold winners capture 77 % of path MFE; holding to 11:55 adds
+  nothing. every `max_hold_ms` extension loses money; `profit_extension_ms` is non-monotone.
+- the knob is the existing `loss_reduction_ms`: MaxHold is checked every bar, so
+  `max_hold − loss_reduction` is literally "exit the first bar after N minutes on which the position
+  is losing". losing limit 75 → 30 min (`loss_reduction_ms` 3,600,000) and winning limit 120 → 90
+  (`profit_extension_ms` 0): simulated +5,890 → +7,507, PF up every year, maxDD down 4/5, 2023 flat.
+  L 25–40 all beat 75 in every year/ticker/window/fold; exact optimum within noise.
+- `stop_loss_pct` 1.5 % is the runner-up on its own (+916, DD down every year) but redundant once
+  the time stop is in.
+- `exit_threshold` and the score exit: leave alone (irrelevant on top of the time stop).
+- **code finding**: `breakeven_stop` is a no-op — `tick_loop.rs` receives `ModifyStop` and
+  "just notes it happened". if implemented, 0.5 % breakeven on top of L30/W90 simulates +7,809 with
+  the lowest drawdowns of any scenario.
+- real replay (old cost model, re-entries included): losing limit 30 alone → +7,089 over five
+  years (vs +5,892), 95 extra trades, PF 1.32 → 1.50, maxDD 870 → 721, every year positive.
+
+**missed setups** (labelled every 09:30–11:29 bar with the value of a hypothetical short):
+
+- the great shorts the engine misses are **not near-misses**: 86–94 % of the top-5 % missed bars need
+  two or more window conditions changed, and their median 5-minute score is *bullish* (+0.07 to
+  +0.22). no threshold on the timescale scores can see them.
+- the single most-binding condition is `strong core short: s1h ≤ −0.30`, but the bars it excludes
+  have the market's base-rate expectancy (mean −0.066 %, hit 39 %, 12,279 bars). every loosening adds
+  ~$3/trade of volume, positive in only 2–3 of 5 years, and is negative in 4–5 years once costs are
+  charged against the short. no tightening is robust either (`core s1h −0.40` is the only one with a
+  quality signal: PF up 4/5 years, but P&L down 3/5 under the old cost model).
+- reject gates are inert at current thresholds (blocked one window-qualifying bar in five years).
+- **cost-model bug (the big one)**: `replay.rs` applied "buy pays up, sell receives less" to every
+  trade regardless of direction. a short sells at entry and buys at exit, so it was *credited*
+  ~3 bps + $0.005 on both legs — ~$4.5/trade, ~$5.7k over the 1,286 five-year trades. under honest
+  costs the agent's simulator puts v15 at **2022 +1,860 / 2023 −442 / 2024 −474 / 2025 −478 /
+  2026 −291**. fixed in commit b048cdc; §10.4 re-runs everything under the corrected model.
+
+**what this means for the "short book positive five of five years" claim in §8**: it was true under
+a cost model that paid the short side. the honest picture is one good year (2022) and four roughly
+break-even years before the exit change. the exit change is where the evidence now points.
