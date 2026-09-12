@@ -644,3 +644,21 @@ three_crows, pin_bar, cloud_cover, harami, inside_break, three_bar_reversal, fir
 5m); cross-ticker context (SPY/QQQ session return, peers already red); gap and prior-day levels
 (prior-day low break, opening-range low break as a short trigger); OFI / VPIN as hard conditions;
 calendar exclusions (FOMC, earnings-adjacent).
+
+### 11.1 tooling (commits 12b2707, 1e56161)
+
+- indicators: `candle_sequence` (pattern per instance, closed candles only), `prior_day_levels`,
+  `cross_context` (new `MarketState.cross`, filled by the backtest from the bar cache with
+  `--cross-index SPY`; live leaves it `None` so a condition on it fails safe until the feed is
+  wired), `event_calendar` (built-in FOMC decision days 2022–2026).
+- `--dump-ticks` now carries every indicator score/metadata as a json column;
+  `--dump-window-only` stops at `no_new_entries_after`. SPY and QQQ added to the bar cache.
+- `research/entries/screen_indicators.json`: 28 candidate features at weight 0. sweep tag
+  `scr16` (v16 + these) reproduces v16's trades exactly in every year and dumps the features on
+  every morning bar (2.3 GB). earnings 8-K item-2.02 dates for the four names from SEC EDGAR in
+  `research/entries/data/`.
+- `research/entries/make_variant.py`: feature → `--patch-json` as a standalone short window, as an
+  added condition on v16's two windows, or both. `research/entries/summarize.py`: per-year,
+  per-window P&L / PF / drawdown for any set of sweep tags.
+- process: offline screen (agent, on the labelled bars from §10) → real five-year replay under
+  honest costs for survivors, one variant at a time → combine only what survived alone.
