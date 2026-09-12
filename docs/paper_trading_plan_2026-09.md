@@ -603,3 +603,26 @@ about ±$1,000 over five years on a $10,000 account. what the variants do is cut
 $2,333 → ~$1,400) and move the 2024–2026 years from clearly negative to about flat. the two changes
 with the most consistent sign are the time stop (`h_l40w90`: 4/5 years better than base) and the
 tighter strong-core hourly condition (`h_core40`: 3/5 better, 1 flat, 2022 −61).
+| `h_be05` — breakeven stop 0.5 % (now functional) | +1,732 | −646 | −83 | −363 | −246 | +394 | 1,368 | | 1,951 |
+| `h_l40w90be05` — L40/W90 + breakeven 0.5 % | +1,553 | −574 | +219 | −289 | +97 | +1,006 | 1,437 | | 1,273 |
+| `h_c40l40` — core s1h −0.40 + L40/W90 | +1,357 | −50 | +77 | −105 | −11 | +1,268 | 1,127 | | 1,073 |
+| **`h_c40l40be05` — all three = v16** | +1,380 | −177 | +229 | +99 | +153 | **+1,684** | 1,179 | 1.12 | **702** |
+
+v16 per year: PF 1.26 / 0.91 / 1.10 / 1.04 / 1.08, win rate ~34 %, exit mix 62 % max-hold,
+23 % breakeven, 8 % session close, 6 % score exit, 2 % hard stop. positive months 32/57 (base 28/57).
+
+### 10.5 decision: v16 promoted (row 10, migration 20260912000007, 2026-09-12 ~11:00 PT)
+
+- v16 = v15 + `max_hold.loss_reduction_ms` 3,000,000 (losing-side limit 40 min) +
+  `profit_extension_ms` 0 (winning limit 90) + `window_strong_core_short` hourly ≤ −0.40 +
+  `breakeven.trigger_pct` 0.005 (the monitor now actually exits; `exit_reason = 'breakeven_stop'`).
+- each change was tested alone (§10.4) and the stack is better than v15 in 4 of 5 years under
+  honest costs (2022 gives back $472 of $1,852) with max drawdown $2,333 → $702.
+- promoted blob reproduces the `h_c40l40be05` sweep trade-for-trade on 2022-06-13, 2024-03-15,
+  2025-04-04, 2026-06-04. live binary (rebuilt with the breakeven fix) loads row 10, builds four
+  engines, subscribes. migration 20260912000006 (`breakeven_stop` enum value) applied.
+- the honest frame for monday: PF 1.12 over five years, thin. week 1 = does live behave like the
+  replay (fills vs bar opens, exit mix, ~1.2 trades/day, many small breakeven exits).
+- not done: the long book was never re-run under the corrected cost model (it would only get
+  *worse* for the short leg's twin; longs were credited nothing — actually longs were charged
+  correctly, so their §8 numbers stand). the reject gates are inert and could be removed.

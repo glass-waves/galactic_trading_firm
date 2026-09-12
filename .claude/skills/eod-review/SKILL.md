@@ -130,3 +130,23 @@ apply any of them.
 
 end with one line: `eod: plumbing <ok|mismatch> · strategy <hold|changed row N: what>` and
 call `./scripts/notify.sh info "<that line>"` (warning/critical if plumbing mismatched).
+
+## v16 notes (promoted 2026-09-12 ~11:00 PT, config_versions row 10)
+
+- v16 = v15 (short-only, AMZN/AAPL/NVDA/MSFT, 30 % sizing) plus three exit/entry changes:
+  losing-side hold limit 40 min (`max_hold.loss_reduction_ms` 3,000,000) and winning limit 90 min
+  (`profit_extension_ms` 0); `window_strong_core_short` hourly condition ≤ −0.40; and a *working*
+  breakeven stop at 0.5 % (`exit_reason = 'breakeven_stop'`, new enum value). the breakeven
+  monitor was a silent no-op before 2026-09-12.
+- **expected shape**: win rate ~34 % (many trades cut at 40 min or at breakeven for a few dollars),
+  exit mix ≈ 62 % max_hold_timeout / 23 % breakeven_stop / 8 % session_close / 6 % score_exit /
+  2 % hard_stop. lots of small losses and breakevens is the design, NOT a malfunction. do not
+  "fix" the win rate. a `breakeven_stop` exit at −$2…−$8 is normal (next-bar fill + spread).
+- **honest expectations**: the replay cost model was direction-blind until 2026-09-12 and credited
+  shorts with favourable slippage; under the corrected model v16 is +$1,684 over 2022–2026 at
+  36 % sizing (PF 1.12, max drawdown $702) vs +$112 for v15. the edge is thin. the point of week 1
+  is whether live fills, latency and the exit plumbing match the replay — compare
+  `broker_entry_price`/`broker_exit_price` against the bar opens, and the exit-reason mix against
+  the numbers above. do not tune entry thresholds on a week of data.
+- rollback = re-insert the v15 blob (row 9) as a new promoted row via `update_config.sh`, never
+  `UPDATE … SET status`.
