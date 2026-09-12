@@ -1005,14 +1005,23 @@ async fn main() {
             .and_then(|s| s.parse().ok())
             .unwrap_or(5);
         let write_db = args.iter().any(|a| a == "--write-db");
-        run_date_mode(&date_str, lookback_days, write_db, capital, &cost_config, verbose, output_equity, output_trades_csv, &overrides).await;
+        let bars_dir = get_arg(&args, "--bars-dir");
+        let dump_ticks = get_arg(&args, "--dump-ticks");
+        run_date_mode(&date_str, lookback_days, write_db, capital, &cost_config, verbose, output_equity, output_trades_csv, &overrides, bars_dir.as_deref(), dump_ticks.as_deref()).await;
+    } else if let Some(dir) = get_arg(&args, "--fetch-bars") {
+        // build / extend the local 1-minute bar cache used by `--bars-dir`
+        let start = get_arg(&args, "--start").expect("--fetch-bars needs --start YYYY-MM-DD");
+        let end = get_arg(&args, "--end").expect("--fetch-bars needs --end YYYY-MM-DD");
+        let tickers = get_arg(&args, "--tickers").expect("--fetch-bars needs --tickers A,B,C");
+        run_fetch_bars(&dir, &start, &end, &tickers).await;
     } else {
         run_legacy_mode(&args, capital, &cost_config);
     }
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capital: f64, cost_config: &Option<BacktestCostConfig>, verbose: bool, output_equity: bool, output_trades_csv: bool, overrides: &ConfigOverrides) {
+#[allow(clippy::too_many_arguments)]
+async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capital: f64, cost_config: &Option<BacktestCostConfig>, verbose: bool, output_equity: bool, output_trades_csv: bool, overrides: &ConfigOverrides, bars_dir: Option<&str>, dump_ticks: Option<&str>) {
     dotenvy::dotenv().ok();
 
     // file + console layered logging
@@ -1098,15 +1107,21 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
         config.session.no_new_entries_after = time.clone();
     }
 
-    // alpaca credentials
-    let api_key = std::env::var("APCA_API_KEY_ID").unwrap_or_else(|_| {
-        eprintln!("error: APCA_API_KEY_ID not set");
-        process::exit(1);
-    });
-    let api_secret = std::env::var("APCA_API_SECRET_KEY").unwrap_or_else(|_| {
-        eprintln!("error: APCA_API_SECRET_KEY not set");
-        process::exit(1);
-    });
+    // alpaca credentials (not needed when replaying from the local bar cache)
+    let (api_key, api_secret) = if bars_dir.is_some() {
+        (String::new(), String::new())
+    } else {
+        (
+            std::env::var("APCA_API_KEY_ID").unwrap_or_else(|_| {
+                eprintln!("error: APCA_API_KEY_ID not set");
+                process::exit(1);
+            }),
+            std::env::var("APCA_API_SECRET_KEY").unwrap_or_else(|_| {
+                eprintln!("error: APCA_API_SECRET_KEY not set");
+                process::exit(1);
+            }),
+        )
+    };
 
     // collect all unique timescales from indicators + scoring weights
     let required_timescales = collect_timescales(&config);
@@ -1143,15 +1158,11 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
     let mut ticker_results: Vec<(String, f64, usize, Vec<TradeRecord>, Vec<(TimescaleScores, TimescaleScores)>, Vec<String>, f64, Option<chrono::DateTime<chrono::Utc>>, usize, usize)> = Vec::new();
 
     for ticker in &config.tickers {
-        let candles = match fetch_bars_range(
-            &api_key,
-            &api_secret,
-            ticker,
-            lookback_start,
-            date,
-        )
-        .await
-        {
+        let loaded = match bars_dir {
+            Some(dir) => load_cached_bars(dir, ticker, lookback_start, date),
+            None => fetch_bars_range(&api_key, &api_secret, ticker, lookback_start, date).await,
+        };
+        let candles = match loaded {
             Ok(c) => c,
             Err(e) => {
                 eprintln!("  {:<6} error: {}", ticker, e);
@@ -1202,6 +1213,7 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
             cost_config: cost_config.clone(),
             session_config: Some(effective.session.clone()),
             window_exit_overrides: overrides.window_exit_overrides(),
+            record_ticks: dump_ticks.is_some(),
         };
 
         match run_backtest(&backtest_config, &backtest_data) {
@@ -1234,6 +1246,12 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
                 let pnl = metrics.total_pnl;
                 let trades = filtered_trades.len();
                 total_pnl += pnl;
+
+                if let Some(path) = dump_ticks {
+                    if let Err(e) = append_tick_dump(path, date_str, ticker, &result.ticks, target_open_utc, target_close_utc) {
+                        eprintln!("  {:<6} tick dump error: {}", ticker, e);
+                    }
+                }
 
                 if write_db && !filtered_trades.is_empty() {
                     match write_backtest_trades(
@@ -1479,6 +1497,7 @@ fn run_legacy_mode(args: &[String], capital: f64, cost_config: &Option<BacktestC
         cost_config: cost_config.clone(),
         session_config: Some(strategy_config.session),
         window_exit_overrides: HashMap::new(),
+        record_ticks: false,
     };
 
     let mut candle_map = HashMap::new();
@@ -1541,4 +1560,120 @@ fn get_arg(args: &[String], flag: &str) -> Option<String> {
         .rposition(|a| a == flag)
         .and_then(|i| args.get(i + 1))
         .cloned()
+}
+
+
+/// load 1-minute RTH candles for `[start_date, end_date]` from `<dir>/<TICKER>.csv`
+/// (the file written by `--fetch-bars`; same layout as `load_candles_from_csv`).
+fn load_cached_bars(dir: &str, ticker: &str, start_date: NaiveDate, end_date: NaiveDate) -> Result<Vec<types::market::Candle>, String> {
+    let path = format!("{}/{}.csv", dir.trim_end_matches('/'), ticker);
+    let file = fs::File::open(&path).map_err(|e| format!("open {path}: {e}"))?;
+    let (start_utc, _) = market_hours_utc(start_date)?;
+    let (_, end_utc) = market_hours_utc(end_date)?;
+    let all = load_candles_from_csv(std::io::BufReader::new(file))?;
+    let mut out: Vec<types::market::Candle> = all
+        .into_iter()
+        .filter(|c| c.timestamp >= start_utc && c.timestamp <= end_utc)
+        .collect();
+    out.sort_by_key(|c| c.timestamp);
+    out.dedup_by_key(|c| c.timestamp);
+    Ok(out)
+}
+
+/// fetch RTH 1-minute bars in ~20-day chunks and write `<dir>/<TICKER>.csv`
+/// (epoch seconds, o, h, l, c, v). existing files are merged, not clobbered.
+async fn run_fetch_bars(dir: &str, start: &str, end: &str, tickers: &str) {
+    dotenvy::dotenv().ok();
+    let api_key = std::env::var("APCA_API_KEY_ID").expect("APCA_API_KEY_ID not set");
+    let api_secret = std::env::var("APCA_API_SECRET_KEY").expect("APCA_API_SECRET_KEY not set");
+    let start = NaiveDate::parse_from_str(start, "%Y-%m-%d").expect("bad --start");
+    let end = NaiveDate::parse_from_str(end, "%Y-%m-%d").expect("bad --end");
+    fs::create_dir_all(dir).expect("create bars dir");
+
+    for ticker in tickers.split(',').map(|t| t.trim()).filter(|t| !t.is_empty()) {
+        let path = format!("{}/{}.csv", dir.trim_end_matches('/'), ticker);
+        let mut by_ts: std::collections::BTreeMap<i64, types::market::Candle> = std::collections::BTreeMap::new();
+        if let Ok(f) = fs::File::open(&path) {
+            if let Ok(existing) = load_candles_from_csv(std::io::BufReader::new(f)) {
+                for c in existing {
+                    by_ts.insert(c.timestamp.timestamp(), c);
+                }
+            }
+        }
+        let before = by_ts.len();
+        let mut chunk_start = start;
+        while chunk_start <= end {
+            let chunk_end = std::cmp::min(chunk_start + Duration::days(19), end);
+            match fetch_bars_range(&api_key, &api_secret, ticker, chunk_start, chunk_end).await {
+                Ok(bars) => {
+                    let n = bars.len();
+                    for c in bars {
+                        by_ts.insert(c.timestamp.timestamp(), c);
+                    }
+                    eprintln!("[fetch-bars] {ticker} {chunk_start}..{chunk_end}: {n} bars");
+                }
+                Err(e) => {
+                    eprintln!("[fetch-bars] {ticker} {chunk_start}..{chunk_end}: ERROR {e}");
+                }
+            }
+            chunk_start = chunk_end + Duration::days(1);
+            tokio::time::sleep(std::time::Duration::from_millis(400)).await;
+        }
+        let mut out = String::from("timestamp,open,high,low,close,volume\n");
+        for (ts, c) in &by_ts {
+            out.push_str(&format!("{},{},{},{},{},{}\n", ts, c.open, c.high, c.low, c.close, c.volume));
+        }
+        fs::write(&path, out).expect("write bars csv");
+        eprintln!("[fetch-bars] {ticker}: {} -> {} bars in {path}", before, by_ts.len());
+    }
+}
+
+fn csv_quote(s: &str) -> String {
+    if s.contains(',') || s.contains('"') || s.contains('\n') {
+        format!("\"{}\"", s.replace('"', "\"\""))
+    } else {
+        s.to_string()
+    }
+}
+
+/// append the target day's tick rows to `path` (header written once).
+fn append_tick_dump(
+    path: &str,
+    date_str: &str,
+    ticker: &str,
+    ticks: &[backtest::replay::TickRow],
+    open_utc: chrono::DateTime<chrono::Utc>,
+    close_utc: chrono::DateTime<chrono::Utc>,
+) -> Result<(), String> {
+    use std::io::Write;
+    let need_header = fs::metadata(path).map(|m| m.len() == 0).unwrap_or(true);
+    let mut f = fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .map_err(|e| format!("open {path}: {e}"))?;
+    let mut buf = String::new();
+    if need_header {
+        buf.push_str("date,ticker,ts,open,high,low,close,volume,vwap,composite,s1m,s5m,s1h,position,unrealized_pct,hold_min,event,entry_reason,blocked_by,near_miss\n");
+    }
+    let opt = |v: Option<f64>| v.map(|x| format!("{:.4}", x)).unwrap_or_default();
+    for t in ticks.iter().filter(|t| t.timestamp >= open_utc && t.timestamp <= close_utc) {
+        buf.push_str(&format!(
+            "{},{},{},{:.4},{:.4},{:.4},{:.4},{},{:.4},{:.4},{},{},{},{},{},{},{},{},{},{}\n",
+            date_str,
+            ticker,
+            t.timestamp.to_rfc3339(),
+            t.open, t.high, t.low, t.close, t.volume, t.session_vwap,
+            t.composite,
+            opt(t.one_minute), opt(t.five_minute), opt(t.one_hour),
+            t.position,
+            opt(t.unrealized_pct),
+            t.hold_min.map(|h| h.to_string()).unwrap_or_default(),
+            t.event,
+            csv_quote(&t.entry_reason),
+            csv_quote(&t.entry_blocked_by),
+            csv_quote(&t.near_miss),
+        ));
+    }
+    f.write_all(buf.as_bytes()).map_err(|e| format!("write {path}: {e}"))
 }

@@ -84,6 +84,9 @@ pub struct BacktestResult {
     /// number of ticks where composite > 0 (signal activity).
     #[serde(default)]
     pub positive_score_ticks: usize,
+    /// per-tick diagnostic rows (only populated with `record_ticks`; never serialised).
+    #[serde(skip)]
+    pub ticks: Vec<crate::replay::TickRow>,
     /// total ticks processed during replay.
     #[serde(default)]
     pub total_ticks: usize,

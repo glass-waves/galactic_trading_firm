@@ -62,6 +62,7 @@ fn default_backtest_config() -> BacktestConfig {
         cost_config: None,
         session_config: None,
         window_exit_overrides: HashMap::new(),
+        record_ticks: false,
     }
 }
 

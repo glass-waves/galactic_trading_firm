@@ -62,6 +62,7 @@ fn make_result(
         max_composite: 0.0,
         max_composite_time: None,
         positive_score_ticks: 0,
+        ticks: Vec::new(),
         total_ticks: 0,
     }
 }

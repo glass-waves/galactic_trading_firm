@@ -6,7 +6,7 @@ use chrono::{DateTime, Utc};
 use chrono::Timelike;
 
 use engine::TradingEngine;
-use types::action::{ActionConfig, ExitReason, Position};
+use types::action::{ActionConfig, ExitReason, Position, TradeDirection};
 use types::indicator::IndicatorConfig;
 use types::market::{Candle, MarketState, Timescale};
 use types::scoring::{ScoringConfig, TimescaleScores};
@@ -79,6 +79,34 @@ pub struct BacktestConfig {
     pub session_config: Option<types::config::SessionConfig>,
     /// per-window exit overrides (window name → exit params).
     pub window_exit_overrides: HashMap<String, engine::WindowExitOverrides>,
+    /// when true, `BacktestResult.ticks` carries one `TickRow` per primary bar
+    /// (scores, position state, gate / near-miss diagnostics) for offline analysis.
+    pub record_ticks: bool,
+}
+
+/// one row of the per-tick diagnostic dump (`--dump-ticks`).
+#[derive(Debug, Clone)]
+pub struct TickRow {
+    pub timestamp: DateTime<Utc>,
+    pub open: f64,
+    pub high: f64,
+    pub low: f64,
+    pub close: f64,
+    pub volume: f64,
+    pub session_vwap: f64,
+    pub composite: f64,
+    pub one_minute: Option<f64>,
+    pub five_minute: Option<f64>,
+    pub one_hour: Option<f64>,
+    /// "long" / "short" / "" — position held *before* this tick's signals are applied
+    pub position: &'static str,
+    pub unrealized_pct: Option<f64>,
+    pub hold_min: Option<i64>,
+    /// "open" / "close" / ""
+    pub event: &'static str,
+    pub entry_reason: String,
+    pub entry_blocked_by: String,
+    pub near_miss: String,
 }
 
 /// historical candle data for replay, keyed by timescale.
@@ -225,6 +253,8 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
     let mut tick_equity_curve: Vec<TickEquityPoint> = Vec::new();
     let mut realized_pnl = 0.0_f64;
 
+    let mut ticks: Vec<TickRow> = Vec::new();
+
     // score diagnostics for no-trade day analysis
     let mut max_composite = f64::NEG_INFINITY;
     let mut max_composite_time: Option<DateTime<Utc>> = None;
@@ -307,7 +337,47 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
             cross_ticker_correlation: None,
         };
 
+        // position state as the engine sees it going into this tick
+        let (pos_str, pos_unreal, pos_hold) = match engine.current_position() {
+            Some(p) => (
+                match p.direction {
+                    TradeDirection::Long => "long",
+                    TradeDirection::Short => "short",
+                },
+                Some(p.unrealized_pnl_pct),
+                Some((last_candle.timestamp - p.entry_time).num_minutes()),
+            ),
+            None => ("", None, None),
+        };
+
         let result = engine.on_tick(&mut market);
+
+        if config.record_ticks {
+            ticks.push(TickRow {
+                timestamp: last_candle.timestamp,
+                open: last_candle.open,
+                high: last_candle.high,
+                low: last_candle.low,
+                close: last_candle.close,
+                volume: last_candle.volume,
+                session_vwap,
+                composite: result.scores.composite,
+                one_minute: result.scores.one_minute,
+                five_minute: result.scores.five_minute,
+                one_hour: result.scores.one_hour,
+                position: pos_str,
+                unrealized_pct: pos_unreal,
+                hold_min: pos_hold,
+                event: match result.event {
+                    TickEvent::PositionOpened => "open",
+                    TickEvent::PositionClosed => "close",
+                    TickEvent::Nothing => "",
+                },
+                entry_reason: result.entry_reason.clone(),
+                entry_blocked_by: result.entry_blocked_by.clone().unwrap_or_default(),
+                near_miss: result.near_miss.clone().unwrap_or_default(),
+            });
+        }
 
         // track score diagnostics
         total_ticks += 1;
@@ -403,6 +473,7 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
         max_composite_time,
         positive_score_ticks,
         total_ticks,
+        ticks,
     })
 }
 
