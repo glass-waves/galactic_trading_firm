@@ -214,12 +214,28 @@ impl TradingEngine {
             }
 
             // check score-based exit first (before action-based exits)
-            // uses per-window override if active, otherwise config default
-            if scores.composite <= self.active_score_exit_threshold {
+            // uses per-window override if active, otherwise config default.
+            // direction-aware: a long exits when the composite falls to the threshold,
+            // a short exits when it rises to the mirrored threshold.
+            let direction = self
+                .position_manager
+                .current_position()
+                .map(|p| p.direction)
+                .unwrap_or(TradeDirection::Long);
+            let score_exit_hit = match direction {
+                TradeDirection::Long => scores.composite <= self.active_score_exit_threshold,
+                TradeDirection::Short => scores.composite >= -self.active_score_exit_threshold,
+            };
+            if score_exit_hit {
                 // hourly exit override: suppress ScoreExit when hourly trend is
-                // strong and position is profitable — let the trade ride.
+                // strong (in the position's direction) and position is profitable.
                 let hourly_override = self.scoring_config.hourly_exit_override.is_some_and(|thresh| {
-                    scores.one_hour.unwrap_or(-1.0) >= thresh
+                    let h = scores.one_hour.unwrap_or(0.0);
+                    let trend_ok = match direction {
+                        TradeDirection::Long => h >= thresh,
+                        TradeDirection::Short => h <= -thresh,
+                    };
+                    trend_ok
                         && self.position_manager.current_position()
                             .is_some_and(|pos| pos.unrealized_pnl > 0.0)
                 });

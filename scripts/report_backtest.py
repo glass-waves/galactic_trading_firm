@@ -10,11 +10,14 @@ the day-to-day equity curve at fixed $CAPITAL per day (no compounding).
 import csv, glob, sys, math, re
 from collections import defaultdict
 
+YEAR = None  # set via --year YYYY to restrict to one calendar-year file
+
 def load(tag):
     trades, daily = [], defaultdict(float)
     days = set()
     for f in sorted(f for f in glob.glob(f"data/{tag}_*_trades.csv")
-                    if re.fullmatch(rf"data/{re.escape(tag)}_\d{{4}}_trades\.csv", f)):
+                    if re.fullmatch(rf"data/{re.escape(tag)}_\d{{4}}_trades\.csv", f)
+                    and (YEAR is None or f"_{YEAR}_" in f)):
         with open(f) as fh:
             for row in csv.DictReader(fh):
                 if row.get("row_type") == "trade":
@@ -83,6 +86,8 @@ def block(tag):
 
 if __name__ == "__main__":
     args = sys.argv[1:]
+    if "--year" in args:
+        i = args.index("--year"); YEAR = args[i + 1]; del args[i:i + 2]
     if not args: print(__doc__); sys.exit(1)
     if args[0] == "--compare":
         print(f"{'tag':<16}{'days':>5}{'trades':>7}{'t/day':>6}{'P&L':>9}{'win%':>6}{'PF':>6}{'avg':>7}{'sharpe':>7}{'maxDD':>8}{'DDd':>5}{'tune':>8}{'holdout':>9}{'n_ho':>5}")

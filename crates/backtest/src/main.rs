@@ -112,6 +112,12 @@ struct ConfigOverrides {
     disable_actions: Vec<String>,
     enable_actions: Vec<String>,
     set_action_params: Vec<(String, String, serde_json::Value)>,
+    /// --mirror-short: for every enabled long entry_window / entry_reject_gate in the
+    /// blob, add a short twin with every threshold sign-flipped (min↔max, lead↔lag).
+    /// candle-pattern (indicator_min) windows are not mirrored.
+    mirror_short: bool,
+    /// --short-only: with --mirror-short, disable the original long windows.
+    short_only: bool,
 }
 
 impl ConfigOverrides {
@@ -178,6 +184,7 @@ impl ConfigOverrides {
             || !self.disable_actions.is_empty()
             || !self.enable_actions.is_empty()
             || !self.set_action_params.is_empty()
+            || self.mirror_short
     }
 
     fn apply(&self, config: &mut StrategyConfig) {
@@ -515,6 +522,42 @@ impl ConfigOverrides {
                 action.enabled = true;
             }
         }
+        if self.mirror_short {
+            // the hourly hard gate floors the composite to 0 whenever the 1h score is
+            // negative — a long-only assumption that makes short windows unreachable.
+            // the windows carry their own 1h conditions, so drop the gate for symmetry.
+            config.scoring.hard_gate_timescales.clear();
+            let mut twins = Vec::new();
+            for action in &config.actions {
+                if !action.enabled
+                    || (action.action_type != "entry_window" && action.action_type != "entry_reject_gate")
+                {
+                    continue;
+                }
+                let Some(conds) = action.params.get("conditions").and_then(|v| v.as_array()) else { continue };
+                if conds.iter().any(|c| c.get("type").and_then(|t| t.as_str()).map(|t| t.starts_with("indicator_")).unwrap_or(false)) {
+                    continue; // candle / indicator windows: no symmetric meaning
+                }
+                let mirrored: Vec<serde_json::Value> = conds.iter().map(mirror_condition).collect();
+                let mut twin = action.clone();
+                twin.instance_id = format!("{}_short", action.instance_id);
+                twin.params.insert("conditions".to_string(), serde_json::Value::Array(mirrored));
+                if action.action_type == "entry_window" {
+                    twin.params.insert("direction".to_string(), serde_json::json!("short"));
+                    let name = action.params.get("name").and_then(|v| v.as_str()).unwrap_or(&action.instance_id);
+                    twin.params.insert("name".to_string(), serde_json::json!(format!("{name} short")));
+                }
+                twins.push(twin);
+            }
+            if self.short_only {
+                for action in &mut config.actions {
+                    if action.action_type == "entry_window" {
+                        action.enabled = false;
+                    }
+                }
+            }
+            config.actions.extend(twins);
+        }
         for (id, path, value) in &self.set_action_params {
             let Some(action) = config.actions.iter_mut().find(|a| &a.instance_id == id) else {
                 eprintln!("warning: --set-action-param: no action with instance_id '{id}'");
@@ -789,6 +832,8 @@ fn parse_overrides(args: &[String]) -> ConfigOverrides {
             .flat_map(|v| v.split(',').map(|x| x.trim().to_string()))
             .filter(|x| !x.is_empty())
             .collect(),
+        mirror_short: args.iter().any(|a| a == "--mirror-short"),
+        short_only: args.iter().any(|a| a == "--short-only"),
         set_action_params: get_all_args(args, "--set-action-param")
             .iter()
             .filter_map(|spec| {
@@ -800,6 +845,47 @@ fn parse_overrides(args: &[String]) -> ConfigOverrides {
             })
             .collect(),
     }
+}
+
+/// sign-flip a window condition for a short twin: min→max (negated), lead→lag.
+fn mirror_condition(c: &serde_json::Value) -> serde_json::Value {
+    let mut m = c.clone();
+    let t = c.get("type").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let neg = |m: &mut serde_json::Value, from: &str, to: &str| {
+        if let Some(v) = m.get(from).and_then(|v| v.as_f64()) {
+            m.as_object_mut().unwrap().remove(from);
+            m[to] = serde_json::json!(-v);
+        }
+    };
+    match t.as_str() {
+        "timescale_min" => { m["type"] = "timescale_max".into(); neg(&mut m, "min_score", "max_score"); }
+        "timescale_max" => { m["type"] = "timescale_min".into(); neg(&mut m, "max_score", "min_score"); }
+        "composite_min" => { m["type"] = "composite_max".into(); neg(&mut m, "min_score", "max_score"); }
+        "composite_max" => { m["type"] = "composite_min".into(); neg(&mut m, "max_score", "min_score"); }
+        "timescale_lead" => {
+            m["type"] = "timescale_lag".into();
+            if let Some(v) = m.get("lead_by").and_then(|v| v.as_f64()) {
+                m.as_object_mut().unwrap().remove("lead_by");
+                m["lag_by"] = serde_json::json!(v);
+            }
+        }
+        "timescale_lag" => {
+            m["type"] = "timescale_lead".into();
+            if let Some(v) = m.get("lag_by").and_then(|v| v.as_f64()) {
+                m.as_object_mut().unwrap().remove("lag_by");
+                m["lead_by"] = serde_json::json!(v);
+            }
+        }
+        "timescale_all_min" => { m["type"] = "timescale_all_max".into(); neg(&mut m, "min_score", "max_score"); }
+        "timescale_range" => {
+            let lo = m.get("min_score").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            let hi = m.get("max_score").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            m["min_score"] = serde_json::json!(-hi);
+            m["max_score"] = serde_json::json!(-lo);
+        }
+        _ => {}
+    }
+    m
 }
 
 /// every value following any occurrence of `flag` (repeatable flags).

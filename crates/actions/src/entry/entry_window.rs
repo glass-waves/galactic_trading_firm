@@ -58,7 +58,9 @@ impl Action for EntryWindowAction {
     fn diagnose(&self, _market: &MarketState, scores: &TimescaleScores) -> Option<String> {
         let indicator_scores = scores.indicator_scores.as_ref();
         let composite_ok = self.conditions.iter().all(|c| match c {
-            WindowCondition::CompositeMin { .. } => c.evaluate(scores, indicator_scores),
+            WindowCondition::CompositeMin { .. } | WindowCondition::CompositeMax { .. } => {
+                c.evaluate(scores, indicator_scores)
+            }
             _ => true,
         });
         if !composite_ok {

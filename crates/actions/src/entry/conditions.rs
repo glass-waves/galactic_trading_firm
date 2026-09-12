@@ -56,6 +56,20 @@ pub enum WindowCondition {
     CompositeMin {
         min_score: f64,
     },
+    /// all available timescale scores <= max_score (mirror of TimescaleAllMin)
+    TimescaleAllMax {
+        max_score: f64,
+    },
+    /// composite score <= max_score (ceiling gate, for short windows)
+    CompositeMax {
+        max_score: f64,
+    },
+    /// timescale lags all other available timescales by >= lag_by
+    /// (mirror of TimescaleLead, for short windows)
+    TimescaleLag {
+        timescale: Timescale,
+        lag_by: f64,
+    },
 }
 
 fn get_ts_score(scores: &TimescaleScores, ts: &Timescale) -> Option<f64> {
@@ -178,6 +192,41 @@ impl WindowCondition {
             WindowCondition::CompositeMin { min_score } => {
                 scores.composite >= *min_score
             }
+            WindowCondition::CompositeMax { max_score } => {
+                scores.composite <= *max_score
+            }
+            WindowCondition::TimescaleAllMax { max_score } => {
+                let available = available_ts_scores(scores);
+                !available.is_empty() && available.iter().all(|s| *s <= *max_score)
+            }
+            WindowCondition::TimescaleLag { timescale, lag_by } => {
+                let lag_score = match get_ts_score(scores, timescale) {
+                    Some(s) => s,
+                    None => return false,
+                };
+                let available = available_ts_scores(scores);
+                if available.len() <= 1 {
+                    return available.len() == 1;
+                }
+                let all_timescales = [
+                    Timescale::OneMinute,
+                    Timescale::FiveMinute,
+                    Timescale::OneHour,
+                    Timescale::OneDay,
+                    Timescale::OneMonth,
+                ];
+                for ts in &all_timescales {
+                    if ts == timescale {
+                        continue;
+                    }
+                    if let Some(other) = get_ts_score(scores, ts) {
+                        if lag_score > other - *lag_by {
+                            return false;
+                        }
+                    }
+                }
+                true
+            }
         }
     }
 
@@ -226,6 +275,13 @@ impl WindowCondition {
             }
             WindowCondition::CompositeMin { min_score } => {
                 format!("composite {:.2}<{min_score:.2}", scores.composite)
+            }
+            WindowCondition::CompositeMax { max_score } => {
+                format!("composite {:.2}>{max_score:.2}", scores.composite)
+            }
+            WindowCondition::TimescaleAllMax { max_score } => format!("all>{max_score:.2}"),
+            WindowCondition::TimescaleLag { timescale, lag_by } => {
+                format!("{timescale:?} {} not lagging by {lag_by:.2}", fmt(get_ts_score(scores, timescale)))
             }
         }
     }
@@ -276,6 +332,16 @@ impl WindowCondition {
             }),
             "composite_min" => Ok(WindowCondition::CompositeMin {
                 min_score: parse_f64(value, "min_score")?,
+            }),
+            "timescale_all_max" => Ok(WindowCondition::TimescaleAllMax {
+                max_score: parse_f64(value, "max_score")?,
+            }),
+            "composite_max" => Ok(WindowCondition::CompositeMax {
+                max_score: parse_f64(value, "max_score")?,
+            }),
+            "timescale_lag" => Ok(WindowCondition::TimescaleLag {
+                timescale: parse_timescale(value)?,
+                lag_by: parse_f64(value, "lag_by")?,
             }),
             other => Err(format!("unknown condition type: '{}'", other)),
         }
