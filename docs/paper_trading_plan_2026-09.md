@@ -722,3 +722,20 @@ pre-registered 5/5 candidate. clears the user's PF > 1.3 bar with every year pos
 positive months 38 of 56. promoted blob reproduces `e_spy02_vpin_cond` trade-for-trade on five
 sample days. live: `data_feed/src/cross_tracker.rs` subscribes SPY and fills `MarketState.cross`
 (session return vs the first RTH bar's open, same definition as the replay).
+
+### 11.4 remaining candle patterns (standalone 5m short window, composite ≤ −0.20, honest costs)
+
+| pattern | 5y P&L | trades | PF | years > 0 |
+|---|---|---|---|---|
+| engulfing | −2,820 | 1,222 | 0.81 | 1 |
+| evening star | −967 | 232 | 0.69 | 1 |
+| three black crows | +62 | 186 | 1.03 | 3 |
+| shooting star (pin bar) | −157 | 212 | 0.94 | 2 |
+| dark cloud cover | −58 | 14 | 0.58 | 3 (n ≤ 4) |
+| bearish harami | −1,264 | 324 | 0.71 | 1 |
+| inside-bar breakdown | −1,234 | 1,024 | 0.90 | 2 |
+| three-bar reversal | −4,340 | 1,876 | 0.81 | 0 |
+| first red after three green | −667 | 466 | 0.88 | 3 |
+
+none is a trigger. the pattern module stays in the tool belt (it is one config line to try any
+of them on 1m, with a different composite ceiling, or as a long-side trigger later).

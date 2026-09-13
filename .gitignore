@@ -45,3 +45,4 @@ Thumbs.db
 data/*.log
 data/*.args
 data/bars/
+data/labels/
