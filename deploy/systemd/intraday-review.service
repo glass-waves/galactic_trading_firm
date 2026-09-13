@@ -10,5 +10,5 @@ Environment=PATH=/home/dylmet/.local/bin:/home/dylmet/.cargo/bin:/usr/local/bin:
 Environment=TZ=America/Los_Angeles
 # headless: no TTY, no approvals possible. tools are pre-approved in .claude/settings.json;
 # anything else is denied rather than waited on.
-ExecStart=/bin/sh -c 'mkdir -p logs/checkins && /home/dylmet/.local/bin/claude -p "/intraday-review" --model sonnet --output-format json --max-turns 40 --max-budget-usd 1.00 --permission-mode dontAsk --permission-prompts none >> logs/checkins/intraday-review.jsonl'
+ExecStart=/bin/sh -c 'mkdir -p logs/checkins && /home/dylmet/.local/bin/claude -p "/intraday-review" --model sonnet --output-format json --max-turns 40 --max-budget-usd 1.00 --permission-mode dontAsk --disallowedTools "Bash(git push *)" "Bash(git push)" --permission-prompts none >> logs/checkins/intraday-review.jsonl'
 TimeoutStartSec=900

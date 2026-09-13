@@ -10,5 +10,5 @@ Environment=PATH=/home/dylmet/.local/bin:/home/dylmet/.cargo/bin:/usr/local/bin:
 Environment=TZ=America/Los_Angeles
 # headless: no TTY, no approvals possible. tools are pre-approved in .claude/settings.json;
 # anything else is denied rather than waited on.
-ExecStart=/bin/sh -c 'mkdir -p logs/checkins && /home/dylmet/.local/bin/claude -p "/eod-review" --model opus --output-format json --max-turns 80 --max-budget-usd 5.00 --permission-mode dontAsk --permission-prompts none >> logs/checkins/eod-review.jsonl'
+ExecStart=/bin/sh -c 'mkdir -p logs/checkins && /home/dylmet/.local/bin/claude -p "/eod-review" --model opus --output-format json --max-turns 80 --max-budget-usd 5.00 --permission-mode dontAsk --disallowedTools "Bash(git push *)" "Bash(git push)" --permission-prompts none >> logs/checkins/eod-review.jsonl'
 TimeoutStartSec=900

@@ -28,7 +28,6 @@
       "Bash(./scripts/psql.sh *)"
     ],
     "deny": [
-      "Bash(git push *)",
       "Bash(rm -rf *)",
       "Bash(systemctl --user stop paper-trader*)",
       "Bash(systemctl --user start paper-trader*)",
