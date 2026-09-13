@@ -777,3 +777,18 @@ book only): 2022 +545 · 2023 −645 · 2024 −432 · 2025 −1,524 · 2026 +34
 years (unfiltered long book under honest costs: −3,780). the filters help but the long "strong
 core" window is a consistent loser (−381 / −369 / −951 in 2023–2025) and the long "5m thrust"
 is mixed (+529 / −158 / +27 / −249 / +167). the long book stays disabled.
+
+### 11.7 v17 robustness: leave-one-year-out, tickers, windows, costs
+
+- **leave-one-year-out** over the 12 grid cells: choosing the cell with the best pooled PF on
+  the other four years picks v17's cell in 4 of 5 folds (2022 held out picks ±0.20 % / 0.26,
+  PF 2.08 on 2022). every held-out year is positive: 2022 +899 · 2023 +60 · 2024 +158 ·
+  2025 +588 · 2026 +675.
+- **per ticker (5y)**: NVDA +1,441 (167 trades, PF 1.87) · MSFT +708 (118, 1.77) · AAPL +343
+  (66, 1.64) · AMZN +293 (118, 1.24; negative 2023–2024). no single name is the result.
+- **per window**: 5m thrust short +2,053 (421 trades) · strong core short +732 (48).
+- **cost sensitivity**: see below (tags `e_v17_cost5`, `e_v17_cost10`).
+- **live hygiene**: the cross tracker now withholds context when the SPY bar is > 2 min older
+  than the ticker's bar, so a stalled index feed cannot keep a stale "market is flat" verdict
+  alive; the intraday skill's churn threshold changed from "3 × backtest mean" (would trip on
+  any two-trade day at 0.4/day) to "> 4 trades in a day".

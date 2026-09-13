@@ -57,7 +57,7 @@ ORDER BY exit_fill_at;
 | open position and ET time > `force_exit_by` + 3 min | CRITICAL (the clock-net should have closed it) |
 | `daily_pnl` < −3 % of INITIAL_CAPITAL | WARNING; < −5 % CRITICAL |
 | `loss_breaker_active` on any ticker | WARNING (expected behaviour, but the user should know) |
-| trades today > 3 × the 20-day backtest mean | WARNING (churn) |
+| trades today > 4 (v17 averages ~0.4/day; 2 in a day is normal) | WARNING (churn) |
 | a trade with `broker_entry_price` null in `alpaca_paper` mode | WARNING (order never filled but engine kept the trade?) |
 
 do **not** place or cancel broker orders yourself in week 1. the human is present.

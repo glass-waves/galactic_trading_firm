@@ -56,11 +56,22 @@ impl SymbolState {
 pub struct CrossTracker {
     index: String,
     symbols: HashMap<String, SymbolState>,
+    /// if the index's last bar is older than this, the context is withheld (`None`) so a
+    /// stalled SPY feed cannot keep a stale "market is flat" verdict alive.
+    max_index_age_secs: i64,
 }
+
+/// default staleness bound for the index bar: two minutes (bars are one minute apart).
+pub const DEFAULT_MAX_INDEX_AGE_SECS: i64 = 120;
 
 impl CrossTracker {
     pub fn new(index: &str) -> Self {
-        Self { index: index.to_string(), symbols: HashMap::new() }
+        Self { index: index.to_string(), symbols: HashMap::new(), max_index_age_secs: DEFAULT_MAX_INDEX_AGE_SECS }
+    }
+
+    pub fn with_max_index_age(mut self, secs: i64) -> Self {
+        self.max_index_age_secs = secs;
+        self
     }
 
     pub fn index_symbol(&self) -> &str {
@@ -86,6 +97,11 @@ impl CrossTracker {
         let today = now.with_timezone(&Eastern).date_naive();
         let idx = self.symbols.get(&self.index)?;
         if idx.date != Some(today) {
+            return None;
+        }
+        // staleness: `now` is the traded ticker's bar time; the index bar must be recent
+        let idx_ts = idx.last_ts?;
+        if (now - idx_ts).num_seconds() > self.max_index_age_secs {
             return None;
         }
         let index_session_ret = idx.session_ret()?;
@@ -146,6 +162,15 @@ mod tests {
         // the ticker itself is excluded from its own peers
         let y = t.context_for("AAPL", &tickers, bar(1, 1, 0.0, 0.0).timestamp).unwrap();
         assert!((y.peers_red_frac - 0.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn stale_index_bar_withholds_context() {
+        let mut t = CrossTracker::new("SPY");
+        t.on_bar("SPY", &bar(1, 0, 500.0, 500.0));
+        let tickers = vec!["AAPL".to_string()];
+        assert!(t.context_for("AAPL", &tickers, bar(1, 1, 0.0, 0.0).timestamp).is_some());
+        assert!(t.context_for("AAPL", &tickers, bar(1, 3, 0.0, 0.0).timestamp).is_none(), "3 min stale");
     }
 
     #[test]
