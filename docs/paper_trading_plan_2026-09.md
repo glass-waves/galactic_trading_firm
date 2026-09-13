@@ -739,3 +739,16 @@ sample days. live: `data_feed/src/cross_tracker.rs` subscribes SPY and fills `Ma
 
 none is a trigger. the pattern module stays in the tool belt (it is one config line to try any
 of them on 1m, with a different composite ceiling, or as a long-side trigger later).
+
+### 11.5 monday readiness checks (2026-09-12 evening)
+
+- headless dry run of `/preopen-check` (sonnet, $0.20, 10 turns): read row 11 (v17) on all four
+  `engine_state` rows, positions flat, feed not stale, timers correct for monday 06:10 PT; it
+  also noticed that `engine_state` had been written by a manual `paper_trader` run outside
+  systemd (the smoke test) — the kind of anomaly it should flag. the check-in plumbing works
+  with the v17 schema (new `breakeven_stop` exit reason, cross feed).
+- the `git push` deny moved from `.claude/settings.json` (where it also blocked interactive
+  sessions) into the three check-in service invocations (`--disallowedTools`).
+- in flight: SPY-band × VPIN-cut plateau grid (tags `e_grid_*`), one-bar-lag cross-context
+  replay (`e_v17_lag1`, emulates live latest-bar timing), long windows with and without the two
+  filters (`e_long_filters`, `e_long_unfiltered`). results in §11.6.
