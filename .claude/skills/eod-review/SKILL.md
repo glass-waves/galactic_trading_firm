@@ -164,3 +164,21 @@ call `./scripts/notify.sh info "<that line>"` (warning/critical if plumbing mism
 - `near_miss` rows mentioning `cross_1m … not ≥ / not ≤` mean SPY was moving more than 0.2 %
   either way: the filter doing its job.
 - rollback = re-insert the v16 blob (row 10) as a new promoted row via `update_config.sh`.
+
+## realized cost check (v17, added 2026-09-12)
+
+the replay assumes 3 bps slippage + $0.005 half-spread per leg, charged against the trade. the
+strategy's honest PF is 1.64 at 3 bps, 1.44 at 5 bps, and 1.11 at 10 bps — so realized cost is
+the single most important thing week 1 can measure. every day, for each paper trade:
+
+```sql
+SELECT ticker, direction, entry_reason,
+       round(((broker_entry_price - entry_price) / entry_price * 10000)::numeric, 1) AS entry_slip_bps,
+       round(((exit_price - broker_exit_price) / exit_price * 10000)::numeric, 1)   AS exit_slip_bps
+FROM trades WHERE source='paper' AND (exit_fill_at AT TIME ZONE 'America/New_York')::date = (now() AT TIME ZONE 'America/New_York')::date;
+```
+
+for a SHORT, a *negative* entry_slip (sold lower than the engine's price) and a *negative*
+exit_slip (bought higher) are costs. report the mean round-trip cost in bps against the 6 bps
+assumption. if the running mean over ≥ 10 trades exceeds 10 bps round-trip, say so prominently:
+that is a strategy-level problem, not a knob to tune.

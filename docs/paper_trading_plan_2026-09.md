@@ -792,3 +792,16 @@ is mixed (+529 / −158 / +27 / −249 / +167). the long book stays disabled.
   than the ticker's bar, so a stalled index feed cannot keep a stale "market is flat" verdict
   alive; the intraday skill's churn threshold changed from "3 × backtest mean" (would trip on
   any two-trade day at 0.4/day) to "> 4 trades in a day".
+
+**cost sensitivity** (v17, five years; per-leg slippage + half-spread charged against the trade):
+
+| cost model | 2022 | 2023 | 2024 | 2025 | 2026 | 5y | PF | maxDD |
+|---|---|---|---|---|---|---|---|---|
+| 3 bps + $0.005 (assumed) | +1,304 | +60 | +158 | +588 | +675 | +2,785 | 1.64 | 401 |
+| 5 bps + $0.005 | +1,089 | +12 | +12 | +407 | +579 | +2,099 | 1.44 | 441 |
+| 10 bps + $0.01 | +666 | −290 | −374 | +78 | +255 | +336 | 1.06 | 961 |
+
+the edge is ~7 bps per leg deep. realized slippage on the paper account is therefore the most
+important measurement of week 1; the eod-review skill now computes it from
+`broker_entry_price` / `broker_exit_price` vs the engine's fill and flags a running mean
+> 10 bps round-trip as a strategy-level problem.
