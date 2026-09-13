@@ -752,3 +752,22 @@ of them on 1m, with a different composite ceiling, or as a long-side trigger lat
 - in flight: SPY-band × VPIN-cut plateau grid (tags `e_grid_*`), one-bar-lag cross-context
   replay (`e_v17_lag1`, emulates live latest-bar timing), long windows with and without the two
   filters (`e_long_filters`, `e_long_unfiltered`). results in §11.6.
+
+### 11.6 v17 validation: threshold plateau, live-timing lag, long side
+
+**plateau** (SPY band × VPIN cut, honest costs, five years; v17 = ±0.20 % / 0.217):
+
+| band \ VPIN | 0.18 | 0.217 | 0.26 |
+|---|---|---|---|
+| ±0.15 % | +2,591 / 477 / 1.55 | +2,262 / 414 / 1.57 | +1,972 / 343 / 1.60 |
+| ±0.20 % | +2,736 / 531 / 1.52 | **+2,785 / 469 / 1.64** | +2,237 / 392 / 1.62 |
+| ±0.25 % | +2,742 / 595 / 1.46 | +2,692 / 519 / 1.53 | +1,947 / 427 / 1.45 |
+| ±0.30 % | +3,068 / 652 / 1.47 | +2,937 / 576 / 1.53 | +1,970 / 473 / 1.41 |
+
+(P&L / trades / PF.) every cell is positive over five years and every cell's PF is ≥ 1.41; v17
+is the best cell but sits on a broad plateau, not a spike. a wider band buys trades at a lower PF.
+
+**live timing** (`--cross-lag 1`: SPY and peer context served one minute late, which is the worst
+case for the live tracker's latest-bar lookup): +2,595 / 470 trades / PF 1.57, every year
+positive (2022 +1,123 · 2023 +92 · 2024 +202 · 2025 +437 · 2026 +741). the filter is not
+sensitive to intra-minute ordering.
