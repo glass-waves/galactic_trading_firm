@@ -771,3 +771,9 @@ is the best cell but sits on a broad plateau, not a spike. a wider band buys tra
 case for the live tracker's latest-bar lookup): +2,595 / 470 trades / PF 1.57, every year
 positive (2022 +1,123 · 2023 +92 · 2024 +202 · 2025 +437 · 2026 +741). the filter is not
 sensitive to intra-minute ordering.
+
+**long side with the same two filters** (long windows re-enabled alongside v17's shorts; long
+book only): 2022 +545 · 2023 −645 · 2024 −432 · 2025 −1,524 · 2026 +346 = −1,710 over five
+years (unfiltered long book under honest costs: −3,780). the filters help but the long "strong
+core" window is a consistent loser (−381 / −369 / −951 in 2023–2025) and the long "5m thrust"
+is mixed (+529 / −158 / +27 / −249 / +167). the long book stays disabled.
