@@ -1,0 +1,105 @@
+{
+ "disable": [
+  "window_5m_thrust",
+  "window_strong_core",
+  "window_candle_reversal"
+ ],
+ "indicators": [],
+ "actions": [
+  {
+   "phase": "Entry",
+   "params": {
+    "name": "5m thrust unfiltered",
+    "direction": "long",
+    "conditions": [
+     {
+      "type": "composite_min",
+      "min_score": 0.35
+     },
+     {
+      "type": "timescale_lead",
+      "lead_by": 0.1,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_min",
+      "min_score": 0.5,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_min",
+      "min_score": 0.0,
+      "timescale": "OneHour"
+     }
+    ]
+   },
+   "enabled": true,
+   "priority": 10,
+   "action_type": "entry_window",
+   "instance_id": "window_5m_thrust_x",
+   "last_modified_at": "2026-04-02T00:00:00Z",
+   "last_modified_by": "human",
+   "modification_reason": "v15: long book disabled (net negative over 2022-2026)"
+  },
+  {
+   "phase": "Entry",
+   "params": {
+    "name": "candle reversal unfiltered",
+    "direction": "long",
+    "conditions": [
+     {
+      "type": "indicator_min",
+      "min_score": 0.4,
+      "instance_id": "candle_5min"
+     },
+     {
+      "type": "timescale_min",
+      "min_score": 0.2,
+      "timescale": "OneHour"
+     },
+     {
+      "type": "composite_min",
+      "min_score": 0.3
+     }
+    ]
+   },
+   "enabled": true,
+   "priority": 15,
+   "action_type": "entry_window",
+   "instance_id": "window_candle_reversal_x",
+   "last_modified_at": "2026-04-02T00:00:00Z",
+   "last_modified_by": "human",
+   "modification_reason": "v15: long book disabled (net negative over 2022-2026)"
+  },
+  {
+   "phase": "Entry",
+   "params": {
+    "name": "strong core unfiltered",
+    "direction": "long",
+    "conditions": [
+     {
+      "type": "composite_min",
+      "min_score": 0.35
+     },
+     {
+      "type": "timescale_min",
+      "min_score": 0.4,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_min",
+      "min_score": 0.3,
+      "timescale": "OneHour"
+     }
+    ]
+   },
+   "enabled": true,
+   "priority": 20,
+   "action_type": "entry_window",
+   "instance_id": "window_strong_core_x",
+   "last_modified_at": "2026-04-02T00:00:00Z",
+   "last_modified_by": "human",
+   "modification_reason": "v15: long book disabled (net negative over 2022-2026)"
+  }
+ ]
+}

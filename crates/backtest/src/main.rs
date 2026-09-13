@@ -1008,6 +1008,9 @@ async fn main() {
         let bars_dir = get_arg(&args, "--bars-dir");
         let dump_ticks = get_arg(&args, "--dump-ticks");
         let cross_index = get_arg(&args, "--cross-index");
+        if let Some(lag) = get_arg(&args, "--cross-lag") {
+            std::env::set_var("BACKTEST_CROSS_LAG", lag);
+        }
         if args.iter().any(|a| a == "--dump-window-only") {
             std::env::set_var("BACKTEST_DUMP_WINDOW_ONLY", "1");
         }
@@ -1779,18 +1782,22 @@ fn build_cross_context(
     tickers: &[String],
 ) -> HashMap<chrono::DateTime<chrono::Utc>, types::market::CrossContext> {
     let Some(idx) = series.get(index) else { return HashMap::new() };
+    // --cross-lag N: serve the index/peer state from N minutes earlier (live sees each
+    // symbol's latest bar, which within a minute may still be the previous one)
+    let lag_min: i64 = std::env::var("BACKTEST_CROSS_LAG").ok().and_then(|v| v.parse().ok()).unwrap_or(0);
     let peers: Vec<&HashMap<_, SessionPoint>> = tickers
         .iter()
         .filter(|t| t.as_str() != ticker)
         .filter_map(|t| series.get(t))
         .collect();
     let mut out = HashMap::with_capacity(idx.len());
-    for (ts, ip) in idx {
+    for (ts0, ip) in idx {
+        let ts = &(*ts0 + chrono::Duration::minutes(lag_min));
         let mut red = 0usize;
         let mut n = 0usize;
         let mut sum = 0.0;
         for p in &peers {
-            if let Some(sp) = p.get(ts) {
+            if let Some(sp) = p.get(ts0) {
                 n += 1;
                 sum += sp.session_ret;
                 if sp.session_ret < 0.0 {
