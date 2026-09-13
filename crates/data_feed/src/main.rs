@@ -27,6 +27,7 @@ use data_feed::config_loader::load_config;
 use data_feed::config_watcher::{try_build_engine, ConfigWatcher};
 use data_feed::live_session::{LiveSession, TradeWithScores};
 use data_feed::market_state::MarketStateBuilder;
+use data_feed::cross_tracker::CrossTracker;
 use data_feed::session_clock::{eastern_date, eastern_minutes, is_regular_hours, parse_hm};
 use data_feed::state_writer::{
     delete_engine_state, upsert_engine_state, write_entry_block_event, BlockEvent, BlockKind,
@@ -47,6 +48,8 @@ const WARMUP_LOOKBACK_DAYS: i64 = 8;
 /// no bar for this long during regular hours ⇒ the feed is considered stale.
 const FEED_STALE_AFTER_SECS: i64 = 180;
 /// a near-miss diagnostic is persisted at most this often per ticker.
+/// index symbol streamed alongside the traded tickers to fill `MarketState.cross`.
+const CROSS_INDEX_SYMBOL: &str = "SPY";
 const NEAR_MISS_THROTTLE_SECS: i64 = 300;
 /// a repeated gate reason is re-persisted at most this often per ticker.
 const GATE_REPEAT_SECS: i64 = 900;
@@ -54,6 +57,8 @@ const GATE_REPEAT_SECS: i64 = 900;
 /// per-process runtime state shared by the loop arms.
 struct Runtime {
     sessions: HashMap<String, LiveSession>,
+    /// index + peer session state for `MarketState.cross` (same definition as the replay).
+    cross: CrossTracker,
     state_builders: HashMap<String, MarketStateBuilder>,
     last_bar_at: HashMap<String, DateTime<Utc>>,
     last_prices: HashMap<String, f64>,
@@ -517,13 +522,24 @@ async fn main() {
     let tickers: Vec<String> = strategy_config.tickers.clone();
 
     // 10. warm the candle windows with history, then stream
+    let mut cross = CrossTracker::new(CROSS_INDEX_SYMBOL);
     if !demo_mode {
         let feed = AlpacaFeed::new(api_key.clone(), api_secret.clone(), tickers.clone());
+        // the index feeds MarketState.cross only; seed it so a mid-session restart knows
+        // today's session open (the tracker filters by eastern date itself).
+        match feed.fetch_historical_bars(CROSS_INDEX_SYMBOL, 1).await {
+            Ok(candles) => {
+                cross.seed(CROSS_INDEX_SYMBOL, &candles);
+                info!(symbol = CROSS_INDEX_SYMBOL, bars = candles.len(), "cross-context index seeded");
+            }
+            Err(e) => warn!(symbol = CROSS_INDEX_SYMBOL, error = %e, "cross-context index seed failed — SPY-conditioned windows stay closed until live SPY bars arrive today"),
+        }
         for ticker in &tickers {
             info!(ticker = %ticker, days = WARMUP_LOOKBACK_DAYS, "fetching historical bars for warmup");
             match feed.fetch_historical_bars(ticker, WARMUP_LOOKBACK_DAYS).await {
                 Ok(candles) => {
                     let count = candles.len();
+                    cross.seed(ticker, &candles);
                     if let Some(builder) = state_builders.get_mut(ticker) {
                         builder.seed(candles);
                         info!(
@@ -547,7 +563,9 @@ async fn main() {
             }
         }
 
-        let feed = AlpacaFeed::new(api_key, api_secret, tickers);
+        let mut stream_symbols = tickers.clone();
+        stream_symbols.push(CROSS_INDEX_SYMBOL.to_string());
+        let feed = AlpacaFeed::new(api_key, api_secret, stream_symbols);
         tokio::spawn(async move {
             if let Err(e) = feed.stream_bars(bar_tx).await {
                 error!(error = %e, "data feed stream failed");
@@ -610,6 +628,7 @@ async fn main() {
 
     let mut rt = Runtime {
         sessions,
+        cross,
         state_builders,
         last_bar_at: HashMap::new(),
         last_prices: HashMap::new(),
@@ -682,6 +701,13 @@ async fn main() {
                     continue;
                 }
 
+                // every regular-hours bar (index included) feeds the cross-context tracker
+                rt.cross.on_bar(&ticker, &bar_event.candle);
+                if !rt.sessions.contains_key(&ticker) {
+                    debug!(symbol = %ticker, "index/peer bar recorded (not traded)");
+                    continue;
+                }
+
                 rt.tick_count += 1;
                 rt.last_bar_at.insert(ticker.clone(), bar_ts);
                 rt.last_prices.insert(ticker.clone(), bar_event.candle.close);
@@ -706,6 +732,10 @@ async fn main() {
                         continue;
                     }
                 };
+
+                // cross-ticker context (index + peers), same definition as the replay
+                let traded: Vec<String> = rt.sessions.keys().cloned().collect();
+                market.cross = rt.cross.context_for(&ticker, &traded, bar_ts);
 
                 // cross-ticker capacity: still tick (exits, clocks, diagnostics), but block entries
                 let at_capacity = rt.open_position_count() >= rt.max_concurrent();

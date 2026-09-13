@@ -4,6 +4,7 @@ pub mod broker;
 pub mod candle_aggregator;
 pub mod config_loader;
 pub mod config_watcher;
+pub mod cross_tracker;
 pub mod live_session;
 pub mod market_state;
 pub mod session_clock;

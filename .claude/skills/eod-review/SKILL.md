@@ -150,3 +150,17 @@ call `./scripts/notify.sh info "<that line>"` (warning/critical if plumbing mism
   the numbers above. do not tune entry thresholds on a week of data.
 - rollback = re-insert the v15 blob (row 9) as a new promoted row via `update_config.sh`, never
   `UPDATE … SET status`.
+
+## v17 notes (promoted 2026-09-12 ~13:30 PT, config_versions row 11)
+
+- v17 = v16 plus two **entry filters** on both short windows: SPY session return within ±0.2 %
+  at the entry bar (`cross_1m` score in [−0.4, 0.4]) and VPIN raw ≥ 0.217 (`vpin_1m.raw_vpin`).
+  honest five-year replay +$2,785 / 469 trades / PF 1.64 / maxDD $401, every year positive
+  (v16: PF 1.12). expect **~0.4 trades/day** — several no-trade days a week is normal.
+- the SPY filter depends on the live feed populating `MarketState.cross` from a SPY bar
+  subscription (`data_feed/src/cross_tracker.rs`). if `entry_block_events.near_miss` rows show
+  `cross_1m n/a` (or `vpin_1m.raw_vpin n/a`) all morning, the cross feed is not working — that is
+  a WARNING (plumbing), not a strategy signal; do not loosen the window to compensate.
+- `near_miss` rows mentioning `cross_1m … not ≥ / not ≤` mean SPY was moving more than 0.2 %
+  either way: the filter doing its job.
+- rollback = re-insert the v16 blob (row 10) as a new promoted row via `update_config.sh`.

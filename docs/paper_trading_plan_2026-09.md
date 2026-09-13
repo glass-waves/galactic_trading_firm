@@ -692,3 +692,33 @@ stack (+1,723 / 1,179 trades / PF 1.12, within 2 % of the real replay).
 - caveat found by the agent: `cross_1m` was null on every bar of the dump — the replay never
   assigned `MarketState.cross` (a failed text replacement in `replay.rs`); the SPY features were
   recomputed offline from `data/bars/SPY.csv`. fixed before the replay tests below.
+
+### 11.3 real-replay results and v17 (promoted row 11, migration 20260912000008)
+
+honest costs, five years, 36 % sizing, filters as added conditions on v16's two windows
+(tags `e_*`; every row within a few percent of the offline simulation):
+
+| variant | 2022 | 2023 | 2024 | 2025 | 2026 | 5y | trades | PF | maxDD |
+|---|---|---|---|---|---|---|---|---|---|
+| v16 | +1,380 | −177 | +229 | +99 | +153 | +1,684 | 1,179 | 1.12 | 702 |
+| SPY within ±0.2 % | +1,674 | −150 | +173 | +570 | +435 | +2,703 | 752 | 1.32 | 662 |
+| SPY within ±0.3 % | +2,083 | −60 | +182 | +393 | +389 | +2,987 | 876 | 1.30 | 603 |
+| not > 1 % below prior-day low | +1,693 | +253 | +277 | +668 | −268 | +2,624 | 774 | 1.33 | 496 |
+| not > 1.5 % below prior-day low | +1,433 | +196 | +477 | +639 | −247 | +2,498 | 950 | 1.25 | 615 |
+| VPIN raw ≥ 0.217 | +1,308 | −64 | +149 | +42 | +584 | +2,019 | 840 | 1.22 | 578 |
+| gap in (−1, +0.3) % | +350 | +152 | +568 | +182 | +244 | +1,496 | 444 | 1.35 | 364 |
+| **SPY ±0.2 % + VPIN ≥ 0.217 (v17)** | +1,304 | +60 | +158 | +588 | +675 | **+2,785** | 469 | **1.64** | 401 |
+| SPY ±0.2 % + prior-low filter | +1,217 | +214 | +162 | +744 | +30 | +2,367 | 479 | 1.49 | 304 |
+| all three | +789 | +337 | +236 | +732 | +289 | +2,383 | 277 | 2.03 | 178 |
+
+candle patterns in the real replay (standalone 5m window with composite ≤ −0.20, and as an added
+condition): engulfing −2,820 / PF 0.81; evening star −967 / 0.69; three black crows +62 / 1.03;
+as conditions they leave 1–30 trades a year. consistent with the screen: confirmations, not
+triggers. (remaining six patterns were queued behind the filter tests; see §11.4 when run.)
+
+**v17 = v16 + SPY-flat + VPIN filters.** chosen over the triple (PF 2.03, ~1 trade/week, three
+filters stacked on the same data) for frequency and because the pair was the screen's
+pre-registered 5/5 candidate. clears the user's PF > 1.3 bar with every year positive and
+positive months 38 of 56. promoted blob reproduces `e_spy02_vpin_cond` trade-for-trade on five
+sample days. live: `data_feed/src/cross_tracker.rs` subscribes SPY and fills `MarketState.cross`
+(session return vs the first RTH bar's open, same definition as the replay).
