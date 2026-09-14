@@ -26,7 +26,7 @@ galactic_trading_firm/
 │   │   └── src/{main.rs, config.rs, scoring.rs, position.rs}
 │   ├── backtest/                 # historical replay + reports (phase 4)
 │   └── data_feed/                # paper trading binary (phase 7)
-├── deploy/systemd/               # user-level systemd units + install.sh: unattended trader start/stop + claude check-in timers
+├── deploy/systemd/               # user-level systemd units + install.sh: trader start/stop, no-LLM watchdog (5 min), pre-open + eod claude check-ins on the claude.ai login
 ├── .claude/skills/               # preopen-check, intraday-review, eod-review — the scheduled claude check-in prompts
 ├── cockpit/                      # next.js monitoring dashboard
 ├── migrations/                   # sqlx migrations (from data_model.sql)

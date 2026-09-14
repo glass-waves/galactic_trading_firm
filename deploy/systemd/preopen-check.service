@@ -6,6 +6,8 @@ After=network-online.target
 Type=oneshot
 WorkingDirectory=/home/dylmet/Projects/galactic_trading_firm
 EnvironmentFile=/home/dylmet/Projects/galactic_trading_firm/.env
+# run on the claude.ai login (subscription), not the API key: the key would take precedence
+UnsetEnvironment=ANTHROPIC_API_KEY
 Environment=PATH=/home/dylmet/.local/bin:/home/dylmet/.cargo/bin:/usr/local/bin:/usr/bin:/bin
 Environment=TZ=America/Los_Angeles
 # headless: no TTY, no approvals possible. tools are pre-approved in .claude/settings.json;

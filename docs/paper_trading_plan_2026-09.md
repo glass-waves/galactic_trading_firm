@@ -805,3 +805,21 @@ the edge is ~7 bps per leg deep. realized slippage on the paper account is there
 important measurement of week 1; the eod-review skill now computes it from
 `broker_entry_price` / `broker_exit_price` vs the engine's fill and flags a running mean
 > 10 bps round-trip as a strategy-level problem.
+
+## 12. week 1, day 1 (monday 2026-09-14)
+
+- trader started 06:10:02 PT by the timer, no restarts, config row 11 (v17), four engines, SPY
+  subscribed. one trade: NVDA short 09:35→10:15 ET, max_hold (40-min losing limit), −$24.43;
+  realized cost ≈ 4.6 bps round trip (engine 209.690 vs broker 209.600 on the sell; 211.435 vs
+  211.441 on the buy-back) — inside the 6 bps assumption. SPY context present from the 09:31 bar
+  on (the only `cross_1m none` near-misses are the 09:30 bar); VPIN was the binding filter later.
+- pre-open check ran (06:15, "preopen ok"). **intraday check-ins all failed**: the headless
+  `claude -p` calls used `ANTHROPIC_API_KEY` from `.env`, which bills the API account, and it had
+  no credit. so no LLM watchdog ran on day 1.
+- fix (same day): the check-in units now `UnsetEnvironment=ANTHROPIC_API_KEY` and run on the
+  claude.ai login (verified headless inside a transient systemd unit); a no-LLM
+  `scripts/watchdog.sh` runs every 5 min 06:25–13:15 PT (`watchdog.timer`) and pushes ntfy alerts
+  for: service down, heartbeat > 3/6 min, feed stale, position held past 11:58 ET, daily loss
+  > 3 %/5 %, > 4 trades, and a failed check-in (its first run flagged the failed intraday job).
+  the intraday LLM review is on-demand (`/intraday-review` or `/loop 15m /intraday-review` from a
+  session); pre-open (06:15) and end-of-day (13:30) stay scheduled. ntfy is configured and tested.

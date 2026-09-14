@@ -1,0 +1,12 @@
+[Unit]
+Description=paper trader watchdog every 5 min during the session (06:25-13:15 America/Los_Angeles, weekdays)
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 06:25,30,35,40,45,50,55:00
+OnCalendar=Mon..Fri *-*-* 07..12:00/5:00
+OnCalendar=Mon..Fri *-*-* 13:00,05,10,15:00
+Unit=watchdog.service
+Persistent=false
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,11 @@
+[Unit]
+Description=no-LLM safety watchdog for the paper trader (engine_state, service, trades -> ntfy)
+After=trading-postgres.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dylmet/Projects/galactic_trading_firm
+Environment=PATH=/home/dylmet/.local/bin:/home/dylmet/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+Environment=TZ=America/Los_Angeles
+ExecStart=/home/dylmet/Projects/galactic_trading_firm/scripts/watchdog.sh
+TimeoutStartSec=120

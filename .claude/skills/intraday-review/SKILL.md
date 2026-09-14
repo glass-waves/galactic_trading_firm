@@ -1,6 +1,6 @@
 ---
 name: intraday-review
-description: One tick of the market-hours watchdog + review loop for the paper trader. Reads engine_state / trades / entry_block_events from postgres, checks health, and proposes or applies a config change only under strict guardrails. Run repeatedly with `/loop 15m /intraday-review` while paper_trader is running.
+description: One tick of the market-hours review loop for the paper trader (on-demand since 2026-09-14; the scheduled safety watchdog is scripts/watchdog.sh, no LLM). Reads engine_state / trades / entry_block_events from postgres, checks health, and proposes or applies a config change only under strict guardrails. Run once, or repeatedly with `/loop 15m /intraday-review`, from a session while paper_trader is running.
 ---
 
 # intraday review — one tick
