@@ -68,8 +68,10 @@ WHERE created_at > now() - interval '7 days' ORDER BY created_at;
 
 then the **same-day backtest** (the free data plan allows full-day history after the close):
 ```bash
-./target/release/backtest --date $(TZ=US/Eastern date +%F) --lookback-days 8 --capital 10000 \
-  --slippage-bps 3.0 --half-spread 0.005 --verbose
+D=$(TZ=America/New_York date +%F); ./target/release/backtest --fetch-bars data/bars --start $D --end $D --tickers AAPL,AMZN,NVDA,MSFT,SPY >/dev/null 2>&1
+./target/release/backtest --date $(TZ=America/New_York date +%F) --lookback-days 8 --capital 10000 \
+  --slippage-bps 3.0 --half-spread 0.005 --verbose \
+  --bars-dir data/bars --cross-index SPY
 ```
 
 ## 2. plumbing verdict (first, always)

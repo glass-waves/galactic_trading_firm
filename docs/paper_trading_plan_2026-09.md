@@ -836,3 +836,19 @@ important measurement of week 1; the eod-review skill now computes it from
 - **ticker basket** (pre-registered rule: include the basket if pooled PF holds; drop a name only
   if its PF < 1.2 or it is negative in ≥ 3 of 5 years): META, GOOGL, TSLA, AMD, AVGO, NFLX,
   replayed with v17 unchanged (tag `e_basket`). results in §12.2.
+
+### 12.2 ticker basket result: rejected
+
+v17 unchanged, six pre-registered names, five years, honest costs (tag `e_basket`):
+pooled −201 / 1,140 trades / PF 0.99; 2022 +1,515 then −591 / −700 / +211 / −636. per name:
+AMD +670 (PF 1.25, 2 negative years) · NFLX +242 (1.12, 3 neg) · META +178 (1.08, 3 neg) ·
+GOOGL −49 (0.96) · TSLA −142 (0.97, 3 neg) · AVGO −1,101 (0.62). by the rule stated in advance
+(pooled PF must hold; drop a name at PF < 1.2 or ≥ 3 negative years) the basket is rejected
+and only AMD survives — one survivor of six is the selection effect the rule exists to catch,
+and its PF is below the 1.3 bar anyway. **the edge is not a generic mega-cap property; it lives
+in the four names.** volume comes from v18's concurrency, not from more tickers.
+
+day-1 eod review (first run on the claude.ai login, 36 turns): "plumbing ok · strategy hold",
+realized cost 4.6 bps vs 6.5 assumed (n = 1), four triggers recorded in memo 4. it also caught
+that the skill's own replay command lacked `--bars-dir`/`--cross-index` (would have reported a
+false plumbing mismatch every day) — fixed in the skill.
