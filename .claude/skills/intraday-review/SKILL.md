@@ -184,3 +184,10 @@ silent ticks write nothing. end your reply with one line: `hold` / `warning: …
 - `near_miss` rows mentioning `cross_1m … not ≥ / not ≤` mean SPY was moving more than 0.2 %
   either way: the filter doing its job.
 - rollback = re-insert the v16 blob (row 10) as a new promoted row via `update_config.sh`.
+
+## v18 note (promoted 2026-09-14 ~10:30 PT, row 12)
+
+v18 = v17 + `max_concurrent_positions` 3 (was 1) and `max_capital_deployed_pct` 0.95. up to three
+tickers may be short at once (≈ 90 % of the $10k budget); that is intended — the replay evidence
+was produced without a cross-ticker cap. do not lower it on a losing day unless the daily-loss
+WARNING fires. `entries_blocked` gate events should now be rare.

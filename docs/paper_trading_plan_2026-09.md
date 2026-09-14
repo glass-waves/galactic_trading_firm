@@ -823,3 +823,16 @@ important measurement of week 1; the eod-review skill now computes it from
   > 3 %/5 %, > 4 trades, and a failed check-in (its first run flagged the failed intraday job).
   the intraday LLM review is on-demand (`/intraday-review` or `/loop 15m /intraday-review` from a
   session); pre-open (06:15) and end-of-day (13:30) stay scheduled. ntfy is configured and tested.
+
+### 12.1 v18 (row 12, migration 20260912000009) and the ticker basket test
+
+- **live/replay mismatch found**: the replay runs tickers independently (no cross-ticker cap);
+  live had `max_concurrent_positions` 1. applying that cap to v17's five-year trades: 349 of 469
+  kept, +1,438 / PF 1.40, the 120 dropped worth +1,347. with 2: 440 / +2,524 / 1.61; with 3:
+  463 / +2,587 / 1.60. day 1 blocked three tickers 09:36–10:06 ET while NVDA was short.
+- **v18** = v17 + `max_concurrent_positions` 3, `max_capital_deployed_pct` 0.95 (the
+  deployed-capital cap is only enforced when the feed sets `total_deployed_capital`, which it
+  does not yet — the concurrency cap is the binding one). exposure up to ~90 % of the budget.
+- **ticker basket** (pre-registered rule: include the basket if pooled PF holds; drop a name only
+  if its PF < 1.2 or it is negative in ≥ 3 of 5 years): META, GOOGL, TSLA, AMD, AVGO, NFLX,
+  replayed with v17 unchanged (tag `e_basket`). results in §12.2.

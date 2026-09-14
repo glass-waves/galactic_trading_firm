@@ -182,3 +182,10 @@ for a SHORT, a *negative* entry_slip (sold lower than the engine's price) and a 
 exit_slip (bought higher) are costs. report the mean round-trip cost in bps against the 6 bps
 assumption. if the running mean over ≥ 10 trades exceeds 10 bps round-trip, say so prominently:
 that is a strategy-level problem, not a knob to tune.
+
+## v18 note (promoted 2026-09-14 ~10:30 PT, row 12)
+
+v18 = v17 + `max_concurrent_positions` 3 (was 1) and `max_capital_deployed_pct` 0.95. up to three
+tickers may be short at once (≈ 90 % of the $10k budget); that is intended — the replay evidence
+was produced without a cross-ticker cap. do not lower it on a losing day unless the daily-loss
+WARNING fires. `entries_blocked` gate events should now be rare.
