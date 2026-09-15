@@ -177,7 +177,17 @@ pub async fn fetch_bars_range(
     let client = Client::new(api_info);
 
     let (start_utc, _) = market_hours_utc(start_date)?;
-    let (_, end_utc) = market_hours_utc(end_date)?;
+    let (_, mut end_utc) = market_hours_utc(end_date)?;
+    // the free data plan refuses SIP bars from the last ~15 minutes, and a window whose end is
+    // in the future is rejected outright. clamp a same-day request to now − 16 min so an
+    // intraday or just-after-close fetch returns everything that is available.
+    let latest_allowed = chrono::Utc::now() - chrono::Duration::minutes(16);
+    if end_utc > latest_allowed {
+        end_utc = latest_allowed;
+    }
+    if end_utc <= start_utc {
+        return Ok(Vec::new());
+    }
 
     // alpaca pages at 10,000 bars per response and the limit counts pre/post-market
     // bars too (they are filtered out below), so a multi-day request can span
