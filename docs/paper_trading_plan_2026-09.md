@@ -886,3 +886,28 @@ more important: on 16 of the 18 bars the *base window* rejected the bar (5m scor
 0.10, or 5m > −0.50) before the SPY/VPIN filters were even the question — the new filters were
 binding on only a handful of MSFT bars, all of which would have lost. no case for loosening.
 (same-day bar fetches now work: the loader clamps the window to now − 16 min for the SIP lag.)
+
+## 13. second entry window: research round (2026-09-15)
+
+memo: `docs/analysis/2026-09-15_second_window_research.md` (12 candidates, verdicts documented /
+plausible / folklore, 40 sources). the reorganising findings: single names do NOT behave like the
+index in the last half hour (Baltussen–Da–Soebhag 2025: the cross-section *reverses* while the
+market shows momentum, and only intraday losers revert); the friction line (~6.5 bps round trip)
+kills every window whose gross move is under ~10 bps; the published intraday-momentum wins are
+index-level, cost-sensitive, and weaker after 2015 / in the 0DTE regime.
+
+### 13.1 pre-tests on our four names (bar cache, five years, net of 6.5 bps, fixed-time entries)
+
+| candidate | verdict on our names |
+|---|---|
+| first-half-hour → last-half-hour momentum (Gao et al.) | corr ±0.1, sign strategy < 3 bps/day on most name-years; below cost |
+| time-of-day seasonality | no 30-min bucket with a consistent sign across years |
+| midday fade of a > 1 % morning move | net negative 4 of 5 years however cut; losers keep falling through lunch |
+| last-hour momentum on > 2 % days | gross +10 to +14 bps in 3 years, net +3 to +7; negative 2024 / 2026 |
+| **end-of-day loser reversal** (long name lagging SPY by ≥ 2.5 % since prior close, 15:30 → 15:58) | effect is real (beats the all-days control by 5–10 bps gross every year) but net +2.4 / +0.6 / −8.9 / +8.0 / +0.8, ~40 trades/yr — marginal |
+| last-half-hour momentum through the names (SPY ± 0.75 %) | net negative every year, both directions |
+| **earnings-reaction-day 5-min opening-range break**, stop at the other side of the range | net **+27 bps/trade** to 11:55 (+38 to the close), win 57 %, positive 4 of 5 years (2023 −12), 76 signals in five years (~16/yr) |
+
+the earnings ORB is the one pre-test with a per-trade edge several times the morning book's
+(+27 bps vs ~+16 bps/trade at 36 % sizing), but n = 76, and the 3 bps cost model is optimistic
+in the first minutes of an earnings open. worth a real-replay sign check at 10 bps, not a promotion.
