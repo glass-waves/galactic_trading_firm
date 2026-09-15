@@ -877,3 +877,12 @@ $470" trade-off accepted when v17 was chosen; nothing in the removed set argues 
 
 `scripts/analysis/near_miss_replay.py <date>` replays a day's live near-miss bars as hypothetical
 shorts (v18 exit stack) once that day's bars are in the cache.
+
+**tuesday 2026-09-15 near-miss replay** (18 throttled near-miss bars, hypothetical shorts under
+the v18 exit stack): two episodes. AMZN 10:00–10:58 ET would have made +0.2 to +1.0 % per bar
+early on, fading to −0.1 to −0.2 % later; MSFT 09:30–10:21 would have lost 0.03–0.40 % on every
+bar but the first. sum of the 18 bars +0.70 %, i.e. about a wash once episodes are counted once.
+more important: on 16 of the 18 bars the *base window* rejected the bar (5m score not lagging by
+0.10, or 5m > −0.50) before the SPY/VPIN filters were even the question — the new filters were
+binding on only a handful of MSFT bars, all of which would have lost. no case for loosening.
+(same-day bar fetches now work: the loader clamps the window to now − 16 min for the SIP lag.)
