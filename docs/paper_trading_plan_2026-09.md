@@ -852,3 +852,28 @@ day-1 eod review (first run on the claude.ai login, 36 turns): "plumbing ok · s
 realized cost 4.6 bps vs 6.5 assumed (n = 1), four triggers recorded in memo 4. it also caught
 that the skill's own replay command lacked `--bars-dir`/`--cross-index` (would have reported a
 false plumbing mismatch every day) — fixed in the skill.
+
+### 12.3 are the v17 filters too aggressive? (asked tuesday 2026-09-15)
+
+v16 (no filters) vs v17 (filters), five years, honest costs, matched on ticker + entry time:
+
+| set | trades | P&L | PF | win |
+|---|---|---|---|---|
+| kept (in both) | 312 | +2,040 | 1.69 | 40 % |
+| removed by the filters | 867 | −356 | 0.97 | 32 % |
+| added (slot freed for a later entry) | 157 | +749 | 1.53 | 34 % |
+
+the removed set is break-even in aggregate — the filters did not throw away good trades. by
+filter (SPY session return from the bar cache, VPIN from the tick dump at the signal bar):
+SPY-only removed 293 / −116 (PF 0.97); VPIN-only 331 / +181 (1.04); both 241 / −379 (0.89).
+SPY-removed trades split by direction: SPY down > 0.2 % 441 / −183; SPY up > 0.2 % 93 / −312;
+SPY down > 0.5 % 160 / −272 — shorting into a market-wide move loses in every bucket.
+
+the one real cost is regime-dependent: **VPIN-only removals were +674 (PF 1.49) in 2022** and
+−262 / −424 in 2023 / 2026. in a strongly trending-down year the VPIN condition gives back
+money; in choppy years it is the filter that saves the book. removed per year (all filters):
+2022 +758 · 2023 −201 · 2024 +126 · 2025 −609 · 2026 −429. that is the same "2022 gives back
+$470" trade-off accepted when v17 was chosen; nothing in the removed set argues for loosening.
+
+`scripts/analysis/near_miss_replay.py <date>` replays a day's live near-miss bars as hypothetical
+shorts (v18 exit stack) once that day's bars are in the cache.
