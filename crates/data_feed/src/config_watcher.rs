@@ -151,7 +151,7 @@ pub fn try_build_engine(
         }
     };
 
-    Some(engine::TradingEngine::new(
+    let mut engine = engine::TradingEngine::new(
         indicators,
         cfg.indicators.clone(),
         cfg.scoring.clone(),
@@ -162,7 +162,14 @@ pub fn try_build_engine(
         ticker.to_string(),
         capital,
         Some(cfg.session.clone()),
-    ))
+    );
+    // per-window exit overrides (e.g. an afternoon window's own force_exit_by) come from
+    // the window configs so live and replay build the same map
+    let overrides = engine::window_exit_overrides_from_configs(&cfg.actions);
+    if !overrides.is_empty() {
+        engine.set_window_exit_overrides(overrides);
+    }
+    Some(engine)
 }
 
 #[cfg(test)]

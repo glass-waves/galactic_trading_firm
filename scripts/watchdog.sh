@@ -16,7 +16,7 @@ STATE="$STATE_DIR/$TODAY.sent"; touch "$STATE"
 HM="$(TZ=America/New_York date +%H%M)"; DOW="$(TZ=America/New_York date +%u)"
 
 # outside weekdays 09:25–13:15 ET there is nothing to watch
-if (( DOW > 5 )) || (( 10#$HM < 925 )) || (( 10#$HM > 1315 )); then exit 0; fi
+if (( DOW > 5 )) || (( 10#$HM < 925 )) || (( 10#$HM > 1615 )); then exit 0; fi
 
 alert() {  # level key message
     local level="$1" key="$2" msg="$3"
@@ -53,7 +53,7 @@ while IFS='|' read -r t hb bar stale brk pos hold pnl; do
     elif (( hb > 180 )); then alert warning "hb_$t" "$t heartbeat ${hb}s old at $HM ET"; fi
     if [[ "$stale" == "t" ]]; then alert warning "stale_$t" "$t feed_stale at $HM ET (last bar ${bar}s ago)"; else STALE_ALL=0; fi
     if [[ "$brk" == "t" ]]; then alert warning "breaker_$t" "$t daily loss breaker active at $HM ET"; fi
-    if [[ -n "$pos" ]] && (( 10#$HM > 1158 )); then alert critical "late_$t" "$t still holds a $pos position at $HM ET (force_exit_by 11:55 missed)"; fi
+    if [[ -n "$pos" ]] && (( 10#$HM > 1601 )); then alert critical "late_$t" "$t still holds a $pos position at $HM ET (force-exit missed)"; fi
     # daily pnl is the same on every row; evaluate once
     if [[ "$t" == "AAPL" || "$LAST_PNL_CHECKED" != "1" ]]; then
         LAST_PNL_CHECKED=1

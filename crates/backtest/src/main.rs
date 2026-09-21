@@ -1744,6 +1744,7 @@ fn indicator_json(m: &HashMap<String, Option<f64>>) -> String {
 #[derive(Debug, Clone, Copy)]
 struct SessionPoint {
     session_ret: f64,
+    ret_prior_close: Option<f64>,
     ret_5m: f64,
     ret_15m: f64,
 }
@@ -1755,12 +1756,14 @@ fn session_points(candles: &[types::market::Candle]) -> HashMap<chrono::DateTime
     let mut out = HashMap::with_capacity(candles.len());
     let mut day: Option<chrono::NaiveDate> = None;
     let mut day_open = 0.0_f64;
+    let mut prior_close: Option<f64> = None;
     let mut closes: Vec<f64> = Vec::new();
     for c in candles {
         let d = c.timestamp.with_timezone(&Eastern).date_naive();
         if day != Some(d) {
             day = Some(d);
             day_open = c.open;
+            prior_close = closes.last().copied();
             closes.clear();
         }
         closes.push(c.close);
@@ -1768,7 +1771,7 @@ fn session_points(candles: &[types::market::Candle]) -> HashMap<chrono::DateTime
         let r = |k: usize| if n > k { c.close / closes[n - 1 - k] - 1.0 } else { 0.0 };
         out.insert(
             c.timestamp,
-            SessionPoint { session_ret: c.close / day_open - 1.0, ret_5m: r(5), ret_15m: r(15) },
+            SessionPoint { session_ret: c.close / day_open - 1.0, ret_prior_close: prior_close.map(|pc| c.close / pc - 1.0), ret_5m: r(5), ret_15m: r(15) },
         );
     }
     out
@@ -1809,6 +1812,7 @@ fn build_cross_context(
             *ts,
             types::market::CrossContext {
                 index_session_ret: ip.session_ret,
+                index_ret_prior_close: ip.ret_prior_close,
                 index_ret_5m: ip.ret_5m,
                 index_ret_15m: ip.ret_15m,
                 peers_red_frac: if n > 0 { red as f64 / n as f64 } else { 0.5 },

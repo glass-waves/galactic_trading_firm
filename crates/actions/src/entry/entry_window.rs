@@ -8,6 +8,11 @@ pub struct EntryWindowAction {
     name: String,
     conditions: Vec<WindowCondition>,
     direction: TradeDirection,
+    /// optional ET clock bounds (minutes after midnight): the window only fires when
+    /// entry_after <= now < entry_before. lets a config carry a morning and an afternoon
+    /// window with different clocks; the session's `no_new_entries_after` stays the global cap.
+    entry_after: Option<u32>,
+    entry_before: Option<u32>,
 }
 
 impl EntryWindowAction {
@@ -16,8 +21,30 @@ impl EntryWindowAction {
             name,
             conditions,
             direction,
+            entry_after: None,
+            entry_before: None,
         }
     }
+
+    pub fn with_clock(mut self, entry_after: Option<u32>, entry_before: Option<u32>) -> Self {
+        self.entry_after = entry_after;
+        self.entry_before = entry_before;
+        self
+    }
+
+    fn clock_open(&self, market: &MarketState) -> bool {
+        if self.entry_after.is_none() && self.entry_before.is_none() {
+            return true;
+        }
+        let local = market.timestamp.with_timezone(&chrono_tz::US::Eastern);
+        let now = chrono::Timelike::hour(&local) * 60 + chrono::Timelike::minute(&local);
+        self.entry_after.is_none_or(|a| now >= a) && self.entry_before.is_none_or(|b| now < b)
+    }
+}
+
+fn parse_hm(v: Option<&serde_json::Value>) -> Option<u32> {
+    let (h, m) = v?.as_str()?.split_once(':')?;
+    Some(h.parse::<u32>().ok()? * 60 + m.parse::<u32>().ok()?)
 }
 
 impl Action for EntryWindowAction {
@@ -32,10 +59,10 @@ impl Action for EntryWindowAction {
     fn evaluate(
         &self,
         position: Option<&Position>,
-        _market: &MarketState,
+        market: &MarketState,
         scores: &TimescaleScores,
     ) -> ActionSignal {
-        if position.is_some() {
+        if position.is_some() || !self.clock_open(market) {
             return ActionSignal::Hold;
         }
 
@@ -55,7 +82,10 @@ impl Action for EntryWindowAction {
     /// report failing conditions, but only when the window's composite floor
     /// (if any) is already met — i.e. the window was "close". windows with no
     /// composite floor always report.
-    fn diagnose(&self, _market: &MarketState, scores: &TimescaleScores) -> Option<String> {
+    fn diagnose(&self, market: &MarketState, scores: &TimescaleScores) -> Option<String> {
+        if !self.clock_open(market) {
+            return None;
+        }
         let indicator_scores = scores.indicator_scores.as_ref();
         let composite_ok = self.conditions.iter().all(|c| match c {
             WindowCondition::CompositeMin { .. } | WindowCondition::CompositeMax { .. } => {
@@ -99,5 +129,8 @@ pub fn entry_window_factory(config: &ActionConfig) -> Box<dyn Action> {
         .and_then(|v| parse_conditions(v).ok())
         .unwrap_or_default();
 
-    Box::new(EntryWindowAction::new(name, conditions, direction))
+    Box::new(
+        EntryWindowAction::new(name, conditions, direction)
+            .with_clock(parse_hm(config.params.get("entry_after")), parse_hm(config.params.get("entry_before"))),
+    )
 }

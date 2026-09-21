@@ -88,6 +88,8 @@ pub struct MarketState {
 pub struct CrossContext {
     /// index close / index session open − 1
     pub index_session_ret: f64,
+    /// index close / index PRIOR-session close − 1 (None on the first cached day)
+    pub index_ret_prior_close: Option<f64>,
     /// index close / index close 5 bars ago − 1
     pub index_ret_5m: f64,
     /// index close / index close 15 bars ago − 1

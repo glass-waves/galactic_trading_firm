@@ -214,8 +214,10 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
     engine.set_max_hold_ms(max_hold_ms);
 
     // apply per-window exit overrides
-    if !config.window_exit_overrides.is_empty() {
-        engine.set_window_exit_overrides(config.window_exit_overrides.clone());
+    let mut window_overrides = engine::window_exit_overrides_from_configs(&config.action_configs);
+    window_overrides.extend(config.window_exit_overrides.clone());
+    if !window_overrides.is_empty() {
+        engine.set_window_exit_overrides(window_overrides);
     }
 
     let cost = config.cost_config.clone().unwrap_or_default();

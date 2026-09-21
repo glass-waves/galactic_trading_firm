@@ -55,6 +55,8 @@ pub struct TradingEngine {
     window_exit_overrides: HashMap<String, WindowExitOverrides>,
     /// active score exit threshold (may differ from config when a window override is active).
     active_score_exit_threshold: f64,
+    /// active force-exit clock for the open position (window override), ET minutes.
+    active_force_exit_minutes: Option<u32>,
     /// stop price installed by a monitor action (`ModifyStop`) for the open position.
     /// long: exit when price <= stop; short: exit when price >= stop. cleared when flat.
     /// before 2026-09-12 `ModifyStop` was received and ignored, so `breakeven_stop`
@@ -62,13 +64,37 @@ pub struct TradingEngine {
     monitor_stop_price: Option<f64>,
 }
 
-/// per-window exit parameter overrides.
-#[derive(Debug, Clone)]
+/// per-window exit parameter overrides. `None` = keep the engine default.
+#[derive(Debug, Clone, Default)]
 pub struct WindowExitOverrides {
     /// override for score exit threshold. f64::MAX = disabled.
-    pub score_exit_threshold: f64,
+    pub score_exit_threshold: Option<f64>,
     /// override for max hold time in ms.
-    pub max_hold_ms: i64,
+    pub max_hold_ms: Option<i64>,
+    /// override for the force-exit clock (minutes after midnight, US/Eastern). lets an
+    /// afternoon window hold to 15:58 while the morning windows stay flat by 11:55.
+    pub force_exit_by_minutes: Option<u32>,
+}
+
+/// read `exit_overrides: {score_exit_threshold?, max_hold_ms?, force_exit_by?}` from every
+/// enabled `entry_window` action config, keyed by the window's `name`. config-driven, so the
+/// live trader and the replay build the same map.
+pub fn window_exit_overrides_from_configs(configs: &[types::action::ActionConfig]) -> HashMap<String, WindowExitOverrides> {
+    let mut out = HashMap::new();
+    for c in configs.iter().filter(|c| c.action_type == "entry_window" && c.enabled) {
+        let Some(ov) = c.params.get("exit_overrides") else { continue };
+        let name = c.params.get("name").and_then(|v| v.as_str()).unwrap_or(&c.instance_id).to_string();
+        let force = ov.get("force_exit_by").and_then(|v| v.as_str()).and_then(|t| {
+            let (h, m) = t.split_once(':')?;
+            Some(h.parse::<u32>().ok()? * 60 + m.parse::<u32>().ok()?)
+        });
+        out.insert(name, WindowExitOverrides {
+            score_exit_threshold: ov.get("score_exit_threshold").and_then(|v| v.as_f64()),
+            max_hold_ms: ov.get("max_hold_ms").and_then(|v| v.as_i64()),
+            force_exit_by_minutes: force,
+        });
+    }
+    out
 }
 
 impl TradingEngine {
@@ -110,6 +136,7 @@ impl TradingEngine {
             default_max_hold_ms: 2_700_000,
             window_exit_overrides: HashMap::new(),
             active_score_exit_threshold: exit_threshold,
+            active_force_exit_minutes: None,
             monitor_stop_price: None,
         }
     }
@@ -198,9 +225,8 @@ impl TradingEngine {
             // session force-exit safety net: independent of whether a
             // session_close action is configured, never hold past force_exit_by (ET).
             if let Some(cutoff) = self
-                .session_config
-                .as_ref()
-                .and_then(|sc| sc.force_exit_by_minutes())
+                .active_force_exit_minutes
+                .or_else(|| self.session_config.as_ref().and_then(|sc| sc.force_exit_by_minutes()))
             {
                 if eastern_minutes(market.timestamp) >= cutoff {
                     if let Some(trade) = self.position_manager.close_position(
@@ -366,8 +392,9 @@ impl TradingEngine {
                     // apply per-window exit overrides if this is a window entry
                     if let Some(window_name) = reason.strip_prefix("window:") {
                         if let Some(ovr) = self.window_exit_overrides.get(window_name) {
-                            self.active_score_exit_threshold = ovr.score_exit_threshold;
-                            self.max_hold_ms = ovr.max_hold_ms;
+                            if let Some(t) = ovr.score_exit_threshold { self.active_score_exit_threshold = t; }
+                            if let Some(h) = ovr.max_hold_ms { self.max_hold_ms = h; }
+                            self.active_force_exit_minutes = ovr.force_exit_by_minutes;
                         }
                     }
                     // check sizing actions for actual size
@@ -569,6 +596,7 @@ impl TradingEngine {
         // reset per-window exit overrides to defaults
         self.active_score_exit_threshold = self.scoring_config.exit_threshold;
         self.max_hold_ms = self.default_max_hold_ms;
+        self.active_force_exit_minutes = None;
 
         // check if daily loss breaker should activate
         if let Some(ref sc) = self.session_config {

@@ -1,0 +1,108 @@
+{
+ "disable": [
+  "window_5m_thrust_short",
+  "window_strong_core_short"
+ ],
+ "indicators": [
+  {
+   "indicator_type": "event_calendar",
+   "instance_id": "cal_earn",
+   "timescale": "OneMinute",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "dates": [
+     "2022-01-28",
+     "2022-04-29",
+     "2022-07-29",
+     "2022-10-28",
+     "2023-02-03",
+     "2023-05-05",
+     "2023-08-04",
+     "2023-11-03",
+     "2024-02-02",
+     "2024-05-03",
+     "2024-08-02",
+     "2024-11-01",
+     "2025-01-31",
+     "2025-05-02",
+     "2025-08-01",
+     "2025-10-31",
+     "2026-01-30",
+     "2026-05-01",
+     "2026-07-31"
+    ],
+    "before_days": 0,
+    "after_days": 0
+   }
+  },
+  {
+   "indicator_type": "opening_range",
+   "instance_id": "or5_1m",
+   "timescale": "OneMinute",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "range_minutes": 5
+   }
+  },
+  {
+   "indicator_type": "opening_range",
+   "instance_id": "or15_1m",
+   "timescale": "OneMinute",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "range_minutes": 15
+   }
+  }
+ ],
+ "actions": [
+  {
+   "instance_id": "window_earn_long5",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 5,
+   "enabled": true,
+   "params": {
+    "name": "earnings ORB long5",
+    "direction": "long",
+    "conditions": [
+     {
+      "type": "indicator_max",
+      "instance_id": "cal_earn",
+      "max_score": -0.5
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "or5_1m",
+      "min_score": 0.5
+     }
+    ]
+   }
+  },
+  {
+   "instance_id": "window_earn_short5",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 5,
+   "enabled": true,
+   "params": {
+    "name": "earnings ORB short5",
+    "direction": "short",
+    "conditions": [
+     {
+      "type": "indicator_max",
+      "instance_id": "cal_earn",
+      "max_score": -0.5
+     },
+     {
+      "type": "indicator_max",
+      "instance_id": "or5_1m",
+      "max_score": -0.5
+     }
+    ]
+   }
+  }
+ ]
+}

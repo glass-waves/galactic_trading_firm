@@ -1,0 +1,108 @@
+{
+ "disable": [
+  "window_5m_thrust_short",
+  "window_strong_core_short"
+ ],
+ "indicators": [
+  {
+   "indicator_type": "event_calendar",
+   "instance_id": "cal_earn",
+   "timescale": "OneMinute",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "dates": [
+     "2022-01-26",
+     "2022-04-27",
+     "2022-07-27",
+     "2022-10-26",
+     "2023-01-25",
+     "2023-04-26",
+     "2023-07-26",
+     "2023-10-25",
+     "2024-01-31",
+     "2024-04-26",
+     "2024-07-31",
+     "2024-10-31",
+     "2025-01-30",
+     "2025-05-01",
+     "2025-07-31",
+     "2025-10-30",
+     "2026-01-29",
+     "2026-04-30",
+     "2026-07-30"
+    ],
+    "before_days": 0,
+    "after_days": 0
+   }
+  },
+  {
+   "indicator_type": "opening_range",
+   "instance_id": "or5_1m",
+   "timescale": "OneMinute",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "range_minutes": 5
+   }
+  },
+  {
+   "indicator_type": "opening_range",
+   "instance_id": "or15_1m",
+   "timescale": "OneMinute",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "range_minutes": 15
+   }
+  }
+ ],
+ "actions": [
+  {
+   "instance_id": "window_earn_long15",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 5,
+   "enabled": true,
+   "params": {
+    "name": "earnings ORB long15",
+    "direction": "long",
+    "conditions": [
+     {
+      "type": "indicator_max",
+      "instance_id": "cal_earn",
+      "max_score": -0.5
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "or15_1m",
+      "min_score": 0.5
+     }
+    ]
+   }
+  },
+  {
+   "instance_id": "window_earn_short15",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 5,
+   "enabled": true,
+   "params": {
+    "name": "earnings ORB short15",
+    "direction": "short",
+    "conditions": [
+     {
+      "type": "indicator_max",
+      "instance_id": "cal_earn",
+      "max_score": -0.5
+     },
+     {
+      "type": "indicator_max",
+      "instance_id": "or15_1m",
+      "max_score": -0.5
+     }
+    ]
+   }
+  }
+ ]
+}

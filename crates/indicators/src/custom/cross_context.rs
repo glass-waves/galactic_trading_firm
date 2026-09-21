@@ -33,6 +33,7 @@ impl Indicator for CrossContextIndicator {
         let score = match self.field.as_str() {
             "index_ret_5m" => scaled(x.index_ret_5m),
             "index_ret_15m" => scaled(x.index_ret_15m),
+            "index_ret_prior_close" => scaled(x.index_ret_prior_close.unwrap_or(0.0)),
             "peers_mean_session_ret" => scaled(x.peers_mean_session_ret),
             "peers_red_frac" => 1.0 - 2.0 * x.peers_red_frac,
             _ => scaled(x.index_session_ret),
@@ -41,6 +42,9 @@ impl Indicator for CrossContextIndicator {
         metadata.insert("index_session_ret".to_string(), x.index_session_ret * 100.0);
         metadata.insert("index_ret_5m".to_string(), x.index_ret_5m * 100.0);
         metadata.insert("index_ret_15m".to_string(), x.index_ret_15m * 100.0);
+        if let Some(r) = x.index_ret_prior_close {
+            metadata.insert("index_ret_prior_close".to_string(), r * 100.0);
+        }
         metadata.insert("peers_red_frac".to_string(), x.peers_red_frac);
         metadata.insert("peers_mean_session_ret".to_string(), x.peers_mean_session_ret * 100.0);
         Some(IndicatorOutput { score, raw_value: score, metadata })

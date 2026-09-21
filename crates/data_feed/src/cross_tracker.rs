@@ -18,6 +18,7 @@ use types::market::{Candle, CrossContext};
 struct SymbolState {
     date: Option<NaiveDate>,
     session_open: f64,
+    prior_close: Option<f64>,
     closes: Vec<f64>,
     last_ts: Option<DateTime<Utc>>,
 }
@@ -28,6 +29,7 @@ impl SymbolState {
         if self.date != Some(d) {
             self.date = Some(d);
             self.session_open = c.open;
+            self.prior_close = self.closes.last().copied();
             self.closes.clear();
         }
         self.closes.push(c.close);
@@ -123,6 +125,10 @@ impl CrossTracker {
         }
         Some(CrossContext {
             index_session_ret,
+            index_ret_prior_close: match (idx.prior_close, idx.closes.last()) {
+                (Some(pc), Some(last)) if pc > 0.0 => Some(last / pc - 1.0),
+                _ => None,
+            },
             index_ret_5m: idx.ret_back(5),
             index_ret_15m: idx.ret_back(15),
             peers_red_frac: if n > 0 { red as f64 / n as f64 } else { 0.5 },

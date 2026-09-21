@@ -73,6 +73,11 @@ impl Indicator for PriorDayLevels {
         metadata.insert("dist_low_pct".to_string(), (px - low) / px * 100.0);
         metadata.insert("dist_high_pct".to_string(), (px - high) / px * 100.0);
         metadata.insert("dist_close_pct".to_string(), (px - close_prev) / px * 100.0);
+        // name's return since its prior close minus the index's (the end-of-day loser
+        // reversal signal); only when the cross context is present
+        if let Some(ir) = market.cross.and_then(|x| x.index_ret_prior_close) {
+            metadata.insert("rel_close_pct".to_string(), (px / close_prev - 1.0 - ir) * 100.0);
+        }
         Some(IndicatorOutput { score, raw_value: px - low, metadata })
     }
 }
