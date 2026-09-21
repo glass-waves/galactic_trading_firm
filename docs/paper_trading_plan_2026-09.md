@@ -911,3 +911,30 @@ index-level, cost-sensitive, and weaker after 2015 / in the 0DTE regime.
 the earnings ORB is the one pre-test with a per-trade edge several times the morning book's
 (+27 bps vs ~+16 bps/trade at 36 % sizing), but n = 76, and the 3 bps cost model is optimistic
 in the first minutes of an earnings open. worth a real-replay sign check at 10 bps, not a promotion.
+
+### 13.2 builds (2026-09-21): earnings-day ORB sign check and the afternoon session block
+
+week 1 ended one trade in five sessions; monday 09-21 was a sixth blank. more entry
+opportunities is the priority, so both research items from §13 are built.
+
+- **earnings-day opening-range break** needs no engine code: per-ticker patches
+  (`research/earnings/<T>_or{5,15}.json`) carry that name's earnings *reaction* dates (next
+  trading day after the 8-K filing) in an `event_calendar` instance, plus 5- and 15-minute
+  `opening_range` instances and long/short break windows. run per ticker at a pessimistic
+  10 bps + $0.01 cost, two exit stacks (v18's; hold-to-close). first run showed 3–4 entries per
+  reaction day (the window re-fires after each exit while price stays outside the range, 17 %
+  win rate) — not the pre-test's one-entry rule; rerun with `--entry-cooldown-ms 21600000`
+  (one trade per ticker-day). tags `earn_*` / `earnc_*`.
+- **afternoon session block** (commit 19f87f0): entry windows take `entry_after` /
+  `entry_before` (ET) and `exit_overrides {force_exit_by, max_hold_ms, score_exit_threshold}`
+  from their own config, read identically by the replay and the live builder; the engine's
+  force-exit safety net honours the active window's clock. so one config can hold the morning
+  short windows (entry until 11:30, flat 11:55) and an afternoon window (entry 15:30–15:36,
+  flat 15:58) with the session's global `force_exit_by` at 15:58. `CrossContext` gained the
+  index return since the prior close; `prior_day_levels` emits `rel_close_pct` (name minus
+  index since prior close), the paper's end-of-day loser signal. smoke: NVDA 2024-02-20 takes
+  the morning short (exits 11:02 by score) and the afternoon long at 15:31 (flat 15:59).
+- end-of-day loser variants queued (`research/eod/eod_{1530,1500}_t{1.5,2.0,2.5,3.0}.json`,
+  tags `e_eod_*`): morning book + afternoon long when the name lags SPY by ≥ threshold since
+  the prior close and SPY itself is not down > 1 %; no score exit, 2.5 % hard stop, 0.5 %
+  breakeven, flat 15:58. honest costs.

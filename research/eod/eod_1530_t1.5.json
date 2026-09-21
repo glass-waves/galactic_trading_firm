@@ -1,0 +1,168 @@
+{
+ "disable": [
+  "window_5m_thrust_short",
+  "window_strong_core_short"
+ ],
+ "indicators": [
+  {
+   "indicator_type": "prior_day_levels",
+   "instance_id": "pdl_5m",
+   "timescale": "FiveMinute",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "scale_pct": 0.005
+   }
+  },
+  {
+   "indicator_type": "cross_context",
+   "instance_id": "cross_1m",
+   "timescale": "OneMinute",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "field": "index_session_ret",
+    "scale_pct": 0.005
+   }
+  },
+  {
+   "indicator_type": "vpin",
+   "instance_id": "vpin_1m",
+   "timescale": "OneMinute",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "bucket_count": 20
+   }
+  }
+ ],
+ "actions": [
+  {
+   "instance_id": "window_5m_thrust_short_am",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 10,
+   "enabled": true,
+   "params": {
+    "name": "5m thrust short",
+    "direction": "short",
+    "entry_before": "11:30",
+    "conditions": [
+     {
+      "type": "composite_max",
+      "max_score": -0.35
+     },
+     {
+      "type": "timescale_lag",
+      "lag_by": 0.1,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_max",
+      "max_score": -0.5,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_max",
+      "max_score": 0.0,
+      "timescale": "OneHour"
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "cross_1m",
+      "min_score": -0.4
+     },
+     {
+      "type": "indicator_max",
+      "instance_id": "cross_1m",
+      "max_score": 0.4
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "vpin_1m.raw_vpin",
+      "min_score": 0.217
+     }
+    ],
+    "exit_overrides": {
+     "force_exit_by": "11:55"
+    }
+   }
+  },
+  {
+   "instance_id": "window_strong_core_short_am",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 20,
+   "enabled": true,
+   "params": {
+    "name": "strong core short",
+    "direction": "short",
+    "entry_before": "11:30",
+    "conditions": [
+     {
+      "type": "composite_max",
+      "max_score": -0.35
+     },
+     {
+      "type": "timescale_max",
+      "max_score": -0.4,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_max",
+      "max_score": -0.4,
+      "timescale": "OneHour"
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "cross_1m",
+      "min_score": -0.4
+     },
+     {
+      "type": "indicator_max",
+      "instance_id": "cross_1m",
+      "max_score": 0.4
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "vpin_1m.raw_vpin",
+      "min_score": 0.217
+     }
+    ],
+    "exit_overrides": {
+     "force_exit_by": "11:55"
+    }
+   }
+  },
+  {
+   "instance_id": "window_eod_loser_long",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 30,
+   "enabled": true,
+   "params": {
+    "name": "eod loser long",
+    "direction": "long",
+    "entry_after": "15:30",
+    "entry_before": "15:36",
+    "conditions": [
+     {
+      "type": "indicator_max",
+      "instance_id": "pdl_5m.rel_close_pct",
+      "max_score": -1.5
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "cross_1m.index_ret_prior_close",
+      "min_score": -1.0
+     }
+    ],
+    "exit_overrides": {
+     "force_exit_by": "15:58",
+     "score_exit_threshold": -10.0,
+     "max_hold_ms": 5400000
+    }
+   }
+  }
+ ]
+}
