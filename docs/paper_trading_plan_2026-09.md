@@ -957,3 +957,28 @@ verdict: positive pooled but negative in two of five years on 74 trades — belo
 v17 (≥ 4 of 5 years). parked, not promoted. the pre-test's +27 bps used a stop at the far side of
 the opening range, which the engine does not have; that is the one thing worth adding before a
 retest. (15-minute range: fewer signals, worse.)
+
+### 13.4 end-of-day loser reversal in the real engine — rejected
+
+morning book (v17 windows, own 11:55 clock) + afternoon long at 15:30–15:36 when the name lags
+SPY since the prior close by ≥ threshold, flat 15:58, honest costs. the morning trades are
+unchanged (462–465 of 469 match v17 exactly). afternoon leg only:
+
+| threshold | trades | P&L | PF | bps/trade | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|
+| −1.5 % | 332 | −194 | 0.91 | −1.9 | +60 | −86 | −136 | +39 | −71 |
+| −2.0 % | 234 | −70 | 0.96 | −1.0 | +202 | −79 | −146 | −51 | +4 |
+| −2.5 % | 144 | +42 | 1.04 | +0.7 | +228 | −8 | −75 | −58 | −45 |
+| −3.0 % | 84 | +2 | 1.00 | −0.1 | +205 | −47 | −168 | −4 | +16 |
+
+the published effect (≈ 3 bps/day on a quintile) is real but sits under our cost line on these
+names; only 2022 pays. rejected. the afternoon plumbing stays (it is config-driven and inert
+unless a window uses it).
+
+### 13.5 where the trade count can come from
+
+both literature windows failed in the real engine; the edge remains the morning short thrust.
+the one lever that raises trade count while staying above the PF 1.3 bar is the v17 filter
+plateau (§11.6): SPY band ±0.3 % with VPIN ≥ 0.18 gives 652 trades / +3,068 / PF 1.47 over five
+years, every year positive (+1,667 / +138 / +252 / +314 / +697) — 39 % more trades than v17 at
+a lower but still qualifying PF. ±0.3 % / 0.217 is the middle option (576 / +2,937 / PF 1.53).
