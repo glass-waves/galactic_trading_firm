@@ -938,3 +938,22 @@ opportunities is the priority, so both research items from §13 are built.
   tags `e_eod_*`): morning book + afternoon long when the name lags SPY by ≥ threshold since
   the prior close and SPY itself is not down > 1 %; no score exit, 2.5 % hard stop, 0.5 %
   breakeven, flat 15:58. honest costs.
+
+### 13.3 earnings-day ORB in the real engine (one entry per ticker-day, 10 bps + $0.01 per leg)
+
+two engine issues surfaced on the way: (1) the morning book's exits are wrong for a day that
+moves 3–5 % — the 0.5 % breakeven and the score exit shook out 40 of ~60 trades (−6 bps/trade);
+(2) the per-window `max_hold_ms` override never reached the max-hold action (pre-existing since
+v11; fixed in 921c835), so "hold to close" was still cut at 40/90 min. with those corrected
+(no breakeven, no score exit, hard stop, flat 15:55):
+
+| range | stop | trades | P&L | PF | win | bps/trade | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 5 min | 2.5 % | 74 | +560 | 1.38 | 51 % | +23 | +676 | −417 | −316 | +453 | +164 |
+| 5 min | 1.5 % | 74 | +380 | 1.25 | 46 % | +16 | +371 | −373 | −243 | +460 | +164 |
+
+by name: NVDA +571, AAPL +285, AMZN −161, MSFT −135. long and short halves both positive.
+verdict: positive pooled but negative in two of five years on 74 trades — below the bar set for
+v17 (≥ 4 of 5 years). parked, not promoted. the pre-test's +27 bps used a stop at the far side of
+the opening range, which the engine does not have; that is the one thing worth adding before a
+retest. (15-minute range: fewer signals, worse.)
