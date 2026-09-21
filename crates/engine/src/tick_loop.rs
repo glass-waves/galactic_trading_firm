@@ -348,6 +348,19 @@ impl TradingEngine {
                     &scores,
                 );
                 if let ActionSignal::Exit { reason } = signal {
+                    // a per-window max_hold override is a plain limit: the max_hold action keeps
+                    // its own (default) parameters, so while an override is active its signal
+                    // is honoured only once the position has been held that long. (before
+                    // 2026-09-21 the override only reached the position-context indicator.)
+                    if matches!(reason, ExitReason::MaxHoldTimeout)
+                        && self.max_hold_ms != self.default_max_hold_ms
+                        && self
+                            .position_manager
+                            .current_position()
+                            .is_some_and(|p| p.hold_duration_ms < self.max_hold_ms)
+                    {
+                        continue;
+                    }
                     if let Some(trade) = self.position_manager.close_position(
                         fill_price,
                         market.timestamp,

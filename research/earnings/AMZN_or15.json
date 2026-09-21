@@ -78,7 +78,11 @@
       "instance_id": "or15_1m",
       "min_score": 0.5
      }
-    ]
+    ],
+    "exit_overrides": {
+     "score_exit_threshold": -10.0,
+     "max_hold_ms": 30000000
+    }
    }
   },
   {
@@ -101,7 +105,11 @@
       "instance_id": "or15_1m",
       "max_score": -0.5
      }
-    ]
+    ],
+    "exit_overrides": {
+     "score_exit_threshold": -10.0,
+     "max_hold_ms": 30000000
+    }
    }
   }
  ]
