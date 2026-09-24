@@ -16,7 +16,7 @@ STATE="$STATE_DIR/$TODAY.sent"; touch "$STATE"
 HM="$(TZ=America/New_York date +%H%M)"; DOW="$(TZ=America/New_York date +%u)"
 
 # outside weekdays 09:25–13:15 ET there is nothing to watch
-if (( DOW > 5 )) || (( 10#$HM < 925 )) || (( 10#$HM > 1615 )); then exit 0; fi
+if (( DOW > 5 )) || (( 10#$HM < 925 )) || (( 10#$HM > 1608 )); then exit 0; fi
 
 alert() {  # level key message
     local level="$1" key="$2" msg="$3"
