@@ -196,17 +196,20 @@ impl AlpacaFeed {
 
         let client = Client::new(api_info);
 
-        // the free data plan refuses consolidated (SIP) bars from the last 15
-        // minutes. lag the window so SIP works; if the plan still refuses,
-        // fall back to IEX (the same feed the live stream uses).
-        let end = Utc::now() - chrono::Duration::minutes(16);
+        // warm up on the SAME feed the live stream uses (IEX). before 2026-09-24 this
+        // fetched consolidated (SIP) bars: IEX carries ~3 % of consolidated volume for
+        // these names, so the indicator windows mixed two volume scales and VPIN (bucket
+        // size = average volume) was a different quantity live than in the replay, which
+        // is what the v17 threshold was fitted on. IEX history has no 15-minute lag.
+        let end = Utc::now();
         let start = end - chrono::Duration::days(lookback_days);
 
-        match Self::fetch_bars_paged(&client, symbol, start, end, None).await {
+        match Self::fetch_bars_paged(&client, symbol, start, end, Some(apca::data::v2::Feed::IEX)).await {
             Ok(c) => Ok(c),
-            Err(sip_err) => {
-                warn!(symbol, error = %sip_err, "SIP historical bars unavailable, retrying with IEX feed");
-                Self::fetch_bars_paged(&client, symbol, start, end, Some(apca::data::v2::Feed::IEX)).await
+            Err(iex_err) => {
+                warn!(symbol, error = %iex_err, "IEX historical bars unavailable, falling back to SIP (lagged 16 min) — volume scale will not match the live stream until the window rolls");
+                let end = Utc::now() - chrono::Duration::minutes(16);
+                Self::fetch_bars_paged(&client, symbol, end - chrono::Duration::days(lookback_days), end, None).await
             }
         }
     }

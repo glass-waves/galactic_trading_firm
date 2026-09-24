@@ -163,6 +163,20 @@ pub async fn fetch_bars_range(
     start_date: NaiveDate,
     end_date: NaiveDate,
 ) -> Result<Vec<Candle>, String> {
+    fetch_bars_range_feed(api_key, api_secret, symbol, start_date, end_date, None).await
+}
+
+/// like `fetch_bars_range` but with an explicit feed: `Some(Feed::IEX)` returns the bars the
+/// live websocket actually sees on the free plan (~3 % of consolidated volume for mega-caps);
+/// `None` = the account default (SIP for historical).
+pub async fn fetch_bars_range_feed(
+    api_key: &str,
+    api_secret: &str,
+    symbol: &str,
+    start_date: NaiveDate,
+    end_date: NaiveDate,
+    feed: Option<apca::data::v2::Feed>,
+) -> Result<Vec<Candle>, String> {
     use apca::data::v2::bars;
     use apca::ApiInfo;
     use apca::Client;
@@ -199,6 +213,7 @@ pub async fn fetch_bars_range(
         let req = bars::ListReqInit {
             limit: Some(10_000),
             page_token: page_token.clone(),
+            feed,
             ..Default::default()
         }
         .init(symbol, start_utc, end_utc, bars::TimeFrame::OneMinute);

@@ -1020,7 +1020,12 @@ async fn main() {
         let start = get_arg(&args, "--start").expect("--fetch-bars needs --start YYYY-MM-DD");
         let end = get_arg(&args, "--end").expect("--fetch-bars needs --end YYYY-MM-DD");
         let tickers = get_arg(&args, "--tickers").expect("--fetch-bars needs --tickers A,B,C");
-        run_fetch_bars(&dir, &start, &end, &tickers).await;
+        let feed = match get_arg(&args, "--feed").as_deref() {
+            Some("iex") => Some(apca::data::v2::Feed::IEX),
+            Some("sip") => Some(apca::data::v2::Feed::SIP),
+            _ => None,
+        };
+        run_fetch_bars(&dir, &start, &end, &tickers, feed).await;
     } else {
         run_legacy_mode(&args, capital, &cost_config);
     }
@@ -1625,7 +1630,7 @@ fn load_cached_bars(dir: &str, ticker: &str, start_date: NaiveDate, end_date: Na
 
 /// fetch RTH 1-minute bars in ~20-day chunks and write `<dir>/<TICKER>.csv`
 /// (epoch seconds, o, h, l, c, v). existing files are merged, not clobbered.
-async fn run_fetch_bars(dir: &str, start: &str, end: &str, tickers: &str) {
+async fn run_fetch_bars(dir: &str, start: &str, end: &str, tickers: &str, feed: Option<apca::data::v2::Feed>) {
     dotenvy::dotenv().ok();
     let api_key = std::env::var("APCA_API_KEY_ID").expect("APCA_API_KEY_ID not set");
     let api_secret = std::env::var("APCA_API_SECRET_KEY").expect("APCA_API_SECRET_KEY not set");
@@ -1647,7 +1652,7 @@ async fn run_fetch_bars(dir: &str, start: &str, end: &str, tickers: &str) {
         let mut chunk_start = start;
         while chunk_start <= end {
             let chunk_end = std::cmp::min(chunk_start + Duration::days(19), end);
-            match fetch_bars_range(&api_key, &api_secret, ticker, chunk_start, chunk_end).await {
+            match backtest::alpaca_loader::fetch_bars_range_feed(&api_key, &api_secret, ticker, chunk_start, chunk_end, feed).await {
                 Ok(bars) => {
                     let n = bars.len();
                     for c in bars {

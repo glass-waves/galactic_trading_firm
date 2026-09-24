@@ -31,3 +31,5 @@ journalctl --user -u paper-trader.service --since "$D 00:00" --until "$D 23:59" 
 ./target/release/backtest --date "$D" --lookback-days 8 --capital 10000 --slippage-bps 3.0 --half-spread 0.005 --output-trades-csv --bars-dir data/bars --cross-index SPY 2>/dev/null > "$OUT/replay_trades.csv" || true
 python3 scripts/analysis/near_miss_replay.py "$D" > "$OUT/near_miss_replay.txt" 2>/dev/null || true
 echo "exported $OUT: $(ls "$OUT" | wc -l) files"
+# commit and push so the routine (and history) can see it; never fail the timer on push
+git add "$OUT" >/dev/null 2>&1 && git commit -q -m "live: export $D" >/dev/null 2>&1 && (git push -q origin HEAD 2>/dev/null || echo "export: push failed (offline?)" >&2) || true
