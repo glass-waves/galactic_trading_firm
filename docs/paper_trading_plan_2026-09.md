@@ -1003,3 +1003,32 @@ timer's unit-file bug (`$(…)` in ExecStart; git moved into the script).
 
 validation in flight: v18 replayed on IEX bars, plus a VPIN-floor × SPY-band grid on IEX, to
 choose v19's thresholds on the feed live actually sees (results §14.1).
+
+### 14.1 the v17/v18 thresholds on the live feed (IEX bars, five years, honest costs)
+
+| SPY band | VPIN floor | 5y | trades | PF | maxDD | 2022 | 2023 | 2024 | 2025 | 2026 | pos yrs |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| ±0.2 % | 0.217 (**v18 as promoted**) | +2,154 | 407 | 1.48 | 526 | +1,565 | −181 | −93 | +451 | +413 | 3 |
+| ±0.2 % | 0.26 | +1,952 | 306 | **1.58** | 402 | +1,203 | −97 | +234 | +243 | +368 | 4 |
+| ±0.2 % | 0.18 | +2,106 | 491 | 1.38 | 537 | +1,797 | −252 | −58 | +329 | +289 | 3 |
+| ±0.2 % | 0.15 | +2,186 | 548 | 1.36 | 528 | +1,775 | −232 | −4 | +280 | +366 | 3 |
+| ±0.2 % | 0.12 | +2,175 | 604 | 1.32 | 632 | +1,704 | −306 | −24 | +464 | +336 | 3 |
+| ±0.2 % | none | +1,923 | 771 | 1.21 | 833 | +1,895 | −421 | +92 | −36 | +393 | 3 |
+| ±0.3 % | 0.26 | +1,578 | 371 | 1.38 | 464 | +908 | −101 | +305 | +131 | +334 | 4 |
+| ±0.3 % | 0.217 | +1,836 | 489 | 1.34 | 565 | +1,332 | −139 | −29 | +268 | +403 | 3 |
+| ±0.3 % | 0.18 (**the planned v19 cell**) | +1,708 | 578 | 1.26 | 545 | +1,445 | −139 | −15 | +68 | +349 | 3 |
+| ±0.3 % | 0.15 | +1,781 | 651 | 1.24 | 682 | +1,625 | −204 | +124 | +1 | +236 | 4 |
+| ±0.3 % | 0.12 | +1,904 | 707 | 1.24 | 721 | +1,573 | −240 | +119 | +144 | +308 | 4 |
+| ±0.3 % | none | +2,076 | 887 | 1.20 | 872 | +1,933 | −378 | +234 | −104 | +392 | 3 |
+
+reading: on the feed live actually sees, (1) the strategy still works but weaker — v18's own cell
+is PF 1.48 (1.64 on SIP), (2) VPIN still earns its place (no-VPIN rows are PF 1.20), (3) the
+trade-count lever does not clear the bar: the planned v19 cell (±0.3 % / 0.18) is PF 1.26 with
+three positive years, and every wider cell is under 1.3 or fails the 4-of-5 test, (4) 2023 is
+negative in every cell — on IEX it is the year the book does not have. the only cells that pass
+PF ≥ 1.3 with ≥ 4 positive years are the *tighter* VPIN ones (0.26), which trade less.
+
+**decision 2026-09-24 evening: v19 (the wider cell) is NOT promoted.** the live fix (one feed)
+is the real change; v18's thresholds stay, and tomorrow's like-for-like IEX replay should now
+match live bar for bar. widening for volume would mean accepting PF ~1.25 on the honest feed,
+which is the human's call, not the routine's or mine.
