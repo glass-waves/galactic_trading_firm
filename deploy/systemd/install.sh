@@ -12,7 +12,7 @@ done
 systemctl --user daemon-reload
 systemctl --user enable --now podman.socket
 systemctl --user enable trading-postgres.service
-systemctl --user enable --now paper-trader.timer paper-trader-stop.timer preopen-check.timer eod-review.timer watchdog.timer
+systemctl --user enable --now paper-trader.timer paper-trader-stop.timer preopen-check.timer eod-review.timer watchdog.timer export-day.timer
 # the intraday LLM review is on-demand since 2026-09-14 (run it from a session with /intraday-review or /loop 15m /intraday-review)
 systemctl --user disable --now intraday-review.timer 2>/dev/null || true
 # keep user services alive without an interactive login (survives logout / reboot)

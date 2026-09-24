@@ -1,0 +1,2 @@
+2026-09-23T13:10:00-07:00 [critical] paper-trader.service is NOT active at 1610 ET (systemctl --user status paper-trader)
+2026-09-23T13:33:40-07:00 [info] eod: plumbing ok - strategy hold (row 12 / v18). 1 paper trade AMZN short +16.33, replay twin +14.62, exact match. 8-session replay = 3 trades vs 0.4/day design; realized cost 2.5 bps vs 6 assumed.

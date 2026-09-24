@@ -1,0 +1,10 @@
+[Unit]
+Description=export the day's live state at 13:20 America/Los_Angeles (after the 13:10 stop and the 16-min data lag)
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 13:20:00
+Unit=export-day.service
+Persistent=false
+
+[Install]
+WantedBy=timers.target

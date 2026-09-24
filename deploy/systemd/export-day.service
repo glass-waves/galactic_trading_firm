@@ -1,0 +1,11 @@
+[Unit]
+Description=export the day's live state to data/live/<date>/ and push it (for the cloud eod routine)
+After=paper-trader-stop.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dylmet/Projects/galactic_trading_firm
+Environment=PATH=/home/dylmet/.local/bin:/home/dylmet/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+Environment=TZ=America/Los_Angeles
+ExecStart=/bin/sh -c 'scripts/export_day.sh && git add data/live && git commit -q -m "live: export $(TZ=America/New_York date +%F)" && git push -q origin HEAD || echo "export/push failed" >&2'
+TimeoutStartSec=600
