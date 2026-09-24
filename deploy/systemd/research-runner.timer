@@ -1,0 +1,10 @@
+[Unit]
+Description=research runner at 20:00 America/Los_Angeles, weekdays (after the eod routine)
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 20:00:00
+Unit=research-runner.service
+Persistent=false
+
+[Install]
+WantedBy=timers.target

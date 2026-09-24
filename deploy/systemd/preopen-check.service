@@ -12,5 +12,5 @@ Environment=PATH=/home/dylmet/.local/bin:/home/dylmet/.cargo/bin:/usr/local/bin:
 Environment=TZ=America/Los_Angeles
 # headless: no TTY, no approvals possible. tools are pre-approved in .claude/settings.json;
 # anything else is denied rather than waited on.
-ExecStart=/bin/sh -c 'mkdir -p logs/checkins && /home/dylmet/.local/bin/claude -p "/preopen-check" --model sonnet --output-format json --max-turns 25 --max-budget-usd 0.50 --permission-mode dontAsk --disallowedTools "Bash(git push *)" "Bash(git push)" --permission-prompts none >> logs/checkins/preopen-check.jsonl'
+ExecStart=/bin/sh -c 'git pull -q --ff-only 2>/dev/null; mkdir -p logs/checkins && /home/dylmet/.local/bin/claude -p "/preopen-check" --model sonnet --output-format json --max-turns 25 --max-budget-usd 0.50 --permission-mode dontAsk --disallowedTools "Bash(git push *)" "Bash(git push)" --permission-prompts none >> logs/checkins/preopen-check.jsonl'
 TimeoutStartSec=900

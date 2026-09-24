@@ -10,6 +10,15 @@ it is ~06:15 PT / 09:15 ET on a trading day. the systemd timer started `paper-tr
 at 06:10 PT. your job: confirm the day's data will be trustworthy, and say so in one line.
 you make NO config changes at pre-open.
 
+## the evening routine's briefing (added 2026-09-23)
+
+before the standard checks, read `docs/briefings/<today YYYY-MM-DD>.md` if it exists (the unit
+pulls the repo first). it is written by the cloud end-of-day routine and lists what to verify
+today beyond the standard table, any open questions for the human, and the running cost mean /
+trade rate. do every "verify" item it lists and report each as ok / not ok in your output. if
+it asks you to change a threshold or a config, do NOT — note it as a proposal in your reply
+and in the memo; only the human promotes. if the file is missing, say "no briefing" and carry on.
+
 ## checks (run all; then classify)
 
 ```bash
