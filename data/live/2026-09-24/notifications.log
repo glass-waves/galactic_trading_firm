@@ -1,0 +1,2 @@
+2026-09-24T13:10:04-07:00 [critical] paper-trader.service is NOT active at 1610 ET (systemctl --user status paper-trader)
+2026-09-24T13:31:41-07:00 [warning] eod: plumbing mismatch · strategy hold (row 12 / v18 unchanged). 3 trades live and 3 in the replay, same tickers and window, but AMZN and MSFT entries were 5 and 14 bars off. Live raw_vpin differs from the replay's (AMZN 09:30: 0.08 live vs 0.21 replay). Likely cause: SIP warmup bars mixed with IEX live-bar volume. Details in memo 12.

@@ -26,3 +26,11 @@ stderr: DATA_QUALITY:AMZN:2730:8
 DATA_QUALITY:AAPL:2730:8
 DATA_QUALITY:NVDA:2730:8
 DATA_QUALITY:MSFT:2730:8
+
+### RQ-3 VPIN on IEX volume: does the v17 filter survive the live feed?   status: proposed
+proposed: 2026-09-24 by eod-routine
+hypothesis: recomputing the five-year v18 replay with VPIN fed IEX-volume bars (what live actually sees) keeps PF ≥ 1.4 with the 0.217 floor, or finds a floor that does; if not, the live VPIN filter is not the one that was validated.
+why now: 2026-09-24 live vs replay mismatch — AMZN live raw_vpin 0.07–0.08 vs replay 0.21–0.23 at 09:30–09:35, MSFT live passed VPIN at 09:35 while replay stayed 0.04–0.18 until 09:49. live stream is IEX (`alpaca_feed.rs:120`), warmup and bar cache are SIP.
+command: needs code — add `--feed iex|sip` to `backtest --fetch-bars` (pass `apca::data::v2::Feed::IEX` to the bar request, write to a separate dir, e.g. `data/bars_iex`), and a `--vpin-bars-dir DIR` option so VPIN (only) reads volume/closes from that cache while prices, fills and every other indicator keep using SIP `--bars-dir`. then run the v18 honest five-year replay (`data/e_v17_lag1.args` with the v18 cap) twice: VPIN on SIP (baseline, must reproduce ~469 trades / PF 1.64) and VPIN on IEX; also a raw_vpin floor sweep 0.12–0.30 on IEX. a parallel live fix (warm up on IEX so the window is one feed) is a separate small PR the human can choose.
+accept if: IEX-VPIN run at some floor gives PF ≥ 1.4 pooled, ≥ 350 trades, positive in ≥ 4 of 5 years — then that floor with an IEX-consistent live warmup is the v19 candidate; otherwise flag the VPIN filter as unvalidated live.
+result:
