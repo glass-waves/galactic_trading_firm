@@ -28,7 +28,10 @@ journalctl --user -u paper-trader.service --since "$D 00:00" --until "$D 23:59" 
 
 # same-day replay from the bar cache (free plan: bars available ~16 min after the close)
 ./target/release/backtest --fetch-bars data/bars --start "$D" --end "$D" --tickers AAPL,AMZN,NVDA,MSFT,SPY >/dev/null 2>&1 || true
-./target/release/backtest --date "$D" --lookback-days 8 --capital 10000 --slippage-bps 3.0 --half-spread 0.005 --output-trades-csv --bars-dir data/bars --cross-index SPY 2>/dev/null > "$OUT/replay_trades.csv" || true
+./target/release/backtest --fetch-bars data/bars_iex --start "$D" --end "$D" --tickers AAPL,AMZN,NVDA,MSFT,SPY --feed iex >/dev/null 2>&1 || true
+# live streams and warms up on IEX (since 2026-09-24), so the like-for-like replay is on the IEX cache
+./target/release/backtest --date "$D" --lookback-days 8 --capital 10000 --slippage-bps 3.0 --half-spread 0.005 --output-trades-csv --bars-dir data/bars_iex --cross-index SPY 2>/dev/null > "$OUT/replay_trades.csv" || true
+./target/release/backtest --date "$D" --lookback-days 8 --capital 10000 --slippage-bps 3.0 --half-spread 0.005 --output-trades-csv --bars-dir data/bars --cross-index SPY 2>/dev/null > "$OUT/replay_trades_sip.csv" || true
 python3 scripts/analysis/near_miss_replay.py "$D" > "$OUT/near_miss_replay.txt" 2>/dev/null || true
 echo "exported $OUT: $(ls "$OUT" | wc -l) files"
 # commit and push so the routine (and history) can see it; never fail the timer on push

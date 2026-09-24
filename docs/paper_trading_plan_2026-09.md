@@ -982,3 +982,24 @@ the one lever that raises trade count while staying above the PF 1.3 bar is the 
 plateau (§11.6): SPY band ±0.3 % with VPIN ≥ 0.18 gives 652 trades / +3,068 / PF 1.47 over five
 years, every year positive (+1,667 / +138 / +252 / +314 / +697) — 39 % more trades than v17 at
 a lower but still qualifying PF. ±0.3 % / 0.217 is the middle option (576 / +2,937 / PF 1.53).
+
+## 14. the IEX/SIP feed mismatch (found by the first routine report, 2026-09-24)
+
+thursday's live session took three shorts; the replay took the same three tickers but AMZN
+entered 5 bars later live and MSFT 14 bars earlier. the evening routine traced it: the live
+websocket streams **IEX** bars, the startup warm-up fetched **SIP** (consolidated) bars, and
+the research cache is SIP. for these names IEX carries ~3 % of consolidated volume (NVDA
+09:30–10:30 on 09-24: 513k vs 15.1M shares). VPIN sizes its buckets from the window's average
+volume, so a window holding SIP warm-up bars plus IEX live bars is a different indicator from
+the one the 0.217 floor was fitted on — and the gap is largest in the first half hour, which
+is exactly when this book trades. trade counts still agreed day by day, so it is a timing and
+threshold error, not a gross break.
+
+fixes (commit 4d81b14): the live warm-up now fetches IEX, so the indicator window is one feed
+end to end; `backtest --fetch-bars --feed iex` builds an IEX cache (`data/bars_iex`); the same-day
+replay in the export and the eod skill now runs on the IEX cache (SIP kept for research). also
+from that report: the watchdog's 16:10 ET false critical (window now ends 16:08) and the export
+timer's unit-file bug (`$(…)` in ExecStart; git moved into the script).
+
+validation in flight: v18 replayed on IEX bars, plus a VPIN-floor × SPY-band grid on IEX, to
+choose v19's thresholds on the feed live actually sees (results §14.1).
