@@ -452,3 +452,11 @@ new tool *types* require code changes. *instances* of existing types can be adde
 - `ta` crate version is pinned to v0.5
 - core rust dependencies: `ta`, `serde`, `serde_json`, `chrono`, `tokio`
 - intraday only — no overnight holds
+
+## the wheel (desktop ↔ cloud routine), since 2026-09-23
+
+- 13:20 PT `export-day.timer` → `scripts/export_day.sh` writes `data/live/<date>/` (engine state, trades, gate events, replay, near-miss replay, alerts, journal excerpt) and pushes.
+- 13:35 PT cloud routine (`docs/routines/eod-report.md`) writes `docs/reports/<date>.md`, `docs/briefings/<next date>.md`, appends `docs/research_queue.md`, emails the owner. proposals only — never touches config, migrations or crates.
+- 20:00 PT `research-runner.timer` → `scripts/research_runner.sh` runs queue entries the human flipped to `status: approved` and writes results back.
+- 06:15 PT `preopen-check` pulls first and reads the day's briefing.
+- everything the two sides say to each other is a commit; the human steers by editing the queue/briefing. promotion stays human.
