@@ -1,0 +1,150 @@
+{
+ "title": "Volume research round 1: four ways to trade more without losing the edge",
+ "date": "2026-09-24 evening → 2026-09-25 early morning · 4 studies, 55 five-year sweeps",
+ "baseline": "iex_v18",
+ "intro_html": "<div class='card'><b>Why this round.</b> The live book (v18) takes about 0.4 short trades per session and nothing else. The goal was to add volume while keeping the profit factor healthy. Four ideas from the proposal list were tested in parallel on the IEX bar cache, the feed the trader actually consumes: a self-calibrating VPIN floor, tiered sizing below the floor, longs gated on an up-regime, and relative-strength longs. One unplanned follow-up came out of the regime study and turned out to be the most interesting result of the night. <b>Bar to pass:</b> pooled PF ≥ 1.3 on IEX, at least 4 of 5 years positive, more trades than the baseline's 407; for long-side studies the long subset itself must be positive with PF ≥ 1.2 and no year worse than −300. <b>Reading the tables:</b> every row is a full five-year replay with honest costs, 36 % research sizing and next-bar fills; per-year cells show P&amp;L with trade count and PF; the highlighted row is the study's best cell. Δn and ΔP&amp;L are against the baseline. One caveat that applies to every combined-book row: the replay runs tickers independently, so the live three-position cap is not simulated; with four names the cap binds rarely, but the long-plus-short totals are an upper bound.</div>",
+ "studies": [
+  {"id": "a", "title": "Study A · Self-calibrating VPIN floor (rolling percentile)",
+   "question_html": "The v18 windows require raw VPIN ≥ 0.217, a number fitted on SIP data and re-checked on IEX. Would a rolling percentile (\"top X % of the last W readings\") give the same edge with a feed-independent definition, and a steadier trade rate across years?",
+   "design_html": "A VPIN instance with <code>pctile_window</code> W emits the share of the last W one-minute readings below the current value; the raw floor is replaced by <code>vpin_p.pctile ≥ P</code>. Grid W ∈ {390, 1170, 1950} × P ∈ {0.4, 0.5, 0.6, 0.7}, then P = 0.55, P = 0.8 and a ±0.3 % SPY band on the best W.",
+   "cells": [
+    {"tag": "vp_w390_p0.4", "label": "W 390 · P 0.4", "params": {"W": 390, "P": 0.4}},
+    {"tag": "vp_w390_p0.5", "label": "W 390 · P 0.5", "params": {"W": 390, "P": 0.5}},
+    {"tag": "vp_w390_p0.6", "label": "W 390 · P 0.6", "params": {"W": 390, "P": 0.6}},
+    {"tag": "vp_w390_p0.7", "label": "W 390 · P 0.7", "params": {"W": 390, "P": 0.7}},
+    {"tag": "vp_w1170_p0.4", "label": "W 1170 · P 0.4", "params": {"W": 1170, "P": 0.4}},
+    {"tag": "vp_w1170_p0.5", "label": "W 1170 · P 0.5", "params": {"W": 1170, "P": 0.5}},
+    {"tag": "vp_w1170_p0.6", "label": "W 1170 · P 0.6", "params": {"W": 1170, "P": 0.6}},
+    {"tag": "vp_w1170_p0.7", "label": "W 1170 · P 0.7", "params": {"W": 1170, "P": 0.7}},
+    {"tag": "vp_w1950_p0.4", "label": "W 1950 · P 0.4", "params": {"W": 1950, "P": 0.4}},
+    {"tag": "vp_w1950_p0.5", "label": "W 1950 · P 0.5", "params": {"W": 1950, "P": 0.5}},
+    {"tag": "vp_w1950_p0.55", "label": "W 1950 · P 0.55", "params": {"W": 1950, "P": 0.55}, "note": "follow-up"},
+    {"tag": "vp_w1950_p0.6", "label": "W 1950 · P 0.6", "params": {"W": 1950, "P": 0.6}},
+    {"tag": "vp_w1950_p0.7", "label": "W 1950 · P 0.7", "params": {"W": 1950, "P": 0.7}},
+    {"tag": "vp_w1950_p0.8", "label": "W 1950 · P 0.8", "params": {"W": 1950, "P": 0.8}, "note": "follow-up · like-for-like with the raw floor", "best": true},
+    {"tag": "vp_w1950_p0.5_b0.6", "label": "W 1950 · P 0.5 · SPY ±0.3 %", "params": {"W": 1950, "P": 0.5}, "note": "follow-up · wider SPY band"}
+   ],
+   "findings": [
+    "The raw 0.217 floor sits at roughly the 82nd to 85th percentile of IEX VPIN readings, so every grid cell with P ≤ 0.7 is a looser filter: 521 to 689 trades at PF 1.24 to 1.34 instead of 407 at 1.48.",
+    "The window length W does not matter: at a given P the three windows agree within five trades and 0.03 of PF. The percentile is a property of the level, not the memory.",
+    "The like-for-like cell (P 0.8, 440 trades) is statistically the same strategy as the raw floor: PF 1.44 vs 1.48, P&amp;L +2,216 vs +2,154, a smaller drawdown. The extra trades between P 0.8 and P 0.5 are worth about $60 in total: pure churn.",
+    "The steadier-trade-rate hypothesis is false. The coefficient of variation of yearly trade counts rises from 0.07 (raw floor) to 0.10 at P 0.8 and 0.18 at P 0.4. VPIN is not the binding condition; the thrust conditions fire about 40 % more often in 2022 and loosening VPIN amplifies that.",
+    "2023 is negative in every cell and 2024 is flat in every cell. This knob does not touch the two weak years.",
+    "Live-parity prerequisite: the percentile history lives inside the engine process and the trader restarts every morning. The live warm-up seeds candle windows but does not tick the engine, so on a live day the percentile would not exist until about 12:45 ET, after the entry cutoff. Adopting it needs a warm-up replay through the engine (small code change) before it can go live."
+   ],
+   "verdict": "partial",
+   "verdict_html": "P 0.8 with W 1950 nominally passes (PF 1.44, 4 of 5 years, 440 trades) but the fourth positive year is 2024 at +$33 and the cell is a restatement of the fixed floor, not an improvement. Worth adopting only as feed-portable plumbing for the 0.217 floor, expecting parity, and only after the engine warm-up change. It is not a volume lever."
+  },
+  {"id": "b", "title": "Study B · Tiered sizing below the VPIN floor",
+   "question_html": "Can the trades that pass every condition except the VPIN floor be taken at reduced size, adding volume without letting weak signals dominate P&amp;L?",
+   "design_html": "A new sizing action reads raw VPIN at entry and returns 36 % × multiplier: full size at ≥ 0.217, M × size in the band [L, 0.217), nothing below L. Grid L ∈ {0.12, 0.15, 0.18} × M ∈ {0.33, 0.5, 0.67}, then a three-tier variant that also upsizes VPIN ≥ 0.26 by 1.25×, with the position cap at 45 % and at 36 %.",
+   "cells": [
+    {"tag": "tier_l0.12_m0.33", "label": "L 0.12 · M 0.33", "params": {"L": 0.12, "M": 0.33}},
+    {"tag": "tier_l0.12_m0.5", "label": "L 0.12 · M 0.5", "params": {"L": 0.12, "M": 0.5}},
+    {"tag": "tier_l0.12_m0.67", "label": "L 0.12 · M 0.67", "params": {"L": 0.12, "M": 0.67}, "best": true},
+    {"tag": "tier_l0.15_m0.33", "label": "L 0.15 · M 0.33", "params": {"L": 0.15, "M": 0.33}},
+    {"tag": "tier_l0.15_m0.5", "label": "L 0.15 · M 0.5", "params": {"L": 0.15, "M": 0.5}},
+    {"tag": "tier_l0.15_m0.67", "label": "L 0.15 · M 0.67", "params": {"L": 0.15, "M": 0.67}},
+    {"tag": "tier_l0.18_m0.33", "label": "L 0.18 · M 0.33", "params": {"L": 0.18, "M": 0.33}},
+    {"tag": "tier_l0.18_m0.5", "label": "L 0.18 · M 0.5", "params": {"L": 0.18, "M": 0.5}},
+    {"tag": "tier_l0.18_m0.67", "label": "L 0.18 · M 0.67", "params": {"L": 0.18, "M": 0.67}},
+    {"tag": "tier3_l0.12_cap45", "label": "3 tiers · cap 45 %", "params": {"L": 0.12, "M": 0.67}, "note": "follow-up · +1.25× at VPIN ≥ 0.26, position cap 45 %"},
+    {"tag": "tier3_l0.12_cap36", "label": "3 tiers · cap 36 %", "params": {"L": 0.12, "M": 0.67}, "note": "follow-up · same, cap 36 % (top tier clamped, identical to L 0.12 · M 0.67)"}
+   ],
+   "breakdown_html": "<h3>What the sub-floor trades are</h3><div class='card'>Tier-2 trades (VPIN between L and 0.217 at entry) are 30 to 47 % of each cell's trades and run at PF 1.18 to 1.29 at reduced size, about the same as at full size in the earlier lower-floor sweeps. They split into two populations. About 30 % are <b>front-runners</b>: VPIN crosses L and then 0.217 a median three to four minutes later, so the trade is one v18 would have taken anyway, entered earlier and smaller (PF 2.6 to 3.5, +$0.85 per share vs +$0.29 for the v18 trade it replaces, but at a third to two-thirds of the size). About 70 % are <b>genuinely new</b>: VPIN never reaches 0.217 during the hold; PF 0.58 to 0.69, −$0.28 per share, 92 % from the 5m-thrust window, negative in four of five years in every cell. Lowering L does not improve quality, it doubles both populations. Every displaced v18 trade (64 to 95 per cell, worth +423 to +528) was displaced because the same ticker was already open in a tier-2 position; the three-position cap displaced nothing. The +223 of the cap-45 % follow-up comes entirely from upsizing 220 of v18's own trades with VPIN ≥ 0.26, which is leverage on v18, not tiering.</div>",
+   "findings": [
+    "Every cell keeps PF ≥ 1.36 and adds 80 to 186 trades, and every cell loses money against the baseline (−122 to −332). Volume up, P&amp;L down.",
+    "2023 and 2024 stay negative in every cell; the sub-floor trades do not help the weak years.",
+    "The sub-floor profit lives entirely in the front-runners, trades where VPIN is about to cross the floor. That is a lead for a separate study: a VPIN-slope condition, or upgrading a sub-floor entry to full size when VPIN crosses 0.217 while the position is open.",
+    "The 1.25× top tier for VPIN ≥ 0.26 is worth testing on v18 alone at a 45 % cap: +345 on those 220 trades. It is a sizing question, not a volume one."
+   ],
+   "verdict": "fail",
+   "verdict_html": "Best cell L 0.12 · M 0.67 (+2,032, 593 trades, PF 1.36) passes PF and trade count but has only 3 positive years and −122 against v18. Do not promote. Keep the 0.217 floor at full size."
+  },
+  {"id": "c", "title": "Study C · Longs only in an up-regime",
+   "question_html": "The long book has been disabled since v15 because it loses over five years. It made money in 2023 and 2026, the two strong-tape years. Does gating longs on an up-regime decided at the open, from SPY daily closes through the prior day, turn the long book positive, and how much volume does it add on top of the v18 shorts?",
+   "design_html": "The three v17-filtered long windows (SPY within ±0.2 %, VPIN ≥ 0.217) are added next to the promoted shorts, each with an extra condition that the day is a regime day. Five regimes, no look-ahead: SPY above its 50-day average, above its 20-day average, positive 20-day return, 20-day realized vol below its trailing-year median, and the 50-day plus low-vol combination. Follow-ups on the best regime drop the candle window, drop VPIN from the longs, and widen the long SPY band to ±0.3 %.",
+   "split_direction": true,
+   "cells": [
+    {"tag": "rl_none", "label": "filters only (no regime)", "params": {"regime": "none"}, "note": "reference"},
+    {"tag": "rl_sma50", "label": "above SMA 50", "params": {"regime": "sma50"}},
+    {"tag": "rl_sma20", "label": "above SMA 20", "params": {"regime": "sma20"}, "best": true},
+    {"tag": "rl_ret20", "label": "20-day return > 0", "params": {"regime": "ret20"}},
+    {"tag": "rl_lowvol", "label": "low realized vol", "params": {"regime": "lowvol"}},
+    {"tag": "rl_sma50_lowvol", "label": "above SMA 50 and low vol", "params": {"regime": "sma50+lowvol"}},
+    {"tag": "rl_sma20_nocandle", "label": "SMA 20 · no candle window", "params": {"regime": "sma20"}, "note": "follow-up"},
+    {"tag": "rl_sma20_novpin", "label": "SMA 20 · longs without VPIN", "params": {"regime": "sma20"}, "note": "follow-up"},
+    {"tag": "rl_sma20_spy03", "label": "SMA 20 · long SPY band ±0.3 %", "params": {"regime": "sma20"}, "note": "follow-up"}
+   ],
+   "findings": [
+    "On IEX the filtered long book is not the loser it was on SIP: +775 over five years. But that is PF 1.06 and +$0.62 per trade against +$5.28 for the shorts, with a −1,387 drawdown. Noise-level edge.",
+    "Regime gating inverts the premise. Splitting the ungated long trades by regime flag shows that the SMA-50, 20-day-return and low-vol gates keep the losing half (PF 0.93 to 0.96) and discard the profitable half (+1,139 to +1,238, PF 1.13 to 1.32). The longs earn on bear-market bounces (March, July and October 2022), not on drift. This is what prompted Study C2 below.",
+    "2025 is a hole no regime fixes: long −412 to −753, concentrated in May to August 2025 while SPY sat above its averages.",
+    "The v17 filters matter on the long side too. Dropping VPIN adds 585 trades worth about −1,050; widening SPY to ±0.3 % adds 97 worth about −400; dropping the candle window is neutral because the strong-core window re-takes the setups.",
+    "Strong core is churn on the long side (755 to 984 trades, PF about 1.03). Long P&amp;L comes from timeout and session-close exits, while score exits (36 trades, −1,798) and hard stops (10 trades, −940) destroy it. NVDA carries the long book (+1,664); AMZN (−804) and MSFT (−591) drag it.",
+    "The short subset was identical to v18 in every cell (407 trades, P&amp;L within ±4), so the long windows never displaced a short."
+   ],
+   "verdict": "fail",
+   "verdict_html": "No cell passes. The best regime, above SMA 20, fails combined PF (1.18), positive years (3), long PF (1.05) and the −300 year floor (2025 −753). It passes only on trade count. Up-regime gating is the wrong idea for these names."
+  },
+  {"id": "c2", "title": "Study C2 · Bear-bounce longs (the inverse gate)",
+   "question_html": "Study C found the profitable longs live in down-regimes. If the gate is flipped, longs only when SPY is below its 50-day average, below its 20-day average, or has a negative 20-day return, does the long book clear the bar?",
+   "design_html": "Same three filtered long windows and the same regime calendars with the condition inverted. Three cells, run after the four studies finished. Because this was chosen after seeing Study C's split, treat it as a hypothesis found in-sample: the regime definition is simple and economically plausible (mean reversion after a month of selling), but the numbers below are not out-of-sample.",
+   "split_direction": true,
+   "cells": [
+    {"tag": "rl_below_sma50", "label": "below SMA 50", "params": {"regime": "SPY < SMA 50"}, "best": true},
+    {"tag": "rl_below_ret20", "label": "20-day return < 0", "params": {"regime": "SPY 20-day return < 0"}},
+    {"tag": "rl_below_sma20", "label": "below SMA 20", "params": {"regime": "SPY < SMA 20"}}
+   ],
+   "findings": [
+    "Below SMA 50 is the only cell of the night to clear the full bar on the combined book: +3,391 over five years, 738 trades, PF 1.40, 4 of 5 years positive, and the long subset on its own is +1,239 on 331 trades at PF 1.32 with a worst year of −195.",
+    "It is a plateau, not a point: the negative-20-day-return gate lands in the same place (+3,296, PF 1.37, long subset PF 1.26). The 20-day-average gate is weaker (PF 1.28, long PF 1.08), so the signal is a month or more of selling, not a dip.",
+    "The long subset adds about 65 trades a year at PF 1.3, which is exactly the kind of volume the round was looking for.",
+    "The caveats are real. 2022 supplies +964 of the +1,239 long P&amp;L; the other four years net +275 with 2024 and 2025 negative. Below-SMA-50 days are scarce outside 2022 (36 to 75 sessions a year), so the volume arrives in bear phases, when the short book is already earning. The combined 2024 gets worse (−93 becomes −245) and the drawdown doubles to −1,044 because the two books lose together.",
+    "Both long studies found the same exit problem: score exits and hard stops give back most of the long profit. A long-specific exit override (no score exit, wider or no hard stop inside the 40-minute loser clock) is the obvious next lever and could lift the long subset materially.",
+    "Per-ticker inclusion is the other lever: NVDA carries, AMZN and MSFT drag, in both long studies."
+   ],
+   "verdict": "partial",
+   "verdict_html": "Below SMA 50 passes every number in the bar but was found after the fact and leans on 2022. Not promotable tonight. It is the one candidate from this round worth a proper validation: leave-one-year-out over the regime family (SMA 50, SMA 100, 20-day return, drawdown from the 52-week high), a long-only exit override, and per-ticker inclusion. If it survives, it is the v19 candidate: the v18 shorts plus bear-bounce longs."
+  },
+  {"id": "d", "title": "Study D · Relative-strength longs",
+   "question_html": "A long in a name that is outperforming SPY since the prior close, while SPY itself is flat, is a spread bet rather than the morning-drift bet that made the long book lose. Does it work?",
+   "design_html": "The prior-day-levels indicator supplies rel_close_pct, the name's return since its prior close minus SPY's, in percent. Part 1 appends rel_close_pct ≥ X to the three filtered long windows (X ∈ {0.3, 0.5, 0.8, 1.2}). Part 2 is one standalone long window (composite ≥ 0.2, SPY flat, VPIN ≥ 0.217, rel_close_pct ≥ X; X ∈ {0.5, 1.0, 1.5}). Follow-ups: composite ≥ 0.35, VPIN removed, and a mirrored short spread leg.",
+   "split_direction": true,
+   "cells": [
+    {"tag": "rs_win_x0.3", "label": "windows · rel ≥ 0.3 %", "params": {"X": 0.3, "form": "3 windows"}, "best": true},
+    {"tag": "rs_win_x0.5", "label": "windows · rel ≥ 0.5 %", "params": {"X": 0.5, "form": "3 windows"}},
+    {"tag": "rs_win_x0.8", "label": "windows · rel ≥ 0.8 %", "params": {"X": 0.8, "form": "3 windows"}},
+    {"tag": "rs_win_x1.2", "label": "windows · rel ≥ 1.2 %", "params": {"X": 1.2, "form": "3 windows"}},
+    {"tag": "rs_solo_x0.5", "label": "standalone · rel ≥ 0.5 %", "params": {"X": 0.5, "form": "standalone"}},
+    {"tag": "rs_solo_x1.0", "label": "standalone · rel ≥ 1.0 %", "params": {"X": 1.0, "form": "standalone"}},
+    {"tag": "rs_solo_x1.5", "label": "standalone · rel ≥ 1.5 %", "params": {"X": 1.5, "form": "standalone"}},
+    {"tag": "rs_solo35_x0.5", "label": "standalone · composite ≥ 0.35", "params": {"X": 0.5, "form": "standalone"}, "note": "follow-up"},
+    {"tag": "rs_novpin_x0.5", "label": "standalone · no VPIN", "params": {"X": 0.5, "form": "standalone"}, "note": "follow-up"},
+    {"tag": "rs_pair_x0.5", "label": "standalone + mirrored short leg", "params": {"X": 0.5, "form": "pair"}, "note": "follow-up · the RS short leg pre-empts the v18 short windows"}
+   ],
+   "findings": [
+    "Relative strength is the best single long filter tried on IEX: rel ≥ 0.3 % lifts the long subset from +775 (PF 1.06, worst year −652) to +1,303 (PF 1.11, worst year −356) and gives five positive combined years. But PF 1.11 on the long side is still thin.",
+    "Tighter is monotonically worse: the edge lives in the 0.3 to 0.5 % band, and names up 1.5 % against SPY mean-revert (long subset −298).",
+    "VPIN carries most of the long edge: removing it turns the long subset into −1,573 on 2,760 trades.",
+    "The mirrored short spread leg is a loser in all five years (−1,755, PF 0.87) and, worse, it pre-empts the v18 short windows, cutting them from 407 to 143 trades. A short spread window must never sit at a priority above the v18 windows.",
+    "The candle-reversal window is the only long window with PF above 1.2, on 30 to 82 trades over five years.",
+    "Same exit pattern as Study C: long profit comes from timeouts and session closes; the 3 to 4 % of trades that hit score exits or hard stops give back about two-thirds of it. Average hold 54 minutes, median 41.",
+    "2025 is negative for every long variant."
+   ],
+   "verdict": "fail",
+   "verdict_html": "Best cell rel ≥ 0.3 % on the three windows (+3,458 combined, 1,484 trades, PF 1.21, 5 of 5 years) fails the bar on combined PF (1.21), long PF (1.11) and the −300 year floor (−356). Not promotable. Relative strength is worth keeping as an ingredient (it is the best long filter found) but not as the long book's entry logic."
+  }
+ ],
+ "conclusion_html": "<div class='card'><p><b>The short-side knobs are exhausted at the VPIN margin.</b> The percentile floor restates the fixed floor (parity at the 80th percentile, churn below it) and tiered sizing adds trades that lose money in aggregate. The sub-floor profit sits entirely in trades where VPIN is about to cross the floor, which is a lead for a VPIN-slope study, not a reason to lower the floor. The v18 short book stays as it is.</p><p><b>The long side has one live lead.</b> Up-regime gating fails, relative strength is a good filter but not an entry, and both fail the long-PF bar. The inverse gate, longs only after a month or more of SPY selling, is the only configuration tonight to clear every number: combined PF 1.40 with 4 of 5 years positive, and a long subset of +1,239 on 331 trades at PF 1.32. It was found after seeing the data and it leans on 2022, so it goes to validation, not promotion.</p><p><b>Recommended next steps, in order.</b></p><ol><li><b>Validate the bear-bounce long</b> on the IEX cache: leave-one-year-out across the regime family (SMA 50, SMA 100, 20-day return, drawdown from the 52-week high); a long-only exit override (no score exit, no hard stop inside the loser clock); per-ticker inclusion. Accept if the long subset stays PF ≥ 1.2 with 2022 held out and no year worse than −300. If it passes, it becomes v19: v18 shorts plus bear-bounce longs, with the same three-position cap.</li><li><b>Fix long exits before judging any long idea again.</b> Both long studies lose two-thirds of long profit to score exits and hard stops. A per-window exit override already exists in the engine; it needs a long-side setting and one sweep.</li><li><b>VPIN-slope condition</b> as a short-side volume study: enter when VPIN is rising through the band just under the floor, the population that carried Study B's only profit.</li><li><b>Sizing, separately from volume:</b> 1.25× on VPIN ≥ 0.26 at a 45 % cap is worth +345 on v18's own trades. Test it on v18 alone; it is a risk decision, not a volume one.</li><li><b>Percentile VPIN as plumbing only,</b> after an engine warm-up replay exists, to make the floor feed-independent. Expect parity.</li></ol><p><b>What did not change.</b> 2023 is negative and 2024 is flat in every short-side cell of the night. No knob in this round touched that, which says the weakness in those years is in the trigger, not the filters.</p></div>",
+ "commands": {
+  "baseline iex_v18": "BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh iex_v18 --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY",
+  "Study A vp_w<W>_p<P>": "BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh vp_w<W>_p<P> --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --patch-json research/volume/vp_w<W>_p<P>.json   # patches: vpin instance vpin_p {pctile_window: W}; both short windows use vpin_p.pctile >= P; vp_w1950_p0.5_b0.6.json widens cross_1m to [-0.6, 0.6]",
+  "Study B tier_l<L>_m<M>": "BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh tier_l<L>_m<M> --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --patch-json research/entries/variants/iex_b0.4_v<L>.json --patch-json research/volume/tier_l<L>_m<M>.json\nBARS_DIR=data/bars_iex scripts/run_cached_sweep.sh tier3_l0.12_cap45 --sizing-fraction 0.36 --max-position-pct 0.45 --cross-index SPY --patch-json research/entries/variants/iex_b0.4_v0.12.json --patch-json research/volume/tier3_l0.12_m0.67.json",
+  "Study C rl_<regime>": "BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rl_none --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --patch-json research/entries/variants/long_filters.json\nBARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rl_<k> --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --patch-json research/regime/regime_<k>.json --patch-json research/volume/rl_<k>.json   # k in sma50 sma20 ret20 lowvol sma50_lowvol; follow-ups rl_sma20_{nocandle,novpin,spy03}.json",
+  "Study C2 rl_below_<k>": "BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rl_below_<k> --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --patch-json research/regime/regime_<k>.json --patch-json research/volume/rl_below_<k>.json   # k in sma50 sma20 ret20 (condition indicator_min cal_<k> 0.5 = NOT a regime day)",
+  "Study D rs_*": "BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rs_win_x<X> --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --patch-json research/volume/rs_win_x<X>.json   # X in 0.3 0.5 0.8 1.2; standalone rs_solo_x<X>.json (0.5 1.0 1.5); follow-ups rs_solo35_x0.5 rs_novpin_x0.5 rs_pair_x0.5",
+  "regime calendars": "python3 research/regime/make_regime_patches.py   # SPY daily closes from data/bars_iex, no look-ahead; writes research/regime/regime_<k>.json and regime_days.csv",
+  "render this report": "python3 research/volume/build_report.py research/volume/report_spec.json docs/reports/research_2026-09-24_volume.html"
+ }
+}

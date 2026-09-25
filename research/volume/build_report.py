@@ -119,6 +119,20 @@ def bars_svg(study, base):
     return "".join(out)
 
 
+def split_table(study, base):
+    """long-subset and short-subset stats per cell (5y + per-year P&L/PF)."""
+    head = "<tr><th>cell</th><th>side</th><th>5y P&amp;L</th><th>trades</th><th>PF</th><th>max DD</th>" + "".join(f"<th>{y}</th>" for y in YEARS) + "<th>+yrs</th></tr>"
+    body = []
+    for c in study["cells"]:
+        for side in ("long", "short"):
+            st = cell_stats(c["tag"], lambda r, side=side: r["direction"].lower() == side); s = st["5y"]
+            if not s: continue
+            pos = sum(1 for y in YEARS if st[y] and st[y]["pnl"] > 0)
+            body.append(f"<tr><td class='lbl'>{html.escape(c['label'])}</td><td>{side}</td><td class='num {'pos' if s['pnl']>0 else 'neg'}'><b>{fmt_pnl(s['pnl'])}</b></td><td class='num'>{s['n']}</td>"
+                        f"<td class='num {pf_class(s['pf'])}'><b>{s['pf']:.2f}</b></td><td class='num'>{s['dd']:,.0f}</td>" + "".join(year_cell(st[y]) for y in YEARS) + f"<td class='num'>{pos}/5</td></tr>")
+    return "<h3>Long side vs short side</h3><div class='scroll'><table class='grid'>" + head + "".join(body) + "</table></div>"
+
+
 CSS = """
 :root{--bg:#f7f7f5;--fg:#1c1c1a;--muted:#6b6b66;--line:#dedcd6;--card:#fff;--pos:#1f7a4d;--neg:#b3392f;--good:#e4f3ea;--meh:#fbf2d9;--bad:#f9e3e0;--acc:#2f5f8f}
 @media(prefers-color-scheme:dark){:root{--bg:#141413;--fg:#ececea;--muted:#a3a39d;--line:#33332f;--card:#1d1d1b;--pos:#63c78f;--neg:#ef7f74;--good:#173324;--meh:#3a2f12;--bad:#3d1c18;--acc:#8ab4dd}}
@@ -158,6 +172,7 @@ def main():
         parts.append(f"<div class='card'><b>Question.</b> {st.get('question_html','')}<br><b>Design.</b> {st.get('design_html','')}</div>")
         parts.append(bars_svg(st, base))
         parts.append(grid_table(st, base))
+        if st.get("split_direction"): parts.append(split_table(st, base))
         if st.get("breakdown_html"): parts.append(st["breakdown_html"])
         if st.get("findings"): parts.append("<h3>What the grid says</h3><ul>" + "".join(f"<li>{f}</li>" for f in st["findings"]) + "</ul>")
         parts.append(f"<div class='verdict {st.get('verdict','')}'><b>Verdict.</b> {st.get('verdict_html','')}</div>")

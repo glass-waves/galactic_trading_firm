@@ -1,0 +1,54 @@
+{
+ "disable": [],
+ "indicators": [
+  {
+   "indicator_type": "prior_day_levels",
+   "instance_id": "pdl_5m",
+   "timescale": "FiveMinute",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "scale_pct": 0.005
+   }
+  }
+ ],
+ "actions": [
+  {
+   "instance_id": "window_rs_long",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 30,
+   "enabled": true,
+   "params": {
+    "name": "rs long",
+    "direction": "long",
+    "conditions": [
+     {
+      "type": "composite_min",
+      "min_score": 0.2
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "cross_1m",
+      "min_score": -0.4
+     },
+     {
+      "type": "indicator_max",
+      "instance_id": "cross_1m",
+      "max_score": 0.4
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "vpin_1m.raw_vpin",
+      "min_score": 0.217
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "pdl_5m.rel_close_pct",
+      "min_score": 1.0
+     }
+    ]
+   }
+  }
+ ]
+}

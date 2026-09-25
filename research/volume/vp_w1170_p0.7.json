@@ -1,0 +1,109 @@
+{
+ "disable": [
+  "window_5m_thrust_short",
+  "window_strong_core_short"
+ ],
+ "indicators": [
+  {
+   "indicator_type": "vpin",
+   "instance_id": "vpin_p",
+   "timescale": "OneMinute",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "pctile_window": 1170
+   }
+  }
+ ],
+ "actions": [
+  {
+   "instance_id": "window_5m_thrust_short_x",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 10,
+   "enabled": true,
+   "params": {
+    "name": "5m thrust short pct",
+    "direction": "short",
+    "conditions": [
+     {
+      "type": "composite_max",
+      "max_score": -0.35
+     },
+     {
+      "type": "timescale_lag",
+      "lag_by": 0.1,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_max",
+      "max_score": -0.5,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_max",
+      "max_score": 0.0,
+      "timescale": "OneHour"
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "cross_1m",
+      "min_score": -0.4
+     },
+     {
+      "type": "indicator_max",
+      "instance_id": "cross_1m",
+      "max_score": 0.4
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "vpin_p.pctile",
+      "min_score": 0.7
+     }
+    ]
+   }
+  },
+  {
+   "instance_id": "window_strong_core_short_x",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 20,
+   "enabled": true,
+   "params": {
+    "name": "strong core short pct",
+    "direction": "short",
+    "conditions": [
+     {
+      "type": "composite_max",
+      "max_score": -0.35
+     },
+     {
+      "type": "timescale_max",
+      "max_score": -0.4,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_max",
+      "max_score": -0.4,
+      "timescale": "OneHour"
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "cross_1m",
+      "min_score": -0.4
+     },
+     {
+      "type": "indicator_max",
+      "instance_id": "cross_1m",
+      "max_score": 0.4
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "vpin_p.pctile",
+      "min_score": 0.7
+     }
+    ]
+   }
+  }
+ ]
+}

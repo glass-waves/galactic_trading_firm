@@ -1032,3 +1032,26 @@ PF ≥ 1.3 with ≥ 4 positive years are the *tighter* VPIN ones (0.26), which t
 is the real change; v18's thresholds stay, and tomorrow's like-for-like IEX replay should now
 match live bar for bar. widening for volume would mean accepting PF ~1.25 on the honest feed,
 which is the human's call, not the routine's or mine.
+
+## 15. volume research round 1 (2026-09-24 evening → 09-25 early morning)
+
+goal: more trades at a healthy PF. four studies from the proposal list, 55 five-year sweeps on the
+IEX cache with honest costs, fanned out to four agents; full report with every grid, per-year cells
+and the exact commands: **`docs/reports/research_2026-09-24_volume.html`** (rendered from
+`research/volume/report_spec.json` by `research/volume/build_report.py`; agent write-ups in
+`research/volume/{pctile,tiered,regime_long,rs_long}.md`). engine additions used: VPIN
+`pctile_window` (rolling percentile metadata `pctile`), sizing action `indicator_tiered`, and
+SPY regime calendars (`research/regime/`). baseline `iex_v18` = +2,154 / 407 / PF 1.48 / 3 pos years.
+
+| study | best cell | combined 5y | verdict |
+|---|---|---|---|
+| A percentile VPIN floor | W 1950 · P 0.8 | +2,216 / 440 / PF 1.44 / 4 yrs (2024 +33) | parity with the raw floor, not a lever; needs an engine warm-up replay before it could go live (history is in-process, trader restarts daily) |
+| B tiered sizing below the floor | L 0.12 · M 0.67 | +2,032 / 593 / PF 1.36 / 3 yrs | fails: every cell adds trades and loses P&L; sub-floor profit is only in "about to cross" trades → VPIN-slope study |
+| C longs in an up-regime | above SMA 20 | +2,598 / 1,321 / PF 1.18 | fails: the gates keep the losing half of the longs; the longs earn on bear bounces |
+| C2 bear-bounce longs (inverse gate) | SPY < SMA 50 | **+3,391 / 738 / PF 1.40 / 4 yrs**; long subset +1,239 / 331 / PF 1.32, worst yr −195 | the only cell to clear the bar; post-hoc and 2022-heavy → validation (LOYO over the regime family, long-only exit override, per-ticker), not promotion |
+| D relative-strength longs | rel ≥ 0.3 % on the 3 windows | +3,458 / 1,484 / PF 1.21 / 5 yrs; long PF 1.11 | fails long PF; best long *filter* found, not an entry; the mirrored short leg pre-empts v18's shorts |
+
+cross-cutting: 2023 negative and 2024 flat in every short-side cell (filters don't touch it);
+long profit is destroyed by score exits and hard stops in both long studies; the replay runs
+tickers independently so the live 3-position cap is not simulated (combined books are an upper
+bound). v18 stays live.

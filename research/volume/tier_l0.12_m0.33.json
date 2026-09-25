@@ -1,0 +1,30 @@
+{
+ "disable": [
+  "sizing_fixed"
+ ],
+ "indicators": [],
+ "actions": [
+  {
+   "instance_id": "sizing_tiered",
+   "action_type": "indicator_tiered",
+   "phase": "Sizing",
+   "priority": 0,
+   "enabled": true,
+   "params": {
+    "instance_id": "vpin_1m.raw_vpin",
+    "base_fraction": 0.36,
+    "tiers": [
+     {
+      "min": 0.217,
+      "mult": 1.0
+     },
+     {
+      "min": 0.12,
+      "mult": 0.33
+     }
+    ],
+    "fallback_mult": 0.0
+   }
+  }
+ ]
+}

@@ -1,0 +1,165 @@
+{
+ "disable": [
+  "window_5m_thrust",
+  "window_strong_core",
+  "window_candle_reversal"
+ ],
+ "indicators": [],
+ "actions": [
+  {
+   "phase": "Entry",
+   "params": {
+    "name": "5m thrust +filters",
+    "direction": "long",
+    "conditions": [
+     {
+      "type": "composite_min",
+      "min_score": 0.35
+     },
+     {
+      "type": "timescale_lead",
+      "lead_by": 0.1,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_min",
+      "min_score": 0.5,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_min",
+      "min_score": 0.0,
+      "timescale": "OneHour"
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "cross_1m",
+      "min_score": -0.4
+     },
+     {
+      "type": "indicator_max",
+      "instance_id": "cross_1m",
+      "max_score": 0.4
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "vpin_1m.raw_vpin",
+      "min_score": 0.217
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "cal_ret20",
+      "min_score": 0.5
+     }
+    ]
+   },
+   "enabled": true,
+   "priority": 10,
+   "action_type": "entry_window",
+   "instance_id": "window_5m_thrust_x",
+   "last_modified_at": "2026-04-02T00:00:00Z",
+   "last_modified_by": "human",
+   "modification_reason": "study C: longs gated on up-regime ret20 (cal_ret20 score -1 on regime days)"
+  },
+  {
+   "phase": "Entry",
+   "params": {
+    "name": "candle reversal +filters",
+    "direction": "long",
+    "conditions": [
+     {
+      "type": "indicator_min",
+      "min_score": 0.4,
+      "instance_id": "candle_5min"
+     },
+     {
+      "type": "timescale_min",
+      "min_score": 0.2,
+      "timescale": "OneHour"
+     },
+     {
+      "type": "composite_min",
+      "min_score": 0.3
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "cross_1m",
+      "min_score": -0.4
+     },
+     {
+      "type": "indicator_max",
+      "instance_id": "cross_1m",
+      "max_score": 0.4
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "vpin_1m.raw_vpin",
+      "min_score": 0.217
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "cal_ret20",
+      "min_score": 0.5
+     }
+    ]
+   },
+   "enabled": true,
+   "priority": 15,
+   "action_type": "entry_window",
+   "instance_id": "window_candle_reversal_x",
+   "last_modified_at": "2026-04-02T00:00:00Z",
+   "last_modified_by": "human",
+   "modification_reason": "study C: longs gated on up-regime ret20 (cal_ret20 score -1 on regime days)"
+  },
+  {
+   "phase": "Entry",
+   "params": {
+    "name": "strong core +filters",
+    "direction": "long",
+    "conditions": [
+     {
+      "type": "composite_min",
+      "min_score": 0.35
+     },
+     {
+      "type": "timescale_min",
+      "min_score": 0.4,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_min",
+      "min_score": 0.3,
+      "timescale": "OneHour"
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "cross_1m",
+      "min_score": -0.4
+     },
+     {
+      "type": "indicator_max",
+      "instance_id": "cross_1m",
+      "max_score": 0.4
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "vpin_1m.raw_vpin",
+      "min_score": 0.217
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "cal_ret20",
+      "min_score": 0.5
+     }
+    ]
+   },
+   "enabled": true,
+   "priority": 20,
+   "action_type": "entry_window",
+   "instance_id": "window_strong_core_x",
+   "last_modified_at": "2026-04-02T00:00:00Z",
+   "last_modified_by": "human",
+   "modification_reason": "study C: longs gated on up-regime ret20 (cal_ret20 score -1 on regime days)"
+  }
+ ]
+}
