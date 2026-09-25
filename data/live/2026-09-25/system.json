@@ -1,0 +1,3 @@
+{"exported_at":"2026-09-25T13:20:00-07:00","service_active":"inactive",
+ "service":{"ActiveEnterTimestamp": "Fri 2026-09-25 06:10:03 PDT", "Result": "success", "NRestarts": "0"},
+ "timers":["Fri 2026-09-25 13:30:00 eod-review.service", "Mon 2026-09-28 06:10:00 paper-trader.service", "Mon 2026-09-28 06:15:00 preopen-check.service", "Mon 2026-09-28 06:25:00 watchdog.service", "Mon 2026-09-28 13:10:00 paper-trader-stop.service"]}
