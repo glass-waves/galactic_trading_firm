@@ -20,6 +20,7 @@ pub fn default_action_registry() -> ActionRegistry {
     reg.register("breakeven_stop", monitor::breakeven_stop::breakeven_stop_factory);
     reg.register("fixed_fractional", sizing::fixed_fractional::fixed_fractional_factory);
     reg.register("score_scaled", sizing::score_scaled::score_scaled_factory);
+    reg.register("indicator_tiered", sizing::indicator_tiered::indicator_tiered_factory);
     reg.register("volatility_scaled", sizing::volatility_scaled::volatility_scaled_factory);
     reg
 }

@@ -1,4 +1,5 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, VecDeque};
+use std::sync::Mutex;
 
 use types::indicator::{Indicator, IndicatorConfig, IndicatorOutput};
 use types::market::{MarketState, Timescale};
@@ -23,7 +24,16 @@ pub struct VpinIndicator {
     lookback_buckets: usize,
     timescale: Timescale,
     instance_id: String,
+    /// rolling percentile window (number of past readings; 0 = off). when set, the
+    /// output carries `pctile` = share of the last `pctile_window` readings below the
+    /// current raw VPIN, so a floor can be expressed feed-independently ("top 40 %").
+    /// the history lives across ticks (one instance per engine per ticker).
+    pctile_window: usize,
+    history: Mutex<VecDeque<f64>>,
 }
+
+/// readings needed before `pctile` is emitted (half a session of 1m bars).
+pub const PCTILE_MIN_HISTORY: usize = 195;
 
 impl VpinIndicator {
     pub fn new(
@@ -39,7 +49,34 @@ impl VpinIndicator {
             lookback_buckets,
             timescale,
             instance_id,
+            pctile_window: 0,
+            history: Mutex::new(VecDeque::new()),
         }
+    }
+
+    pub fn with_pctile_window(mut self, window: usize) -> Self {
+        self.pctile_window = window;
+        self
+    }
+
+    /// percentile of `raw` within the stored history (before recording it), then record.
+    fn rolling_pctile(&self, raw: f64) -> Option<f64> {
+        if self.pctile_window == 0 {
+            return None;
+        }
+        let mut h = self.history.lock().ok()?;
+        let n = h.len();
+        let min_needed = PCTILE_MIN_HISTORY.min(self.pctile_window);
+        let pct = if n >= min_needed {
+            Some(h.iter().filter(|v| **v < raw).count() as f64 / n as f64)
+        } else {
+            None
+        };
+        h.push_back(raw);
+        while h.len() > self.pctile_window {
+            h.pop_front();
+        }
+        pct
     }
 }
 
@@ -156,6 +193,9 @@ impl Indicator for VpinIndicator {
 
         let mut metadata = HashMap::new();
         metadata.insert("raw_vpin".to_string(), raw_vpin);
+        if let Some(p) = self.rolling_pctile(raw_vpin) {
+            metadata.insert("pctile".to_string(), p);
+        }
 
         Some(IndicatorOutput {
             score,
@@ -181,11 +221,19 @@ pub fn vpin_factory(config: &IndicatorConfig) -> Box<dyn Indicator> {
         .get("lookback_buckets")
         .and_then(|v| v.as_u64())
         .unwrap_or(20) as usize;
-    Box::new(VpinIndicator::new(
-        sigma_period,
-        bucket_divisor,
-        lookback_buckets,
-        config.timescale,
-        config.instance_id.clone(),
-    ))
+    let pctile_window = config
+        .params
+        .get("pctile_window")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0) as usize;
+    Box::new(
+        VpinIndicator::new(
+            sigma_period,
+            bucket_divisor,
+            lookback_buckets,
+            config.timescale,
+            config.instance_id.clone(),
+        )
+        .with_pctile_window(pctile_window),
+    )
 }
