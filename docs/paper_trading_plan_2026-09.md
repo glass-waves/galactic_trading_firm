@@ -1052,6 +1052,6 @@ SPY regime calendars (`research/regime/`). baseline `iex_v18` = +2,154 / 407 / P
 | D relative-strength longs | rel ≥ 0.3 % on the 3 windows | +3,458 / 1,484 / PF 1.21 / 5 yrs; long PF 1.11 | fails long PF; best long *filter* found, not an entry; the mirrored short leg pre-empts v18's shorts |
 
 cross-cutting: 2023 negative and 2024 flat in every short-side cell (filters don't touch it);
-long profit is destroyed by score exits and hard stops in both long studies; the replay runs
+score exits and hard stops are where the long losses land, but a close-based counterfactual on the bear-bounce entries (09-25) shows no exit variant beats the configured stack (looser/tighter stops, no breakeven, trailing, longer holds all worse; stopped longs never recovered) — exits are not the lever for longs; the replay runs
 tickers independently so the live 3-position cap is not simulated (combined books are an upper
 bound). v18 stays live.
