@@ -51,3 +51,6 @@ data/labels/
 # research caches are regenerable (fetch_daily.py etc.) — never tracked (plan 2026-09-26 §10)
 research/**/daily/
 research/**/cache/
+
+# any cargo target dir (a stray target2/ was once committed)
+target*/

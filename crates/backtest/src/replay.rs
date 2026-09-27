@@ -265,6 +265,7 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
     // cumulative VWAP tracking
     let mut cum_tp_vol = 0.0_f64; // sum(typical_price * volume)
     let mut cum_vol = 0.0_f64;    // sum(volume)
+    let mut vwap_day: Option<chrono::NaiveDate> = None;
 
     // tick-level equity tracking for drawdown
     let mut tick_equity_curve: Vec<TickEquityPoint> = Vec::new();
@@ -282,6 +283,15 @@ pub fn run_backtest(config: &BacktestConfig, data: &BacktestData) -> Result<Back
     for i in 1..=primary_candles.len() {
         let last_candle = &primary_candles[i - 1];
 
+        // session VWAP resets on each new eastern date, exactly like the live
+        // MarketStateBuilder (before 2026-09-26 it accumulated over the whole lookback,
+        // which made vwap_distance disagree with the live trader)
+        let bar_day = last_candle.timestamp.with_timezone(&chrono_tz::US::Eastern).date_naive();
+        if vwap_day != Some(bar_day) {
+            vwap_day = Some(bar_day);
+            cum_tp_vol = 0.0;
+            cum_vol = 0.0;
+        }
         // update cumulative VWAP
         let typical_price = (last_candle.high + last_candle.low + last_candle.close) / 3.0;
         cum_tp_vol += typical_price * last_candle.volume;

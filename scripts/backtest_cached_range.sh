@@ -16,7 +16,7 @@ LOOKBACK="${LOOKBACK:-8}"
 COST_ARGS="${COST_ARGS:---slippage-bps 3.0 --half-spread 0.005}"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 BARS_DIR="${BARS_DIR:-$ROOT/data/bars}"
-BIN="$ROOT/target/release/backtest"
+BIN="${BIN:-$ROOT/target/release/backtest}"
 set -a; source "$ROOT/.env"; set +a
 mkdir -p "$ROOT/data"
 DATES=$(python3 -c "
