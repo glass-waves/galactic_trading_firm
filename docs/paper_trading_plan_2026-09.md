@@ -1055,3 +1055,12 @@ cross-cutting: 2023 negative and 2024 flat in every short-side cell (filters don
 score exits and hard stops are where the long losses land, but a close-based counterfactual on the bear-bounce entries (09-25) shows no exit variant beats the configured stack (looser/tighter stops, no breakeven, trailing, longer holds all worse; stopped longs never recovered) — exits are not the lever for longs; the replay runs
 tickers independently so the live 3-position cap is not simulated (combined books are an upper
 bound). v18 stays live.
+
+### 15.1 walk-forward refit rejected (2026-09-26)
+
+quarterly refit of the whole book (12 short cells × 5 long options, chosen on the trailing 6/12/24
+months by PF, P&L or Sharpe) never beats static v18 out of sample 2023–2026Q3 (best tie: Sharpe/12 m
++602 vs +589; P&L objective +61 on 1,624 trades; 6-month memory −246). 2023 is negative under every
+selector. fitting on 2026 alone is therefore curve-fitting, not adaptation; the five-year gate stays.
+details: `research/volume/walk_forward.md`. side result: VPIN 0.26 shorts-only was the trailing
+choice for eleven straight quarters (5y PF 1.58, 306 trades) — quality, not volume.

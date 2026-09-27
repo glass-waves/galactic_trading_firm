@@ -1,0 +1,35 @@
+walk-forward: objective=pf, lookback=12m, min_trades=40, OOS 2023Q1..2026Q3
+
+quarter  chosen short cell      long option                    fit pf   quarter result
+2023Q1   ±0.2% · 0.26           longs off                        3.35      +75 n= 12 PF=1.96
+2023Q2   ±0.3% · 0.26           longs off                        2.58      -84 n= 17 PF=0.70
+2023Q3   ±0.3% · 0.26           longs: SPY < SMA50               2.23     -406 n= 46 PF=0.49
+2023Q4   ±0.3% · 0.26           longs: SPY < SMA50               1.29     +125 n= 48 PF=1.31
+2024Q1   ±0.2% · 0.26           longs: SPY < SMA50               1.15     +131 n= 17 PF=2.17
+2024Q2   ±0.2% · 0.26           longs: SPY > SMA20               0.96     +126 n=322 PF=1.04
+2024Q3   ±0.2% · 0.26           longs off                        1.25     -105 n= 18 PF=0.70
+2024Q4   ±0.3% · 0.26           longs off                        1.28       -0 n= 22 PF=1.00
+2025Q1   ±0.3% · 0.26           longs off                        1.33      +48 n= 29 PF=1.14
+2025Q2   ±0.3% · 0.26           longs off                        1.23     +112 n= 14 PF=1.62
+2025Q3   ±0.3% · 0.26           longs off                        1.16      +39 n= 16 PF=1.29
+2025Q4   ±0.2% · 0.217 (v18)    longs off                        1.47     +106 n= 14 PF=1.73
+2026Q1   ±0.2% · 0.217 (v18)    longs off                        1.57     +188 n= 27 PF=1.77
+2026Q2   ±0.2% · 0.217 (v18)    longs off                        1.78     +194 n= 18 PF=1.94
+2026Q3   ±0.2% · 0.217 (v18)    longs off                        1.72      +31 n= 24 PF=1.13
+
+walk-forward OOS 2023-2026Q3                    +581  n= 644  PF=1.08  win= 31%  dd= -1380  sharpe=0.43
+static v18 same period                          +589  n= 316  PF=1.16  win= 35%  dd=  -526  sharpe=0.86
+static v18 + longs: SPY < SMA50 same period     +864  n= 524  PF=1.14  win= 35%  dd= -1041  sharpe=0.80
+
+per-year, walk-forward OOS vs static v18:
+  2023  WF   -289 n=123 PF=0.81   |  v18   -181 n= 80 PF=0.83
+  2024  WF   +153 n=379 PF=1.04   |  v18    -93 n= 90 PF=0.92
+  2025  WF   +305 n= 73 PF=1.37   |  v18   +451 n= 77 PF=1.57
+  2026  WF   +413 n= 69 PF=1.60   |  v18   +413 n= 69 PF=1.60
+
+exhibit — the five best combos fitted on 2026 alone, and their 2022-2025 record:
+  ±0.2% · 0.26           longs off                    2026:   +368 n= 43 PF=1.97   2022-25:  +1583 n= 263 PF=1.53
+  ±0.2% · 0.26           longs: SPY 20d ret < 0       2026:   +763 n= 99 PF=1.86   2022-25:  +2331 n= 575 PF=1.34
+  ±0.2% · 0.26           longs: SPY < SMA50           2026:   +647 n= 83 PF=1.86   2022-25:  +2543 n= 554 PF=1.39
+  ±0.3% · 0.26           longs: SPY 20d ret < 0       2026:   +729 n=113 PF=1.74   2022-25:  +1992 n= 626 PF=1.26
+  ±0.3% · 0.26           longs: SPY < SMA50           2026:   +613 n= 97 PF=1.72   2022-25:  +2204 n= 605 PF=1.31
