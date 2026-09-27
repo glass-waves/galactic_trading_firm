@@ -1,0 +1,10 @@
+[Unit]
+Description=research pipeline at 20:30 America/Los_Angeles, weekdays (after the 20:00 research runner; both take logs/.research.lock)
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 20:30:00
+Unit=pipeline.service
+Persistent=false
+
+[Install]
+WantedBy=timers.target

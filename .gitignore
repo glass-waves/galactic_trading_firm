@@ -54,3 +54,6 @@ research/**/cache/
 
 # any cargo target dir (a stray target2/ was once committed)
 target*/
+
+# pipeline sweep args are small and part of the candidate record
+!data/cand_*.args

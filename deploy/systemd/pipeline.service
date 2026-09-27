@@ -1,0 +1,13 @@
+[Unit]
+Description=research pipeline: advance candidates (backtest gate, shadow trials, promotion proposals) and refresh docs/pipeline/status.md
+After=trading-postgres.service
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dylmet/Projects/galactic_trading_firm
+Environment=PATH=/home/dylmet/.local/bin:/home/dylmet/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+Environment=TZ=America/Los_Angeles
+# the owner's switch: 1 lets `advance` insert shadow `books` rows for backtest_passed candidates (they start at the next trader start)
+Environment=PIPELINE_SHADOW_BOOKS=0
+ExecStart=/home/dylmet/Projects/galactic_trading_firm/scripts/pipeline/nightly.sh
+TimeoutStartSec=21600
