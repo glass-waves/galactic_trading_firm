@@ -60,14 +60,28 @@ pub trait Broker: Send + Sync {
 
     /// update the market price. default no-op for brokers that don't need it.
     fn set_last_price(&self, _price: f64) {}
+
+    /// update the market price of one ticker. brokers without per-ticker prices fall
+    /// back to `set_last_price`; the simulated broker fills `ticker` from this price.
+    fn set_last_price_for(&self, _ticker: &str, price: f64) {
+        self.set_last_price(price);
+    }
+
+    /// which implementation this is ("simulated" | "alpaca_paper"); lets a book prove
+    /// what it is wired to without exposing the broker.
+    fn kind(&self) -> &'static str;
 }
 
-/// simulated broker that fills at last_price ± slippage. no external deps.
+/// simulated broker that fills at the ticker's last price ± slippage. no external deps.
 pub struct SimulatedBroker {
     /// slippage in basis points (e.g., 5 = 0.05% = 5 bps).
     slippage_bps: f64,
-    /// current market price — updated externally before each order.
+    /// most recent market price of any ticker — the fallback when a ticker has no
+    /// price of its own (`set_last_price`, the pre-books interface).
     last_price: std::sync::atomic::AtomicU64,
+    /// per-ticker last prices (`set_last_price_for`), so a flatten of several tickers
+    /// fills each at its own price rather than the last-arrived ticker's.
+    ticker_prices: std::sync::Mutex<std::collections::HashMap<String, f64>>,
     /// track simulated positions: ticker → (direction, quantity, entry_price).
     positions: tokio::sync::Mutex<std::collections::HashMap<String, (TradeDirection, f64, f64)>>,
 }
@@ -77,8 +91,13 @@ impl SimulatedBroker {
         Self {
             slippage_bps,
             last_price: std::sync::atomic::AtomicU64::new(0),
+            ticker_prices: std::sync::Mutex::new(std::collections::HashMap::new()),
             positions: tokio::sync::Mutex::new(std::collections::HashMap::new()),
         }
+    }
+
+    pub fn slippage_bps(&self) -> f64 {
+        self.slippage_bps
     }
 
     fn get_last_price(&self) -> f64 {
@@ -86,6 +105,17 @@ impl SimulatedBroker {
             self.last_price
                 .load(std::sync::atomic::Ordering::Relaxed),
         )
+    }
+
+    /// the ticker's own last price when one was set, else the global last price.
+    fn price_for(&self, ticker: &str) -> f64 {
+        let own = self
+            .ticker_prices
+            .lock()
+            .ok()
+            .and_then(|m| m.get(ticker).copied())
+            .filter(|p| *p > 0.0);
+        own.unwrap_or_else(|| self.get_last_price())
     }
 
     fn apply_slippage(&self, price: f64, direction: &TradeDirection) -> f64 {
@@ -104,13 +134,24 @@ impl Broker for SimulatedBroker {
             .store(price.to_bits(), std::sync::atomic::Ordering::Relaxed);
     }
 
+    fn set_last_price_for(&self, ticker: &str, price: f64) {
+        if let Ok(mut m) = self.ticker_prices.lock() {
+            m.insert(ticker.to_string(), price);
+        }
+        self.set_last_price(price);
+    }
+
+    fn kind(&self) -> &'static str {
+        "simulated"
+    }
+
     async fn submit_order(
         &self,
         ticker: &str,
         direction: TradeDirection,
         quantity: f64,
     ) -> Result<OrderFill, BrokerError> {
-        let base_price = self.get_last_price();
+        let base_price = self.price_for(ticker);
         if base_price <= 0.0 {
             return Err(BrokerError::OrderRejected(
                 "last_price not set".to_string(),
@@ -154,7 +195,7 @@ impl Broker for SimulatedBroker {
             .remove(ticker)
             .ok_or_else(|| BrokerError::NoPosition(ticker.to_string()))?;
 
-        let base_price = self.get_last_price();
+        let base_price = self.price_for(ticker);
         // closing: reverse direction for slippage
         let close_direction = match direction {
             TradeDirection::Long => TradeDirection::Short,
@@ -301,6 +342,10 @@ impl AlpacaBroker {
 
 #[async_trait]
 impl Broker for AlpacaBroker {
+    fn kind(&self) -> &'static str {
+        "alpaca_paper"
+    }
+
     async fn submit_order(
         &self,
         ticker: &str,
@@ -527,6 +572,42 @@ mod tests {
         }
         let open = broker.open_positions().await.unwrap();
         assert!(open.iter().all(|p| p.ticker != "AAPL"), "AAPL position left open: {open:?}");
+    }
+
+    #[tokio::test]
+    async fn simulated_per_ticker_prices_fill_each_ticker_at_its_own_price() {
+        let broker = SimulatedBroker::new(0.0);
+        broker.set_last_price_for("AAPL", 200.0);
+        broker.set_last_price_for("NVDA", 100.0);
+        let a = broker.submit_order("AAPL", TradeDirection::Long, 1.0).await.unwrap();
+        let n = broker.submit_order("NVDA", TradeDirection::Short, 1.0).await.unwrap();
+        assert!((a.fill_price - 200.0).abs() < f64::EPSILON);
+        assert!((n.fill_price - 100.0).abs() < f64::EPSILON);
+        // the last-arrived ticker's price no longer leaks into another ticker's close
+        broker.set_last_price_for("NVDA", 90.0);
+        let close_a = broker.close_position("AAPL").await.unwrap();
+        assert!((close_a.fill_price - 200.0).abs() < f64::EPSILON, "{}", close_a.fill_price);
+        let close_n = broker.close_position("NVDA").await.unwrap();
+        assert!((close_n.fill_price - 90.0).abs() < f64::EPSILON);
+    }
+
+    #[tokio::test]
+    async fn simulated_falls_back_to_global_price_without_a_ticker_price() {
+        let broker = SimulatedBroker::new(0.0);
+        broker.set_last_price(50.0);
+        let f = broker.submit_order("MSFT", TradeDirection::Long, 1.0).await.unwrap();
+        assert!((f.fill_price - 50.0).abs() < f64::EPSILON);
+        // set_last_price_for also refreshes the global fallback
+        broker.set_last_price_for("AAPL", 70.0);
+        let g = broker.submit_order("AMZN", TradeDirection::Long, 1.0).await.unwrap();
+        assert!((g.fill_price - 70.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn broker_kinds() {
+        assert_eq!(SimulatedBroker::new(0.0).kind(), "simulated");
+        let b = AlpacaBroker::new("key".to_string(), "secret".to_string()).unwrap();
+        assert_eq!(b.kind(), "alpaca_paper");
     }
 
     #[test]

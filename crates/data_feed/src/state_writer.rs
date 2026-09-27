@@ -1,13 +1,15 @@
 //! persists live engine state so an outside observer (dashboard, watchdog,
 //! tuning agent) can see what the trader is doing between completed trades.
 //!
-//! two tables:
-//! - `engine_state`: one row per ticker, upserted on every bar and on the
+//! three tables:
+//! - `engine_state`: one row per (book, ticker), upserted on every bar and on the
 //!   heartbeat timer. acts as the process heartbeat.
 //! - `entry_block_events`: append-only record of why entries were not taken
 //!   (session gates, reject gates, near-miss windows), throttled by the caller.
+//! - `book_sessions`: one row per (book, eastern date) the trader hosted the book,
+//!   written on the book's first bar of the day (the pipeline's session counter).
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use types::scoring::TimescaleScores;
 
 use crate::trade_writer::direction_to_str;
@@ -28,12 +30,14 @@ pub struct PositionSnapshot {
 /// one row of `engine_state`.
 #[derive(Debug, Clone)]
 pub struct EngineStateRow {
+    /// hosting book ('primary' or a shadow's name).
+    pub book: String,
     pub ticker: String,
     pub last_bar_at: Option<DateTime<Utc>>,
     pub last_price: Option<f64>,
     pub scores: TimescaleScores,
     pub position: Option<PositionSnapshot>,
-    /// process-wide realized P&L today.
+    /// the book's realized P&L today.
     pub daily_pnl: f64,
     /// this ticker's realized P&L today (engine-level).
     pub ticker_realized_pnl: f64,
@@ -63,7 +67,7 @@ pub async fn upsert_engine_state(
             daily_pnl, ticker_realized_pnl, loss_breaker_active,
             entry_blocked_by, near_miss, feed_stale,
             config_version_id, pending_config_version_id,
-            process_started_at, broker_mode
+            process_started_at, broker_mode, book
         ) VALUES (
             $1, now(), $2, $3,
             $4, $5, $6, $7,
@@ -73,9 +77,9 @@ pub async fn upsert_engine_state(
             $16, $17, $18,
             $19, $20, $21,
             $22, $23,
-            $24, $25
+            $24, $25, $26
         )
-        ON CONFLICT (ticker) DO UPDATE SET
+        ON CONFLICT (book, ticker) DO UPDATE SET
             updated_at = now(),
             last_bar_at = EXCLUDED.last_bar_at,
             last_price = EXCLUDED.last_price,
@@ -128,18 +132,72 @@ pub async fn upsert_engine_state(
     .bind(row.pending_config_version_id)
     .bind(row.process_started_at)
     .bind(&row.broker_mode)
+    .bind(&row.book)
     .execute(pool)
     .await?;
     Ok(())
 }
 
-/// remove state rows for tickers no longer traded (after a config change).
-pub async fn delete_engine_state(pool: &sqlx::PgPool, ticker: &str) -> Result<(), sqlx::Error> {
-    sqlx::query("DELETE FROM engine_state WHERE ticker = $1")
+/// remove one book's state row for a ticker it no longer trades (after a config change).
+pub async fn delete_engine_state(
+    pool: &sqlx::PgPool,
+    book: &str,
+    ticker: &str,
+) -> Result<(), sqlx::Error> {
+    sqlx::query("DELETE FROM engine_state WHERE book = $1 AND ticker = $2")
+        .bind(book)
         .bind(ticker)
         .execute(pool)
         .await?;
     Ok(())
+}
+
+/// startup cleanup: remove state rows for (book, ticker) pairs this process does not
+/// host (retired books, dropped tickers). returns the deleted pairs.
+pub async fn delete_unhosted_engine_state(
+    pool: &sqlx::PgPool,
+    hosted: &[(String, String)],
+) -> Result<Vec<(String, String)>, sqlx::Error> {
+    let books: Vec<String> = hosted.iter().map(|(b, _)| b.clone()).collect();
+    let tickers: Vec<String> = hosted.iter().map(|(_, t)| t.clone()).collect();
+    let deleted: Vec<(String, String)> = sqlx::query_as(
+        r#"
+        DELETE FROM engine_state e
+        WHERE NOT EXISTS (
+            SELECT 1 FROM unnest($1::text[], $2::text[]) AS h(book, ticker)
+            WHERE h.book = e.book AND h.ticker = e.ticker
+        )
+        RETURNING e.book, e.ticker
+        "#,
+    )
+    .bind(&books)
+    .bind(&tickers)
+    .fetch_all(pool)
+    .await?;
+    Ok(deleted)
+}
+
+/// record that `book` was hosted on `session_date` (first bar of the eastern date).
+/// idempotent: a second call for the same (book, date) is a no-op. returns whether
+/// a row was inserted.
+pub async fn write_book_session(
+    pool: &sqlx::PgPool,
+    book: &str,
+    session_date: NaiveDate,
+    first_bar_at: DateTime<Utc>,
+    config_version_id: i64,
+) -> Result<bool, sqlx::Error> {
+    let res = sqlx::query(
+        "INSERT INTO book_sessions (book, session_date, first_bar_at, config_version_id) \
+         VALUES ($1, $2, $3, $4) ON CONFLICT DO NOTHING",
+    )
+    .bind(book)
+    .bind(session_date)
+    .bind(first_bar_at)
+    .bind(config_version_id)
+    .execute(pool)
+    .await?;
+    Ok(res.rows_affected() > 0)
 }
 
 /// kind of entry-block event.
@@ -163,6 +221,7 @@ impl BlockKind {
 /// one `entry_block_events` row.
 #[derive(Debug, Clone)]
 pub struct BlockEvent<'a> {
+    pub book: &'a str,
     pub ticker: &'a str,
     pub ts: DateTime<Utc>,
     pub kind: BlockKind,
@@ -180,8 +239,8 @@ pub async fn write_entry_block_event(
         r#"
         INSERT INTO entry_block_events (
             ts, ticker, kind, reason, composite, score_1min, score_5min, score_hourly,
-            last_price, config_version_id
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+            last_price, config_version_id, book
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         "#,
     )
     .bind(ev.ts)
@@ -194,6 +253,7 @@ pub async fn write_entry_block_event(
     .bind(ev.scores.one_hour)
     .bind(ev.last_price)
     .bind(ev.config_version_id)
+    .bind(ev.book)
     .execute(pool)
     .await?;
     Ok(())
@@ -207,5 +267,40 @@ mod tests {
     fn block_kind_strings() {
         assert_eq!(BlockKind::Gate.as_str(), "gate");
         assert_eq!(BlockKind::NearMiss.as_str(), "near_miss");
+    }
+
+    #[test]
+    fn state_row_and_block_event_carry_the_book() {
+        let scores = TimescaleScores::default();
+        let row = EngineStateRow {
+            book: "shadow:amd".to_string(),
+            ticker: "AMD".to_string(),
+            last_bar_at: None,
+            last_price: None,
+            scores: scores.clone(),
+            position: None,
+            daily_pnl: 0.0,
+            ticker_realized_pnl: 0.0,
+            loss_breaker_active: false,
+            entry_blocked_by: None,
+            near_miss: None,
+            feed_stale: false,
+            config_version_id: 13,
+            pending_config_version_id: None,
+            process_started_at: Utc::now(),
+            broker_mode: "simulated".to_string(),
+        };
+        assert_eq!(row.book, "shadow:amd");
+        let ev = BlockEvent {
+            book: "shadow:amd",
+            ticker: "AMD",
+            ts: Utc::now(),
+            kind: BlockKind::Gate,
+            reason: "session:no_new_entries_after",
+            scores: &scores,
+            last_price: 1.0,
+            config_version_id: 13,
+        };
+        assert_eq!(ev.book, "shadow:amd");
     }
 }

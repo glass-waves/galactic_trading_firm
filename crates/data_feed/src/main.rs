@@ -1,15 +1,21 @@
-//! paper_trader — live market data → trading engine → (simulated | alpaca paper) broker → postgres.
+//! paper_trader — live market data → trading engines (one per book × ticker) →
+//! (simulated | alpaca paper) broker → postgres.
 //!
-//! operational guarantees this binary is responsible for (see docs/paper_trading_plan_2026-09.md):
+//! operational guarantees this binary is responsible for (see docs/paper_trading_plan_2026-09.md
+//! and docs/dev/books_trader_notes.md):
 //! - never trades on a synthetic feed unless `--demo` is passed explicitly
-//! - only regular-trading-hours bars reach the engine
-//! - every open position is closed at the broker (and recorded) on shutdown,
+//! - only regular-trading-hours bars reach the engines
+//! - every open position of every book is closed at its broker (and recorded) on shutdown,
 //!   on config swap, and if the session close is missed for lack of bars
 //! - config hot-reload is deferred per ticker until that ticker is flat
 //! - live state (scores, positions, gates, heartbeat) is persisted to
-//!   `engine_state` / `entry_block_events` so an outside observer can see it
+//!   `engine_state` / `entry_block_events` / `book_sessions` so an outside observer can see it
+//! - the primary book is the only book that can hold an Alpaca broker; shadows are simulated
+//!
+//! `--replay-bars DIR --replay-date D --replay-out FILE` runs the same loop on cached bars
+//! with simulated brokers and no database writes (see `replay_feed`).
 
-use std::collections::HashMap;
+use std::collections::{BTreeSet, HashMap};
 #[cfg(feature = "tui")]
 use std::sync::atomic::{AtomicBool, Ordering};
 #[cfg(feature = "tui")]
@@ -22,21 +28,20 @@ use tracing_subscriber::{prelude::*, EnvFilter};
 
 use data_feed::account::resolve_capital;
 use data_feed::alpaca_feed::{AlpacaFeed, BarEvent};
-use data_feed::broker::{AlpacaBroker, Broker, SimulatedBroker};
-use data_feed::config_loader::load_config;
-use data_feed::config_watcher::{try_build_engine, ConfigWatcher};
-use data_feed::live_session::{LiveSession, TradeWithScores};
-use data_feed::market_state::MarketStateBuilder;
-use data_feed::cross_tracker::CrossTracker;
-use data_feed::session_clock::{eastern_date, eastern_minutes, is_regular_hours, parse_hm};
-use data_feed::state_writer::{
-    delete_engine_state, upsert_engine_state, write_entry_block_event, BlockEvent, BlockKind,
-    EngineStateRow, PositionSnapshot,
+use data_feed::book::{
+    apply_limits, load_books, Book, BookPlan, BookSpec, Limits, ReplayLog, Sink, TickerShared,
+    SHADOW_SLIPPAGE_BPS,
 };
+use data_feed::broker::{AlpacaBroker, Broker, SimulatedBroker};
+use data_feed::config_loader::{load_config, load_config_by_id};
+use data_feed::config_watcher::ConfigWatcher;
+use data_feed::cross_tracker::CrossTracker;
+use data_feed::market_state::MarketStateBuilder;
+use data_feed::replay_feed::{load_replay_bars, write_replay_trades, REPLAY_WARMUP_DAYS};
+use data_feed::session_clock::{eastern_minutes, is_regular_hours, parse_hm};
+use data_feed::state_writer::delete_unhosted_engine_state;
 use data_feed::trade_writer::TradeWriter;
 use types::action::ExitReason;
-use types::config::StrategyConfig;
-use types::tick_result::TickEvent;
 
 #[cfg(feature = "tui")]
 use data_feed::tui::{DashboardState, PositionDisplay, TickerState, TradeLogEntry};
@@ -47,300 +52,126 @@ use data_feed::tui::{DashboardState, PositionDisplay, TickerState, TradeLogEntry
 const WARMUP_LOOKBACK_DAYS: i64 = 8;
 /// no bar for this long during regular hours ⇒ the feed is considered stale.
 const FEED_STALE_AFTER_SECS: i64 = 180;
-/// a near-miss diagnostic is persisted at most this often per ticker.
 /// index symbol streamed alongside the traded tickers to fill `MarketState.cross`.
 const CROSS_INDEX_SYMBOL: &str = "SPY";
-const NEAR_MISS_THROTTLE_SECS: i64 = 300;
-/// a repeated gate reason is re-persisted at most this often per ticker.
-const GATE_REPEAT_SECS: i64 = 900;
 
-/// per-process runtime state shared by the loop arms.
+/// how this process is fed and where its output goes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Mode {
+    /// alpaca websocket, real or simulated broker for the primary, postgres writes.
+    Live,
+    /// synthetic random-walk feed, simulated brokers, postgres writes with source='demo'.
+    Demo,
+    /// cached bars, simulated brokers, no database writes, exits when the bars run out.
+    Replay,
+}
+
+/// per-process shared state: everything that is per-symbol rather than per-strategy.
 struct Runtime {
-    sessions: HashMap<String, LiveSession>,
     /// index + peer session state for `MarketState.cross` (same definition as the replay).
     cross: CrossTracker,
+    /// candle windows + session VWAP per hosted ticker, shared by every book.
     state_builders: HashMap<String, MarketStateBuilder>,
     last_bar_at: HashMap<String, DateTime<Utc>>,
     last_prices: HashMap<String, f64>,
     feed_stale: HashMap<String, bool>,
-    /// last persisted gate reason and when, per ticker (dedupe).
-    last_gate: HashMap<String, (String, DateTime<Utc>)>,
-    /// last persisted near-miss time, per ticker (throttle).
-    last_near_miss: HashMap<String, DateTime<Utc>>,
-    /// config currently driving new engines.
-    current_config: StrategyConfig,
-    current_config_id: i64,
-    /// config waiting for in-position tickers to go flat.
-    pending: Option<(i64, StrategyConfig)>,
-    capital: f64,
-    daily_pnl: f64,
-    daily_pnl_date: Option<NaiveDate>,
+    /// newest bar timestamp seen on any symbol (the clock in replay mode).
+    last_any_bar_ts: Option<DateTime<Utc>>,
     tick_count: u64,
-    process_started_at: DateTime<Utc>,
-    broker_mode: String,
+    mode: Mode,
+    /// the primary first, then the shadows.
+    books: Vec<Book>,
 }
 
 impl Runtime {
-    fn max_concurrent(&self) -> usize {
-        self.current_config.session.max_concurrent_positions as usize
-    }
-
-    fn open_position_count(&self) -> usize {
-        self.sessions.values().filter(|s| s.has_position()).count()
-    }
-
-    /// roll the process-wide daily P&L on the first bar of a new eastern day.
-    fn roll_daily_pnl(&mut self, ts: DateTime<Utc>) {
-        let d = eastern_date(ts);
-        if self.daily_pnl_date != Some(d) {
-            if self.daily_pnl_date.is_some() {
-                info!(date = %d, prev_daily_pnl = format!("{:.2}", self.daily_pnl), "new trading day");
-            }
-            self.daily_pnl_date = Some(d);
-            self.daily_pnl = 0.0;
+    /// wall clock live; the bar clock in replay (every `Utc::now()` stamp uses the bar time).
+    fn now(&self) -> DateTime<Utc> {
+        match self.mode {
+            Mode::Replay => self.last_any_bar_ts.unwrap_or_else(Utc::now),
+            _ => Utc::now(),
         }
     }
 
-    fn state_row(&self, ticker: &str) -> Option<EngineStateRow> {
-        let session = self.sessions.get(ticker)?;
-        let last = session.last_result();
-        let position = session.current_position().map(|p| PositionSnapshot {
-            direction: p.direction,
-            entry_price: p.entry_price,
-            size: p.size,
-            unrealized_pnl: p.unrealized_pnl,
-            unrealized_pnl_pct: p.unrealized_pnl_pct,
-            hold_ms: p.hold_duration_ms,
-            opened_at: p.entry_time,
-            entry_reason: session.entry_reason().map(|s| s.to_string()),
-        });
-        Some(EngineStateRow {
-            ticker: ticker.to_string(),
+    fn primary(&self) -> &Book {
+        &self.books[0]
+    }
+
+    /// does any book trade this ticker?
+    fn is_hosted(&self, ticker: &str) -> bool {
+        self.books.iter().any(|b| b.trades(ticker))
+    }
+
+    /// every ticker some book trades (sorted).
+    fn hosted_tickers(&self) -> Vec<String> {
+        let set: BTreeSet<String> =
+            self.books.iter().flat_map(|b| b.tickers().iter().cloned()).collect();
+        set.into_iter().collect()
+    }
+
+    fn shared_for(&self, ticker: &str) -> TickerShared {
+        TickerShared {
             last_bar_at: self.last_bar_at.get(ticker).copied(),
             last_price: self.last_prices.get(ticker).copied(),
-            scores: session.last_scores().clone(),
-            position,
-            daily_pnl: self.daily_pnl,
-            ticker_realized_pnl: session.engine().cumulative_realized_pnl(),
-            loss_breaker_active: session.engine().is_daily_loss_breaker_active(),
-            entry_blocked_by: last.and_then(|r| r.entry_blocked_by.clone()),
-            near_miss: last.and_then(|r| r.near_miss.clone()),
             feed_stale: self.feed_stale.get(ticker).copied().unwrap_or(false),
-            config_version_id: session.config_version_id(),
-            pending_config_version_id: self.pending.as_ref().map(|(id, _)| *id),
-            process_started_at: self.process_started_at,
-            broker_mode: self.broker_mode.clone(),
-        })
-    }
-}
-
-fn shutdown_summary(rt: &Runtime) {
-    info!(
-        total_ticks = rt.tick_count,
-        daily_pnl = format!("{:.2}", rt.daily_pnl),
-        open_positions = rt.open_position_count(),
-        "shutdown complete"
-    );
-}
-
-/// close the position at the broker and record the trade. `price` is the
-/// engine-side exit price (last known bar close) used when the broker has
-/// no better number.
-async fn close_and_record(
-    broker: &dyn Broker,
-    trade_writer: &TradeWriter,
-    session: &mut LiveSession,
-    ticker: &str,
-    price: f64,
-    reason: ExitReason,
-    pool: &sqlx::PgPool,
-) {
-    let broker_exit = match broker.close_position(ticker).await {
-        Ok(fill) => {
-            info!(ticker, fill_price = fill.fill_price, ?reason, "broker position closed");
-            Some(fill.fill_price)
-        }
-        Err(e) => {
-            error!(ticker, error = %e, ?reason, "broker close FAILED — check the account manually");
-            None
-        }
-    };
-    let engine_price = if price > 0.0 { price } else { broker_exit.unwrap_or(0.0) };
-    match session.force_close(engine_price, Utc::now(), reason) {
-        Some(tws) => record_trade(trade_writer, &tws, broker_exit, pool).await,
-        None => warn!(ticker, "force_close produced no trade (engine had no position)"),
-    }
-}
-
-async fn record_trade(
-    trade_writer: &TradeWriter,
-    tws: &TradeWithScores,
-    broker_exit_price: Option<f64>,
-    _pool: &sqlx::PgPool,
-) {
-    info!(
-        ticker = %tws.trade.ticker,
-        pnl = format!("{:.2}", tws.trade.pnl),
-        pnl_pct = format!("{:.2}%", tws.trade.pnl_pct * 100.0),
-        exit_reason = ?tws.trade.exit_reason,
-        entry_reason = %tws.entry_reason,
-        hold_ms = tws.trade.hold_duration_ms,
-        config_version = tws.config_version_id,
-        "trade completed"
-    );
-    match trade_writer.write_trade(tws, broker_exit_price).await {
-        Ok(trade_id) => info!(trade_id, "trade written to database"),
-        Err(e) => error!(error = %e, "failed to write trade to database"),
-    }
-}
-
-/// flatten every open position (shutdown / emergency).
-async fn flatten_all(
-    rt: &mut Runtime,
-    broker: &dyn Broker,
-    trade_writer: &TradeWriter,
-    pool: &sqlx::PgPool,
-    reason: ExitReason,
-) {
-    let tickers: Vec<String> = rt
-        .sessions
-        .iter()
-        .filter(|(_, s)| s.has_position())
-        .map(|(t, _)| t.clone())
-        .collect();
-    for ticker in tickers {
-        let price = rt.last_prices.get(&ticker).copied().unwrap_or(0.0);
-        warn!(ticker = %ticker, ?reason, "force-closing open position");
-        if let Some(session) = rt.sessions.get_mut(&ticker) {
-            close_and_record(broker, trade_writer, session, &ticker, price, reason.clone(), pool).await;
-            rt.daily_pnl += session
-                .completed_trades()
-                .last()
-                .map(|t| t.pnl)
-                .unwrap_or(0.0);
         }
     }
-}
 
-/// swap a flat ticker's engine to the pending config. returns true if swapped.
-fn apply_pending_to(rt: &mut Runtime, ticker: &str) -> bool {
-    let Some((pending_id, pending_cfg)) = rt.pending.as_ref() else {
-        return false;
-    };
-    let pending_id = *pending_id;
-    if !pending_cfg.tickers.iter().any(|t| t == ticker) {
-        // ticker removed by the new config: drop it now that it is flat
-        info!(ticker, version_id = pending_id, "ticker not in new config, dropping session");
-        rt.sessions.remove(ticker);
-        rt.state_builders.remove(ticker);
-        return true;
-    }
-    match try_build_engine(pending_cfg, ticker, rt.capital) {
-        Some(engine) => {
-            info!(ticker, version_id = pending_id, "engine rebuilt for new config");
-            rt.sessions
-                .insert(ticker.to_string(), LiveSession::new(engine, pending_id));
-            true
-        }
-        None => {
-            warn!(ticker, version_id = pending_id, "failed to rebuild engine, keeping old");
-            false
+    /// drop shared builders for tickers no book trades any more (after a config swap
+    /// removed the ticker from its last book). the cross tracker keeps its own state.
+    fn prune_unhosted_builders(&mut self) {
+        let stale: Vec<String> = self
+            .state_builders
+            .keys()
+            .filter(|t| !self.is_hosted(t))
+            .cloned()
+            .collect();
+        for t in stale {
+            info!(ticker = %t, "no book trades this ticker any more, dropping its candle windows");
+            self.state_builders.remove(&t);
         }
     }
-}
 
-/// apply the pending config to every flat ticker; clear it when nothing is left waiting.
-fn apply_pending_where_flat(rt: &mut Runtime) {
-    let Some((pending_id, _)) = rt.pending.as_ref() else {
-        return;
-    };
-    let pending_id = *pending_id;
-    let tickers: Vec<String> = rt.sessions.keys().cloned().collect();
-    for t in tickers {
-        let needs_swap = rt
-            .sessions
-            .get(&t)
-            .map(|s| s.config_version_id() != pending_id && !s.has_position())
-            .unwrap_or(false);
-        if needs_swap {
-            apply_pending_to(rt, &t);
-        }
+    fn total_open_positions(&self) -> usize {
+        self.books.iter().map(|b| b.open_position_count()).sum()
     }
-    let still_waiting = rt
-        .sessions
-        .values()
-        .any(|s| s.config_version_id() != pending_id);
-    if !still_waiting {
-        let (id, cfg) = rt.pending.take().expect("pending checked above");
-        info!(version_id = id, "config swap complete on all tickers");
-        rt.current_config = cfg;
-        rt.current_config_id = id;
-    }
-}
 
-/// persist gate / near-miss diagnostics with dedupe and throttling.
-async fn record_block_events(
-    rt: &mut Runtime,
-    pool: &sqlx::PgPool,
-    ticker: &str,
-    ts: DateTime<Utc>,
-    result: &types::tick_result::TickResult,
-    last_price: f64,
-    config_version_id: i64,
-) {
-    if let Some(reason) = &result.entry_blocked_by {
-        let repeat = rt
-            .last_gate
-            .get(ticker)
-            .map(|(r, at)| r == reason && (ts - *at).num_seconds() < GATE_REPEAT_SECS)
-            .unwrap_or(false);
-        if !repeat {
-            let ev = BlockEvent {
-                ticker,
-                ts,
-                kind: BlockKind::Gate,
-                reason,
-                scores: &result.scores,
-                last_price,
-                config_version_id,
-            };
-            if let Err(e) = write_entry_block_event(pool, &ev).await {
-                warn!(error = %e, "failed to write entry block event");
+    async fn persist_all(&self) {
+        for book in &self.books {
+            for t in book.tickers() {
+                let shared = self.shared_for(t);
+                book.persist_state(t, &shared).await;
             }
-            rt.last_gate
-                .insert(ticker.to_string(), (reason.clone(), ts));
         }
-    } else if let Some(nm) = &result.near_miss {
-        let throttled = rt
-            .last_near_miss
-            .get(ticker)
-            .map(|at| (ts - *at).num_seconds() < NEAR_MISS_THROTTLE_SECS)
-            .unwrap_or(false);
-        if !throttled {
-            debug!(ticker, near_miss = %nm, "entry near-miss");
-            let ev = BlockEvent {
-                ticker,
-                ts,
-                kind: BlockKind::NearMiss,
-                reason: nm,
-                scores: &result.scores,
-                last_price,
-                config_version_id,
-            };
-            if let Err(e) = write_entry_block_event(pool, &ev).await {
-                warn!(error = %e, "failed to write near-miss event");
-            }
-            rt.last_near_miss.insert(ticker.to_string(), ts);
+    }
+
+    /// flatten every book (shutdown / signal / end of replay).
+    async fn flatten_all_books(&mut self, reason: ExitReason) {
+        let now = self.now();
+        let Runtime { books, last_prices, .. } = self;
+        for book in books.iter_mut() {
+            book.flatten_all(reason.clone(), last_prices, now).await;
         }
+    }
+
+    fn shutdown_summary(&self) {
+        let per_book: Vec<String> = self
+            .books
+            .iter()
+            .map(|b| format!("{}: pnl {:.2}, open {:?}", b.name(), b.daily_pnl(), b.open_tickers()))
+            .collect();
+        info!(
+            total_ticks = self.tick_count,
+            daily_pnl = format!("{:.2}", self.primary().daily_pnl()),
+            open_positions = self.total_open_positions(),
+            books = ?per_book,
+            "shutdown complete"
+        );
     }
 }
 
-async fn persist_state(rt: &Runtime, pool: &sqlx::PgPool, ticker: &str) {
-    if let Some(row) = rt.state_row(ticker) {
-        if let Err(e) = upsert_engine_state(pool, &row).await {
-            warn!(ticker, error = %e, "failed to upsert engine_state");
-        }
-    }
+/// value following `flag` in argv, if any.
+fn arg_value(args: &[String], flag: &str) -> Option<String> {
+    args.iter().position(|a| a == flag).and_then(|i| args.get(i + 1).cloned())
 }
 
 #[tokio::main]
@@ -348,15 +179,49 @@ async fn main() {
     // 0. load .env file (ok if missing)
     let _ = dotenvy::dotenv();
 
+    let args: Vec<String> = std::env::args().collect();
+    let demo_flag = args.iter().any(|a| a == "--demo");
+    let replay_dir = arg_value(&args, "--replay-bars");
+    let replay_date = arg_value(&args, "--replay-date");
+    let replay_out = arg_value(&args, "--replay-out");
+    let replay_slippage_bps: f64 = arg_value(&args, "--replay-slippage-bps")
+        .and_then(|v| v.parse().ok())
+        .unwrap_or(0.0);
+    let mode = match (&replay_dir, demo_flag) {
+        (Some(_), _) => Mode::Replay,
+        (None, true) => Mode::Demo,
+        (None, false) => Mode::Live,
+    };
+    let demo_mode = mode == Mode::Demo;
+    let replay_mode = mode == Mode::Replay;
+    let replay_date: Option<NaiveDate> = if replay_mode {
+        match replay_date.as_deref().map(|d| NaiveDate::parse_from_str(d, "%Y-%m-%d")) {
+            Some(Ok(d)) => Some(d),
+            _ => {
+                eprintln!("--replay-bars needs --replay-date YYYY-MM-DD");
+                std::process::exit(2);
+            }
+        }
+    } else {
+        None
+    };
+    if replay_mode && replay_out.is_none() {
+        eprintln!("--replay-bars needs --replay-out FILE (trade csv; nothing is written to the database)");
+        std::process::exit(2);
+    }
+
     // 1. init structured logging (console + file layers)
     let log_dir = std::env::var("LOG_DIR").unwrap_or_else(|_| "logs".to_string());
     std::fs::create_dir_all(&log_dir).expect("failed to create log directory");
 
-    let today = chrono::Utc::now().format("%Y-%m-%d").to_string();
+    let log_name = match replay_date {
+        Some(d) => format!("{}/replay_{}.log", log_dir, d),
+        None => format!("{}/paper_trader_{}.log", log_dir, chrono::Utc::now().format("%Y-%m-%d")),
+    };
     let log_file = std::fs::OpenOptions::new()
         .create(true)
         .append(true)
-        .open(format!("{}/paper_trader_{}.log", log_dir, today))
+        .open(&log_name)
         .expect("failed to open log file");
 
     let (non_blocking, _file_guard) = tracing_appender::non_blocking(log_file);
@@ -385,17 +250,22 @@ async fn main() {
         .with(console_layer)
         .init();
 
-    info!("galactic trading firm — paper trading engine starting");
+    info!(?mode, "galactic trading firm — paper trading engine starting");
 
     // 2. load environment
     let database_url = std::env::var("DATABASE_URL").expect("DATABASE_URL must be set");
     let api_key = std::env::var("APCA_API_KEY_ID").unwrap_or_default();
     let api_secret = std::env::var("APCA_API_SECRET_KEY").unwrap_or_default();
-    let broker_mode = std::env::var("BROKER_MODE").unwrap_or_else(|_| "simulated".to_string());
-    let demo_mode = std::env::args().any(|a| a == "--demo");
+    // replay never places orders anywhere: the broker mode is simulated by construction
+    let broker_mode = if replay_mode {
+        "simulated".to_string()
+    } else {
+        std::env::var("BROKER_MODE").unwrap_or_else(|_| "simulated".to_string())
+    };
 
     // credentials are mandatory unless the operator explicitly asked for the synthetic feed
-    if !demo_mode && (api_key.is_empty() || api_secret.is_empty()) {
+    // (or a replay, which needs no market data connection)
+    if mode == Mode::Live && (api_key.is_empty() || api_secret.is_empty()) {
         error!(
             "APCA_API_KEY_ID / APCA_API_SECRET_KEY are not set. refusing to start: \
              the synthetic feed is only available with the explicit --demo flag"
@@ -406,16 +276,26 @@ async fn main() {
         error!("--demo cannot be combined with BROKER_MODE=alpaca_paper (would place real paper orders on fake prices)");
         std::process::exit(1);
     }
-    let trade_source = if demo_mode { "demo" } else { "paper" };
+    let primary_source = if demo_mode { "demo" } else { "paper" };
+    // in demo every book writes source='demo' (synthetic prices are never shadow evidence)
+    let shadow_source = if demo_mode { "demo" } else { "shadow" };
 
-    // 3. connect to postgres
+    // 3. connect to postgres (replay reads books + configs only)
     let pool = sqlx::PgPool::connect(&database_url)
         .await
         .expect("failed to connect to database");
     info!("connected to database");
 
-    // 4. load promoted config (row id is what trades/hot-reload are keyed on)
-    let (config_version_id, strategy_config) = match load_config(&pool).await {
+    // 4. book roster (exactly one enabled primary) + each book's config.
+    //    the primary follows the latest promoted row; a shadow runs its own row or follows too.
+    let specs: Vec<BookSpec> = match load_books(&pool).await {
+        Ok(s) => s,
+        Err(e) => {
+            error!(error = %e, "failed to load the book roster");
+            std::process::exit(1);
+        }
+    };
+    let (promoted_id, promoted_config) = match load_config(&pool).await {
         Ok((id, config)) => {
             info!(
                 config_version_id = id,
@@ -436,68 +316,122 @@ async fn main() {
             std::process::exit(1);
         }
     };
-    if config_version_id != strategy_config.config_id {
+    if promoted_id != promoted_config.config_id {
         warn!(
-            row_id = config_version_id,
-            blob_config_id = strategy_config.config_id,
+            row_id = promoted_id,
+            blob_config_id = promoted_config.config_id,
             "config blob's config_id differs from its row id — using the row id for attribution"
         );
     }
 
-    // 5. resolve capital
+    let mut plans: Vec<BookPlan> = Vec::new();
+    for spec in specs {
+        let resolved = match spec.config_version_id {
+            None => Ok((promoted_id, promoted_config.clone())),
+            Some(id) => load_config_by_id(&pool, id).await,
+        };
+        match resolved {
+            Ok((id, config)) => {
+                info!(
+                    book = %spec.name,
+                    role = spec.role.as_str(),
+                    config_version_id = id,
+                    follows_promoted = spec.follows_promoted(),
+                    tickers = ?spec.effective_tickers(&config),
+                    capital = ?spec.capital,
+                    purpose = %spec.purpose,
+                    "book"
+                );
+                plans.push(BookPlan::new(spec, id, config));
+            }
+            Err(e) if spec.is_primary() => {
+                error!(book = %spec.name, error = %e, "failed to load the primary's config");
+                std::process::exit(1);
+            }
+            Err(e) => {
+                error!(book = %spec.name, error = %e, "failed to load the shadow's config — book skipped");
+            }
+        }
+    }
+    let limits = Limits::from_env();
+    let (plans, skipped) = apply_limits(plans, &limits, CROSS_INDEX_SYMBOL);
+    for (plan, why) in skipped {
+        error!(book = %plan.spec.name, reason = %why, "shadow book NOT hosted");
+    }
+    let primary_plan_config = plans[0].config.clone();
+    let primary_config_id = plans[0].config_id;
+
+    // 5. resolve capital (alpaca equity only matters for the real paper broker)
     let env_capital: f64 = std::env::var("INITIAL_CAPITAL")
         .ok()
         .and_then(|s| s.parse().ok())
         .unwrap_or(100_000.0);
-    let capital = resolve_capital(&broker_mode, &api_key, &api_secret, env_capital).await;
+    let capital = if replay_mode {
+        env_capital
+    } else {
+        resolve_capital(&broker_mode, &api_key, &api_secret, env_capital).await
+    };
     info!(
         capital,
         env_capital,
         "capital resolved (each ticker engine sizes against this; max_concurrent_positions bounds exposure)"
     );
 
-    // 6. build engine per ticker
-    let mut sessions: HashMap<String, LiveSession> = HashMap::new();
-    let mut state_builders: HashMap<String, MarketStateBuilder> = HashMap::new();
-
-    for ticker in &strategy_config.tickers {
-        match try_build_engine(&strategy_config, ticker, capital) {
-            Some(engine) => {
-                info!(ticker = %ticker, "engine built");
-                sessions.insert(ticker.clone(), LiveSession::new(engine, config_version_id));
-                state_builders.insert(ticker.clone(), MarketStateBuilder::new(200));
+    // 6. brokers + books. the primary's broker follows BROKER_MODE (the only place an
+    //    Alpaca broker is constructed); every shadow builds its own simulated broker.
+    let replay_log: ReplayLog = std::sync::Arc::new(std::sync::Mutex::new(Vec::new()));
+    let process_started_at = Utc::now();
+    let mut books: Vec<Book> = Vec::new();
+    for plan in plans {
+        let name = plan.spec.name.clone();
+        let sink = if replay_mode {
+            Sink::Replay(replay_log.clone())
+        } else {
+            let source = if plan.spec.is_primary() { primary_source } else { shadow_source };
+            Sink::Live { pool: pool.clone(), trade_writer: TradeWriter::new(pool.clone(), source, &name) }
+        };
+        if plan.spec.is_primary() {
+            let broker: Box<dyn Broker> = match broker_mode.as_str() {
+                "alpaca_paper" => {
+                    let b = AlpacaBroker::new(api_key.clone(), api_secret.clone())
+                        .expect("failed to create alpaca broker");
+                    info!("using alpaca paper broker");
+                    Box::new(b)
+                }
+                "simulated" => {
+                    let bps = if replay_mode { replay_slippage_bps } else { 5.0 };
+                    info!(slippage_bps = bps, "using simulated broker");
+                    Box::new(SimulatedBroker::new(bps))
+                }
+                other => {
+                    error!(broker_mode = other, "unknown BROKER_MODE (expected 'simulated' or 'alpaca_paper')");
+                    std::process::exit(1);
+                }
+            };
+            match Book::new_primary(plan, broker, capital, sink, process_started_at) {
+                Ok(b) => books.push(b),
+                Err(e) => {
+                    error!(error = %e, "no engines could be built, exiting");
+                    std::process::exit(1);
+                }
             }
-            None => {
-                error!(ticker = %ticker, "failed to build engine, skipping ticker");
+        } else {
+            let bps = if replay_mode { replay_slippage_bps } else { SHADOW_SLIPPAGE_BPS };
+            match Book::new_shadow(plan, capital, sink, bps, process_started_at) {
+                Ok(b) => books.push(b),
+                Err(e) => error!(book = %name, error = %e, "shadow book NOT hosted"),
             }
         }
     }
+    let roster: Vec<String> = books
+        .iter()
+        .map(|b| format!("{} [{} cfg {} {:?} {}]", b.name(), b.role().as_str(), b.config_id(), b.tickers(), b.broker_kind()))
+        .collect();
+    info!(books = ?roster, "book roster");
 
-    if sessions.is_empty() {
-        error!("no engines could be built, exiting");
-        std::process::exit(1);
-    }
-
-    // 7. create broker
-    let broker: Box<dyn Broker> = match broker_mode.as_str() {
-        "alpaca_paper" => {
-            let b = AlpacaBroker::new(api_key.clone(), api_secret.clone())
-                .expect("failed to create alpaca broker");
-            info!("using alpaca paper broker");
-            Box::new(b)
-        }
-        "simulated" => {
-            info!("using simulated broker (5 bps slippage)");
-            Box::new(SimulatedBroker::new(5.0))
-        }
-        other => {
-            error!(broker_mode = other, "unknown BROKER_MODE (expected 'simulated' or 'alpaca_paper')");
-            std::process::exit(1);
-        }
-    };
-
-    // 7b. reconcile: the engine starts flat; anything the broker already holds is an orphan
-    match broker.open_positions().await {
+    // 6b. reconcile: the engine starts flat; anything the primary's broker already holds is
+    //     an orphan (shadows are simulated and start empty by construction)
+    match books[0].broker_open_positions().await {
         Ok(open) if !open.is_empty() => {
             for p in &open {
                 error!(
@@ -513,156 +447,193 @@ async fn main() {
         Err(e) => warn!(error = %e, "could not list broker positions for reconciliation"),
     }
 
-    // 8. trade writer + config watcher (both keyed on the row id)
-    let trade_writer = TradeWriter::new(pool.clone(), trade_source);
-    let mut config_watcher = ConfigWatcher::new(pool.clone(), config_version_id);
+    // 7. config watcher (keyed on the promoted row id; books that follow promotions consume it)
+    let mut config_watcher = ConfigWatcher::new(pool.clone(), promoted_id);
 
-    // 9. data feed and channel
+    // 8. data feed and channel: subscriptions = union of every book's tickers + the index
     let (bar_tx, mut bar_rx) = mpsc::channel::<BarEvent>(1000);
-    let tickers: Vec<String> = strategy_config.tickers.clone();
+    let mut rt = Runtime {
+        cross: CrossTracker::new(CROSS_INDEX_SYMBOL),
+        state_builders: HashMap::new(),
+        last_bar_at: HashMap::new(),
+        last_prices: HashMap::new(),
+        feed_stale: HashMap::new(),
+        last_any_bar_ts: None,
+        tick_count: 0,
+        mode,
+        books,
+    };
+    let tickers: Vec<String> = rt.hosted_tickers();
+    for t in &tickers {
+        rt.state_builders.insert(t.clone(), MarketStateBuilder::new(200));
+    }
+    let mut stream_symbols = tickers.clone();
+    stream_symbols.push(CROSS_INDEX_SYMBOL.to_string());
+    info!(symbols = ?stream_symbols, "subscription set (union of books' tickers + index)");
 
-    // 10. warm the candle windows with history, then stream
-    let mut cross = CrossTracker::new(CROSS_INDEX_SYMBOL);
-    if !demo_mode {
-        let feed = AlpacaFeed::new(api_key.clone(), api_secret.clone(), tickers.clone());
-        // the index feeds MarketState.cross only; seed it so a mid-session restart knows
-        // today's session open (the tracker filters by eastern date itself).
-        match feed.fetch_historical_bars(CROSS_INDEX_SYMBOL, 1).await {
-            Ok(candles) => {
-                cross.seed(CROSS_INDEX_SYMBOL, &candles);
-                info!(symbol = CROSS_INDEX_SYMBOL, bars = candles.len(), "cross-context index seeded");
-            }
-            Err(e) => warn!(symbol = CROSS_INDEX_SYMBOL, error = %e, "cross-context index seed failed — SPY-conditioned windows stay closed until live SPY bars arrive today"),
-        }
-        for ticker in &tickers {
-            info!(ticker = %ticker, days = WARMUP_LOOKBACK_DAYS, "fetching historical bars for warmup");
-            match feed.fetch_historical_bars(ticker, WARMUP_LOOKBACK_DAYS).await {
-                Ok(candles) => {
-                    let count = candles.len();
-                    cross.seed(ticker, &candles);
-                    if let Some(builder) = state_builders.get_mut(ticker) {
-                        builder.seed(candles);
-                        info!(
-                            ticker = %ticker,
-                            one_minute_bars = count,
-                            windows = ?builder.window_sizes(),
-                            "warmup complete"
-                        );
-                    }
-                    if count < 3 * 390 {
-                        warn!(
-                            ticker = %ticker,
-                            one_minute_bars = count,
-                            "fewer than 3 trading days of history — hourly indicators will be partially warm"
-                        );
-                    }
-                }
-                Err(e) => {
-                    error!(ticker = %ticker, error = %e, "failed to fetch historical bars — starting cold; hourly indicators will be WRONG for hours");
-                }
-            }
-        }
-
-        let mut stream_symbols = tickers.clone();
-        stream_symbols.push(CROSS_INDEX_SYMBOL.to_string());
-        let feed = AlpacaFeed::new(api_key, api_secret, stream_symbols);
-        tokio::spawn(async move {
-            if let Err(e) = feed.stream_bars(bar_tx).await {
-                error!(error = %e, "data feed stream failed");
-            }
-        });
-    } else {
-        warn!("--demo: starting SYNTHETIC random-walk feed; trades are written with source='demo'");
-        let demo_tickers = tickers.clone();
-        tokio::spawn(async move {
-            let base_prices: HashMap<&str, f64> = [
-                ("SPY", 450.0), ("QQQ", 380.0), ("AAPL", 175.0),
-                ("NVDA", 800.0), ("MSFT", 420.0), ("AMZN", 200.0),
-            ]
-            .into_iter()
+    // 8b. state rows of (book, ticker) pairs this process does not host go away now
+    if !replay_mode {
+        let hosted: Vec<(String, String)> = rt
+            .books
+            .iter()
+            .flat_map(|b| b.tickers().iter().map(move |t| (b.name().to_string(), t.clone())))
             .collect();
+        match delete_unhosted_engine_state(&pool, &hosted).await {
+            Ok(gone) if !gone.is_empty() => info!(rows = ?gone, "deleted engine_state rows for pairs not hosted"),
+            Ok(_) => {}
+            Err(e) => warn!(error = %e, "could not clean up engine_state rows"),
+        }
+    }
 
-            let mut prices: HashMap<String, f64> = demo_tickers
-                .iter()
-                .map(|t| (t.clone(), base_prices.get(t.as_str()).copied().unwrap_or(100.0)))
+    // 9. warm the candle windows with history, then stream
+    match mode {
+        Mode::Live => {
+            let feed = AlpacaFeed::new(api_key.clone(), api_secret.clone(), tickers.clone());
+            // the index feeds MarketState.cross only; seed it so a mid-session restart knows
+            // today's session open (the tracker filters by eastern date itself).
+            match feed.fetch_historical_bars(CROSS_INDEX_SYMBOL, 1).await {
+                Ok(candles) => {
+                    rt.cross.seed(CROSS_INDEX_SYMBOL, &candles);
+                    info!(symbol = CROSS_INDEX_SYMBOL, bars = candles.len(), "cross-context index seeded");
+                }
+                Err(e) => warn!(symbol = CROSS_INDEX_SYMBOL, error = %e, "cross-context index seed failed — SPY-conditioned windows stay closed until live SPY bars arrive today"),
+            }
+            for ticker in &tickers {
+                info!(ticker = %ticker, days = WARMUP_LOOKBACK_DAYS, "fetching historical bars for warmup");
+                match feed.fetch_historical_bars(ticker, WARMUP_LOOKBACK_DAYS).await {
+                    Ok(candles) => {
+                        let count = candles.len();
+                        rt.cross.seed(ticker, &candles);
+                        if let Some(builder) = rt.state_builders.get_mut(ticker) {
+                            builder.seed(candles);
+                            info!(
+                                ticker = %ticker,
+                                one_minute_bars = count,
+                                windows = ?builder.window_sizes(),
+                                "warmup complete"
+                            );
+                        }
+                        if count < 3 * 390 {
+                            warn!(
+                                ticker = %ticker,
+                                one_minute_bars = count,
+                                "fewer than 3 trading days of history — hourly indicators will be partially warm"
+                            );
+                        }
+                    }
+                    Err(e) => {
+                        error!(ticker = %ticker, error = %e, "failed to fetch historical bars — starting cold; hourly indicators will be WRONG for hours");
+                    }
+                }
+            }
+
+            let feed = AlpacaFeed::new(api_key, api_secret, stream_symbols);
+            tokio::spawn(async move {
+                if let Err(e) = feed.stream_bars(bar_tx).await {
+                    error!(error = %e, "data feed stream failed");
+                }
+            });
+        }
+        Mode::Demo => {
+            warn!("--demo: starting SYNTHETIC random-walk feed; trades are written with source='demo'");
+            let demo_symbols = stream_symbols.clone();
+            tokio::spawn(async move {
+                let base_prices: HashMap<&str, f64> = [
+                    ("SPY", 450.0), ("QQQ", 380.0), ("AAPL", 175.0),
+                    ("NVDA", 800.0), ("MSFT", 420.0), ("AMZN", 200.0),
+                ]
+                .into_iter()
                 .collect();
 
-            let mut rng_state: u64 = std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap_or_default()
-                .as_nanos() as u64;
+                let mut prices: HashMap<String, f64> = demo_symbols
+                    .iter()
+                    .map(|t| (t.clone(), base_prices.get(t.as_str()).copied().unwrap_or(100.0)))
+                    .collect();
 
-            loop {
-                for ticker in &demo_tickers {
-                    let Some(price) = prices.get_mut(ticker) else { continue };
-                    rng_state ^= rng_state << 13;
-                    rng_state ^= rng_state >> 7;
-                    rng_state ^= rng_state << 17;
-                    let norm = ((rng_state % 10000) as f64 / 10000.0 - 0.5) * 2.0;
-                    let volatility = *price * 0.002;
-                    let change = norm * volatility;
-                    *price = (*price + change).max(1.0);
-                    let close = *price;
-                    let open = close - change * 0.3;
-                    let high = close.max(open).max(close + volatility * 0.5);
-                    let low = close.min(open).min(close - volatility * 0.5);
-                    let candle = types::market::Candle {
-                        timestamp: chrono::Utc::now(),
-                        open, high, low, close,
-                        volume: 10000.0 + (rng_state % 50000) as f64,
-                    };
-                    if bar_tx.send(BarEvent { symbol: ticker.clone(), candle }).await.is_err() {
+                let mut rng_state: u64 = std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_nanos() as u64;
+
+                loop {
+                    for ticker in &demo_symbols {
+                        let Some(price) = prices.get_mut(ticker) else { continue };
+                        rng_state ^= rng_state << 13;
+                        rng_state ^= rng_state >> 7;
+                        rng_state ^= rng_state << 17;
+                        let norm = ((rng_state % 10000) as f64 / 10000.0 - 0.5) * 2.0;
+                        let volatility = *price * 0.002;
+                        let change = norm * volatility;
+                        *price = (*price + change).max(1.0);
+                        let close = *price;
+                        let open = close - change * 0.3;
+                        let high = close.max(open).max(close + volatility * 0.5);
+                        let low = close.min(open).min(close - volatility * 0.5);
+                        let candle = types::market::Candle {
+                            timestamp: chrono::Utc::now(),
+                            open, high, low, close,
+                            volume: 10000.0 + (rng_state % 50000) as f64,
+                        };
+                        if bar_tx.send(BarEvent { symbol: ticker.clone(), candle }).await.is_err() {
+                            return;
+                        }
+                    }
+                    tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
+                }
+            });
+        }
+        Mode::Replay => {
+            let dir = replay_dir.clone().expect("replay dir checked above");
+            let date = replay_date.expect("replay date checked above");
+            let bars = match load_replay_bars(&dir, &stream_symbols, CROSS_INDEX_SYMBOL, date, REPLAY_WARMUP_DAYS) {
+                Ok(b) => b,
+                Err(e) => {
+                    error!(error = %e, "replay: could not load bars");
+                    std::process::exit(1);
+                }
+            };
+            for (sym, candles) in &bars.warmup {
+                rt.cross.seed(sym, candles);
+                if let Some(builder) = rt.state_builders.get_mut(sym) {
+                    builder.seed(candles.clone());
+                    info!(ticker = %sym, one_minute_bars = candles.len(), windows = ?builder.window_sizes(), "replay warmup complete");
+                } else {
+                    info!(symbol = %sym, one_minute_bars = candles.len(), "replay: cross-context symbol seeded");
+                }
+            }
+            info!(date = %date, bars = bars.day.len(), symbols = ?stream_symbols, "replay: feeding the day's bars through the live loop");
+            let day = bars.day;
+            tokio::spawn(async move {
+                for ev in day {
+                    if bar_tx.send(ev).await.is_err() {
                         return;
                     }
                 }
-                tokio::time::sleep(tokio::time::Duration::from_secs(1)).await;
-            }
-        });
+                // dropping the sender ends the stream: the loop flattens at the last bar
+            });
+        }
     }
 
-    // 11. timers
+    // 10. timers (both arms are disabled in replay: bar time drives everything)
     let mut config_reload_interval = tokio::time::interval(tokio::time::Duration::from_secs(60));
     config_reload_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut heartbeat_interval = tokio::time::interval(tokio::time::Duration::from_secs(30));
     heartbeat_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
 
-    let mut rt = Runtime {
-        sessions,
-        cross,
-        state_builders,
-        last_bar_at: HashMap::new(),
-        last_prices: HashMap::new(),
-        feed_stale: HashMap::new(),
-        last_gate: HashMap::new(),
-        last_near_miss: HashMap::new(),
-        current_config: strategy_config.clone(),
-        current_config_id: config_version_id,
-        pending: None,
-        capital,
-        daily_pnl: 0.0,
-        daily_pnl_date: None,
-        tick_count: 0,
-        process_started_at: Utc::now(),
-        broker_mode: broker_mode.clone(),
-    };
-
     // initial heartbeat rows so observers see the process immediately
-    let initial: Vec<String> = rt.sessions.keys().cloned().collect();
-    for t in &initial {
-        persist_state(&rt, &pool, t).await;
-    }
+    rt.persist_all().await;
 
-    // 11b. launch TUI if feature is enabled
+    // 10b. launch TUI if feature is enabled (wired to the primary book)
     #[cfg(feature = "tui")]
     let tui_shutdown = Arc::new(AtomicBool::new(false));
     #[cfg(feature = "tui")]
-    let dashboard_state = Arc::new(RwLock::new(DashboardState::new(config_version_id)));
+    let dashboard_state = Arc::new(RwLock::new(DashboardState::new(primary_config_id)));
     #[cfg(feature = "tui")]
     {
         dashboard_state
             .write()
             .unwrap()
-            .set_strategy_config(strategy_config.clone());
+            .set_strategy_config(primary_plan_config.clone());
 
         let state = Arc::clone(&dashboard_state);
         let shutdown = Arc::clone(&tui_shutdown);
@@ -672,26 +643,40 @@ async fn main() {
             }
         });
     }
+    #[cfg(not(feature = "tui"))]
+    let _ = (primary_plan_config, primary_config_id);
 
     // register SIGTERM handler for graceful container shutdown
     let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
         .expect("failed to register SIGTERM handler");
 
     info!("entering main trading loop");
+    let mut feed_closed = false;
 
-    // 12. main select! loop
+    // 11. main select! loop
     loop {
         #[cfg(feature = "tui")]
         if tui_shutdown.load(Ordering::Relaxed) {
             info!("TUI requested shutdown");
-            flatten_all(&mut rt, broker.as_ref(), &trade_writer, &pool, ExitReason::ManualOverride).await;
-            shutdown_summary(&rt);
+            rt.flatten_all_books(ExitReason::ManualOverride).await;
+            rt.shutdown_summary();
             break;
         }
 
         tokio::select! {
             // ── incoming bar from data feed ──
-            Some(bar_event) = bar_rx.recv() => {
+            received = bar_rx.recv(), if !feed_closed => {
+                let Some(bar_event) = received else {
+                    feed_closed = true;
+                    if replay_mode {
+                        info!("replay: bars exhausted — flattening at the last bar");
+                        rt.flatten_all_books(ExitReason::SessionClose).await;
+                        rt.shutdown_summary();
+                        break;
+                    }
+                    warn!("bar channel closed (feed task ended); heartbeats continue");
+                    continue;
+                };
                 let ticker = bar_event.symbol.clone();
                 let bar_ts = bar_event.candle.timestamp;
 
@@ -703,7 +688,10 @@ async fn main() {
 
                 // every regular-hours bar (index included) feeds the cross-context tracker
                 rt.cross.on_bar(&ticker, &bar_event.candle);
-                if !rt.sessions.contains_key(&ticker) {
+                if rt.last_any_bar_ts.is_none_or(|t| bar_ts > t) {
+                    rt.last_any_bar_ts = Some(bar_ts);
+                }
+                if !rt.is_hosted(&ticker) {
                     debug!(symbol = %ticker, "index/peer bar recorded (not traded)");
                     continue;
                 }
@@ -714,14 +702,15 @@ async fn main() {
                 if rt.feed_stale.remove(&ticker).unwrap_or(false) {
                     info!(ticker = %ticker, "feed resumed");
                 }
-                rt.roll_daily_pnl(bar_ts);
-                broker.set_last_price(bar_event.candle.close);
+                for book in &rt.books {
+                    book.set_last_price_for(&ticker, bar_event.candle.close);
+                }
 
                 #[cfg(feature = "tui")]
                 let candle_for_tui = bar_event.candle.clone();
 
-                // build market state from candle
-                let mut market = match rt.state_builders.get_mut(&ticker) {
+                // build market state from the candle — once per ticker, shared by every book
+                let market = match rt.state_builders.get_mut(&ticker) {
                     Some(builder) => {
                         let bid = bar_event.candle.close - 0.01;
                         let ask = bar_event.candle.close + 0.01;
@@ -732,73 +721,54 @@ async fn main() {
                         continue;
                     }
                 };
+                let shared = rt.shared_for(&ticker);
 
-                // cross-ticker context (index + peers), same definition as the replay
-                let traded: Vec<String> = rt.sessions.keys().cloned().collect();
-                market.cross = rt.cross.context_for(&ticker, &traded, bar_ts);
-
-                // cross-ticker capacity: still tick (exits, clocks, diagnostics), but block entries
-                let at_capacity = rt.open_position_count() >= rt.max_concurrent();
-                let Some(session) = rt.sessions.get_mut(&ticker) else { continue };
-                if at_capacity && !session.has_position() {
-                    market.entries_blocked = true;
-                }
-
-                let (result, trade_with_scores) = session.on_tick(&mut market);
-                let session_cfg_id = session.config_version_id();
-
-                if let TickEvent::PositionOpened = &result.event {
-                    let Some(pos) = session.current_position() else { continue };
-                    // engine sizes in whole shares already; the broker gets exactly that
-                    let shares = pos.size.floor();
-                    let direction = pos.direction;
-                    info!(
-                        ticker = %ticker,
-                        composite = result.scores.composite,
-                        price = market.last_price,
-                        shares,
-                        entry_reason = %result.entry_reason,
-                        "position opened"
-                    );
-                    if shares < 1.0 {
-                        error!(ticker = %ticker, size = pos.size, "engine opened a sub-share position, undoing");
-                        session.undo_open();
+                // fan out to every book that trades the ticker; peers = that book's tickers
+                let targets: Vec<usize> = rt.books.iter().enumerate().filter(|(_, b)| b.trades(&ticker)).map(|(i, _)| i).collect();
+                let mut market = Some(market);
+                let mut any_dropped = false;
+                #[cfg(feature = "tui")]
+                let mut primary_outcome = None;
+                for (k, i) in targets.iter().enumerate() {
+                    let mut m = if k + 1 == targets.len() {
+                        market.take().expect("market consumed once")
                     } else {
-                        match broker.submit_order(&ticker, direction, shares).await {
-                            Ok(fill) => {
-                                info!(
-                                    ticker = %ticker,
-                                    fill_price = fill.fill_price,
-                                    quantity = fill.quantity,
-                                    engine_price = market.last_price,
-                                    "broker order filled"
-                                );
-                                session.set_broker_entry_price(fill.fill_price);
-                            }
-                            Err(e) => {
-                                error!(ticker = %ticker, error = %e, "broker order failed, undoing position");
-                                session.undo_open();
-                            }
+                        market.as_ref().expect("market present").clone()
+                    };
+                    m.cross = rt.cross.context_for(&ticker, rt.books[*i].tickers(), bar_ts);
+                    if let Some(outcome) = rt.books[*i].on_bar(&ticker, m, &shared).await {
+                        any_dropped |= !outcome.dropped.is_empty();
+                        #[cfg(feature = "tui")]
+                        if rt.books[*i].is_primary() {
+                            primary_outcome = Some(outcome);
                         }
                     }
                 }
+                if any_dropped {
+                    rt.prune_unhosted_builders();
+                }
 
-                // update TUI dashboard state
+                // update TUI dashboard state (primary book only)
                 #[cfg(feature = "tui")]
-                {
+                if let Some(outcome) = primary_outcome {
+                    let primary = rt.primary();
                     let mut dash = dashboard_state.write().unwrap();
                     dash.total_ticks = rt.tick_count;
-                    dash.daily_pnl = rt.daily_pnl;
+                    dash.daily_pnl = primary.daily_pnl();
 
-                    let pos_display = session.current_position().map(|pos| PositionDisplay {
-                        direction: pos.direction,
-                        entry_price: pos.entry_price,
-                        unrealized_pnl: pos.unrealized_pnl,
-                        unrealized_pnl_pct: pos.unrealized_pnl_pct,
-                        hold_duration_ms: pos.hold_duration_ms,
-                    });
+                    let pos_display = primary
+                        .session(&ticker)
+                        .and_then(|s| s.current_position())
+                        .map(|pos| PositionDisplay {
+                            direction: pos.direction,
+                            entry_price: pos.entry_price,
+                            unrealized_pnl: pos.unrealized_pnl,
+                            unrealized_pnl_pct: pos.unrealized_pnl_pct,
+                            hold_duration_ms: pos.hold_duration_ms,
+                        });
 
                     dash.ensure_ticker_order(&ticker);
+                    let last_price = candle_for_tui.close;
                     let ts = dash.tickers.entry(ticker.clone()).or_insert_with(|| TickerState {
                         ticker: ticker.clone(),
                         last_price: 0.0,
@@ -810,13 +780,13 @@ async fn main() {
                         price_history: Vec::new(),
                         candle_history: Vec::new(),
                     });
-                    ts.last_price = market.last_price;
-                    ts.composite_score = result.scores.composite;
-                    ts.one_minute_score = result.scores.one_minute;
-                    ts.five_minute_score = result.scores.five_minute;
-                    ts.one_hour_score = result.scores.one_hour;
+                    ts.last_price = last_price;
+                    ts.composite_score = outcome.result.scores.composite;
+                    ts.one_minute_score = outcome.result.scores.one_minute;
+                    ts.five_minute_score = outcome.result.scores.five_minute;
+                    ts.one_hour_score = outcome.result.scores.one_hour;
                     ts.position = pos_display;
-                    ts.price_history.push(market.last_price);
+                    ts.price_history.push(last_price);
                     if ts.price_history.len() > 60 {
                         ts.price_history.remove(0);
                     }
@@ -824,25 +794,7 @@ async fn main() {
                     if ts.candle_history.len() > 60 {
                         ts.candle_history.remove(0);
                     }
-                }
-
-                if let Some(tws) = trade_with_scores {
-                    let broker_exit = match broker.close_position(&tws.trade.ticker).await {
-                        Ok(fill) => {
-                            info!(ticker = %tws.trade.ticker, fill_price = fill.fill_price, engine_price = tws.trade.exit_price, "broker position closed");
-                            Some(fill.fill_price)
-                        }
-                        Err(e) => {
-                            error!(ticker = %tws.trade.ticker, error = %e, "broker close FAILED (engine already closed) — check the account");
-                            None
-                        }
-                    };
-                    rt.daily_pnl += tws.trade.pnl;
-
-                    #[cfg(feature = "tui")]
-                    {
-                        let mut dash = dashboard_state.write().unwrap();
-                        dash.daily_pnl = rt.daily_pnl;
+                    if let Some(tws) = &outcome.trade {
                         dash.add_trade(TradeLogEntry {
                             ticker: tws.trade.ticker.clone(),
                             direction: format!("{:?}", tws.trade.direction),
@@ -852,45 +804,38 @@ async fn main() {
                             time: tws.trade.exit_time,
                         });
                     }
-
-                    record_trade(&trade_writer, &tws, broker_exit, &pool).await;
-
-                    // this ticker is flat now — if a config is waiting, swap it in
-                    if rt.pending.is_some() {
-                        apply_pending_where_flat(&mut rt);
-                    }
                 }
-
-                // observability: state row + gate/near-miss events
-                record_block_events(&mut rt, &pool, &ticker, bar_ts, &result, market.last_price, session_cfg_id).await;
-                persist_state(&rt, &pool, &ticker).await;
 
                 // periodic status log
                 if rt.tick_count.is_multiple_of(60) {
-                    let positions: Vec<&str> = rt
-                        .sessions
+                    let positions: Vec<String> = rt
+                        .books
                         .iter()
-                        .filter(|(_, s)| s.has_position())
-                        .map(|(t, _)| t.as_str())
+                        .map(|b| format!("{}: {:?}", b.name(), b.open_tickers()))
+                        .collect();
+                    let pending: Vec<String> = rt
+                        .books
+                        .iter()
+                        .filter_map(|b| b.pending_id().map(|id| format!("{}: {}", b.name(), id)))
                         .collect();
                     info!(
                         ticks = rt.tick_count,
-                        daily_pnl = format!("{:.2}", rt.daily_pnl),
+                        daily_pnl = format!("{:.2}", rt.primary().daily_pnl()),
                         open_positions = ?positions,
-                        pending_config = ?rt.pending.as_ref().map(|(id, _)| *id),
+                        pending_config = ?pending,
                         "status"
                     );
                 }
             }
 
             // ── heartbeat: staleness, missed-close safety net, state rows ──
-            _ = heartbeat_interval.tick() => {
+            _ = heartbeat_interval.tick(), if !replay_mode => {
                 let now = Utc::now();
                 let market_open_now = is_regular_hours(now);
 
-                // feed staleness per traded ticker
+                // feed staleness per hosted ticker
                 if market_open_now && !demo_mode {
-                    let tickers: Vec<String> = rt.sessions.keys().cloned().collect();
+                    let tickers: Vec<String> = rt.hosted_tickers();
                     for t in tickers {
                         let age = rt.last_bar_at.get(&t).map(|ts| (now - *ts).num_seconds());
                         let stale = match age {
@@ -907,46 +852,43 @@ async fn main() {
                 }
 
                 // missed-close safety net: a halted/silent ticker gets no bars, so the
-                // engine never sees the force_exit_by tick. close it from the clock instead.
-                if let Some(cutoff) = parse_hm(&rt.current_config.session.force_exit_by) {
-                    if eastern_minutes(now) >= cutoff + 2 && rt.open_position_count() > 0 {
-                        warn!("positions still open past force_exit_by — flattening from the clock");
-                        flatten_all(&mut rt, broker.as_ref(), &trade_writer, &pool, ExitReason::SessionClose).await;
-                        if rt.pending.is_some() {
-                            apply_pending_where_flat(&mut rt);
+                // engine never sees the force_exit_by tick. close it from the clock instead —
+                // per book, each with its own force_exit_by.
+                let mut any_dropped = false;
+                {
+                    let Runtime { books, last_prices, .. } = &mut rt;
+                    for book in books.iter_mut() {
+                        if let Some(cutoff) = parse_hm(book.force_exit_by()) {
+                            if eastern_minutes(now) >= cutoff + 2 && book.open_position_count() > 0 {
+                                warn!(book = %book.name(), "positions still open past force_exit_by — flattening from the clock");
+                                book.flatten_all(ExitReason::SessionClose, last_prices, now).await;
+                                if book.has_pending() {
+                                    any_dropped |= !book.apply_pending_where_flat().await.is_empty();
+                                }
+                            }
                         }
                     }
                 }
-
-                let tickers: Vec<String> = rt.sessions.keys().cloned().collect();
-                for t in &tickers {
-                    persist_state(&rt, &pool, t).await;
+                if any_dropped {
+                    rt.prune_unhosted_builders();
                 }
+
+                rt.persist_all().await;
             }
 
-            // ── config reload timer ──
-            _ = config_reload_interval.tick() => {
+            // ── config reload timer: books that follow promotions take the new row ──
+            _ = config_reload_interval.tick(), if !replay_mode => {
                 match config_watcher.check_for_update().await {
                     Ok(Some((version_id, new_config))) => {
-                        let open: Vec<&String> = rt.sessions.iter().filter(|(_, s)| s.has_position()).map(|(t, _)| t).collect();
-                        info!(version_id, open_positions = ?open, "new config detected; applying to flat tickers now, others when they close");
-
-                        // tickers added by the new config need a websocket subscription we don't have
-                        for t in &new_config.tickers {
-                            if !rt.sessions.contains_key(t) {
-                                warn!(ticker = %t, version_id, "new config adds a ticker — requires a restart to subscribe; ignoring for now");
-                            }
+                        let mut any_dropped = false;
+                        for book in rt.books.iter_mut().filter(|b| b.follows_promoted()) {
+                            book.set_pending(version_id, new_config.clone()).await;
+                            any_dropped |= !book.apply_pending_where_flat().await.is_empty();
                         }
-                        // tickers removed by the new config: state rows go away when they are dropped
-                        for t in rt.sessions.keys() {
-                            if !new_config.tickers.contains(t) {
-                                let _ = delete_engine_state(&pool, t).await;
-                            }
-                        }
-
-                        rt.pending = Some((version_id, new_config.clone()));
                         config_watcher.acknowledge(version_id);
-                        apply_pending_where_flat(&mut rt);
+                        if any_dropped {
+                            rt.prune_unhosted_builders();
+                        }
 
                         #[cfg(feature = "tui")]
                         {
@@ -954,10 +896,7 @@ async fn main() {
                             dash.config_version = version_id;
                             dash.set_strategy_config(new_config);
                         }
-                        let tickers: Vec<String> = rt.sessions.keys().cloned().collect();
-                        for t in &tickers {
-                            persist_state(&rt, &pool, t).await;
-                        }
+                        rt.persist_all().await;
                     }
                     Ok(None) => {}
                     Err(e) => {
@@ -971,8 +910,8 @@ async fn main() {
                 info!("ctrl-c received, shutting down");
                 #[cfg(feature = "tui")]
                 tui_shutdown.store(true, Ordering::Relaxed);
-                flatten_all(&mut rt, broker.as_ref(), &trade_writer, &pool, ExitReason::ManualOverride).await;
-                shutdown_summary(&rt);
+                rt.flatten_all_books(ExitReason::ManualOverride).await;
+                rt.shutdown_summary();
                 break;
             }
 
@@ -981,16 +920,27 @@ async fn main() {
                 info!("SIGTERM received, shutting down");
                 #[cfg(feature = "tui")]
                 tui_shutdown.store(true, Ordering::Relaxed);
-                flatten_all(&mut rt, broker.as_ref(), &trade_writer, &pool, ExitReason::ManualOverride).await;
-                shutdown_summary(&rt);
+                rt.flatten_all_books(ExitReason::ManualOverride).await;
+                rt.shutdown_summary();
                 break;
             }
         }
     }
 
-    // final state rows so observers see the process is gone cleanly
-    let tickers: Vec<String> = rt.sessions.keys().cloned().collect();
-    for t in &tickers {
-        persist_state(&rt, &pool, t).await;
+    if replay_mode {
+        // the only output of a replay: one trade csv, never the database
+        let trades = replay_log.lock().map(|v| v.clone()).unwrap_or_default();
+        let out = replay_out.expect("replay out checked above");
+        match write_replay_trades(&out, &trades) {
+            Ok(()) => info!(path = %out, trades = trades.len(), "replay: trades written"),
+            Err(e) => {
+                error!(path = %out, error = %e, "replay: failed to write trades");
+                std::process::exit(1);
+            }
+        }
+        return;
     }
+
+    // final state rows so observers see the process is gone cleanly
+    rt.persist_all().await;
 }

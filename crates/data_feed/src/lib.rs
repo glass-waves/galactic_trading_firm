@@ -1,5 +1,6 @@
 pub mod account;
 pub mod alpaca_feed;
+pub mod book;
 pub mod broker;
 pub mod candle_aggregator;
 pub mod config_loader;
@@ -7,6 +8,7 @@ pub mod config_watcher;
 pub mod cross_tracker;
 pub mod live_session;
 pub mod market_state;
+pub mod replay_feed;
 pub mod session_clock;
 pub mod state_writer;
 pub mod trade_writer;

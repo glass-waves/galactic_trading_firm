@@ -5,10 +5,13 @@ use crate::live_session::TradeWithScores;
 
 /// writes completed trades to the postgres trades table.
 /// all trades are marked as paper trades (is_paper = true); `source`
-/// distinguishes live paper trading from demo/synthetic runs.
+/// distinguishes live paper trading ('paper') from demo/synthetic runs ('demo')
+/// and shadow books ('shadow'); `book` names the hosting book ('primary' or a
+/// shadow's `books.name`).
 pub struct TradeWriter {
     pool: sqlx::PgPool,
     source: String,
+    book: String,
 }
 
 pub fn direction_to_str(d: &TradeDirection) -> &'static str {
@@ -35,16 +38,22 @@ pub fn exit_reason_to_str(r: &ExitReason) -> &'static str {
 }
 
 impl TradeWriter {
-    /// `source` is written to `trades.source` ("paper" or "demo").
-    pub fn new(pool: sqlx::PgPool, source: &str) -> Self {
+    /// `source` is written to `trades.source` ("paper", "demo" or "shadow"),
+    /// `book` to `trades.book`.
+    pub fn new(pool: sqlx::PgPool, source: &str, book: &str) -> Self {
         Self {
             pool,
             source: source.to_string(),
+            book: book.to_string(),
         }
     }
 
     pub fn source(&self) -> &str {
         &self.source
+    }
+
+    pub fn book(&self) -> &str {
+        &self.book
     }
 
     /// write a completed trade with entry and exit scores to the trades table.
@@ -75,7 +84,8 @@ impl TradeWriter {
                 entry_score_daily, entry_score_monthly, entry_score_composite,
                 exit_score_1min, exit_score_5min, exit_score_hourly,
                 exit_score_daily, exit_score_monthly, exit_score_composite,
-                is_paper, entry_reason, source, broker_entry_price, broker_exit_price
+                is_paper, entry_reason, source, broker_entry_price, broker_exit_price,
+                book
             ) VALUES (
                 $1, $2::trade_direction, $3, $4, $5,
                 $6, $7, $8, $9,
@@ -83,7 +93,8 @@ impl TradeWriter {
                 $14,
                 $15, $16, $17, $18, $19, $20,
                 $21, $22, $23, $24, $25, $26,
-                true, $27, $28, $29, $30
+                true, $27, $28, $29, $30,
+                $31
             ) RETURNING id
             "#,
         )
@@ -117,6 +128,7 @@ impl TradeWriter {
         .bind(&self.source)
         .bind(tws.broker_entry_price)
         .bind(broker_exit_price)
+        .bind(&self.book)
         .fetch_one(&self.pool)
         .await?;
 
@@ -131,8 +143,12 @@ mod tests {
     #[tokio::test]
     async fn trade_writer_construction() {
         let pool = sqlx::PgPool::connect_lazy("postgres://localhost/test").unwrap();
-        let writer = TradeWriter::new(pool, "paper");
+        let writer = TradeWriter::new(pool.clone(), "paper", "primary");
         assert_eq!(writer.source(), "paper");
+        assert_eq!(writer.book(), "primary");
+        let shadow = TradeWriter::new(pool, "shadow", "shadow:amd");
+        assert_eq!(shadow.source(), "shadow");
+        assert_eq!(shadow.book(), "shadow:amd");
     }
 
     #[test]
