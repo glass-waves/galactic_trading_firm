@@ -166,6 +166,87 @@ fn vwap_distance_factory_works() {
     assert_eq!(ind.name(), "vwap_distance");
 }
 
+// session path metadata (VWAP retest research, 2026-09-27)
+
+fn flat_bar(ts: chrono::DateTime<chrono::Utc>, px: f64) -> types::market::Candle {
+    make_candle_ohlcv(px, px, px, px, 1000.0, ts)
+}
+
+/// a day on 1-minute bars: 60 bars at 100, 10 at 99, then a climb 99.4 / 99.6 / 99.75 / 99.8.
+/// returns the bars with one bar of the previous day in front (so the window "covers" today).
+fn retest_day() -> Vec<types::market::Candle> {
+    use chrono::TimeZone;
+    let open = chrono::Utc.with_ymd_and_hms(2024, 6, 3, 13, 30, 0).unwrap(); // 09:30 EDT
+    let mut v = vec![flat_bar(open - chrono::Duration::hours(18), 101.0)];
+    let mut px: Vec<f64> = vec![100.0; 60];
+    px.extend(vec![99.0; 10]);
+    px.extend([99.4, 99.6, 99.75, 99.8]);
+    for (i, p) in px.iter().enumerate() {
+        v.push(flat_bar(open + chrono::Duration::minutes(i as i64), *p));
+    }
+    v
+}
+
+fn market_at(bars1: &[types::market::Candle], bars5: Option<Vec<types::market::Candle>>) -> types::market::MarketState {
+    let mut ms = make_market_state(Timescale::OneMinute, &[100.0]);
+    let today: Vec<_> = bars1.iter().filter(|c| c.timestamp.format("%d").to_string() == "03").collect();
+    let (pv, vol) = today.iter().fold((0.0, 0.0), |(a, b), c| (a + c.close * c.volume, b + c.volume));
+    ms.session_vwap = pv / vol;
+    ms.last_price = bars1.last().unwrap().close;
+    ms.timestamp = bars1.last().unwrap().timestamp;
+    ms.candles.clear();
+    ms.candles.insert(Timescale::OneMinute, bars1.to_vec());
+    if let Some(b5) = bars5 {
+        ms.candles.insert(Timescale::FiveMinute, b5);
+    }
+    ms
+}
+
+fn meta(ms: &types::market::MarketState, key: &str) -> f64 {
+    let ind = VwapDistanceIndicator::new(Timescale::OneMinute, "vwap_1m".into());
+    *ind.compute(ms).unwrap().metadata.get(key).unwrap_or_else(|| panic!("missing {key}"))
+}
+
+#[test]
+fn vwap_distance_session_path_min_and_first_retest() {
+    let day = retest_day();
+    // at the last 99.0 bar: deep below VWAP, nothing after the low yet
+    let ms = market_at(&day[..71], None);
+    let dmin = meta(&ms, "min_dist_pct_today");
+    assert!(dmin < -0.4, "min {dmin}");
+    assert!((meta(&ms, "dist_pct") - (100.0 * (99.0 / ms.session_vwap - 1.0))).abs() < 1e-9);
+    // first bar back within 0.15 % of VWAP (99.75): earlier closes since the low stayed below
+    let ms = market_at(&day[..74], None);
+    assert!(meta(&ms, "dist_pct") > -0.15, "dist {}", meta(&ms, "dist_pct"));
+    assert!(meta(&ms, "rebound_since_min_pct") < -0.15, "rebound {}", meta(&ms, "rebound_since_min_pct"));
+    assert!((meta(&ms, "min_dist_pct_today") - dmin).abs() < 0.2);
+    assert!(meta(&ms, "mins_since_min") >= 3.0);
+    // one bar later the 99.75 close is part of the history: no longer a first retest
+    let ms = market_at(&day[..75], None);
+    assert!(meta(&ms, "rebound_since_min_pct") > -0.15);
+    assert!(meta(&ms, "max_dist_pct_today") >= 0.0);
+}
+
+#[test]
+fn vwap_distance_session_path_uses_5m_prefix_when_1m_window_is_short() {
+    use chrono::TimeZone;
+    let open = chrono::Utc.with_ymd_and_hms(2024, 6, 3, 13, 30, 0).unwrap();
+    // 5-minute bars 09:30..11:55: an hour at 100, then 99 (1 % below) until 11:00, then 100
+    let mut b5 = Vec::new();
+    for i in 0..30 {
+        let px = if (12..18).contains(&i) { 99.0 } else { 100.0 };
+        b5.push(flat_bar(open + chrono::Duration::minutes(5 * i), px));
+    }
+    // the 1-minute window only reaches back to 11:02 (no earlier bars, no previous day)
+    let b1: Vec<_> = (92..150).map(|m| flat_bar(open + chrono::Duration::minutes(m), 100.0)).collect();
+    let ms = market_at(&b1, Some(b5.clone()));
+    let dmin = meta(&ms, "min_dist_pct_today");
+    assert!(dmin < -0.5, "prefix low should be visible, got {dmin}");
+    // without the 5-minute window the prefix is missing: the 1m-only path never dips
+    let ms = market_at(&b1, None);
+    assert!(meta(&ms, "min_dist_pct_today") > -0.5);
+}
+
 // ── Stochastic RSI tests ──
 
 #[test]

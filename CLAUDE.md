@@ -186,6 +186,7 @@ the foundation crate. defines all traits, types, and configs used by every other
 | `src/exit/fixed_pct_stop.rs` | fixed % stop | hard stop at entry_price × (1 ± loss_pct) |
 | `src/exit/max_hold_timeout.rs` | max hold timeout | force exit after max_hold_ms |
 | `src/exit/session_close.rs` | session close | exit at configurable market close time |
+| `src/exit/vwap_stop.rs` | VWAP stop | exit when price crosses back through session VWAP ± buffer (exit reason FilterAlignment); `scope_min_max_hold_ms` limits it to windows with a long max hold (research 2026-09-27) |
 
 #### monitor
 

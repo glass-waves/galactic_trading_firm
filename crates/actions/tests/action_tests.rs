@@ -10,6 +10,7 @@ use actions::exit::fixed_pct_stop::FixedPctStop;
 use actions::exit::max_hold_timeout::{MaxHoldTimeout, ProfitTier};
 use actions::exit::profit_trailing_stop::ProfitTrailingStop;
 use actions::exit::session_close::SessionCloseExit;
+use actions::exit::vwap_stop::VwapStop;
 use actions::monitor::breakeven_stop::BreakevenStop;
 use actions::sizing::fixed_fractional::FixedFractionalSizing;
 use actions::sizing::score_scaled::ScoreScaledSizing;
@@ -814,4 +815,122 @@ fn profit_trail_zero_giveback_locks_all_profit() {
 fn profit_trail_registry_entry() {
     let registry = actions::default_action_registry();
     assert!(registry.factories.contains_key("profit_trailing_stop"));
+}
+
+// ── VwapStop ──
+
+fn vwap_market(price: f64, vwap: f64, max_hold_ms: Option<i64>) -> types::market::MarketState {
+    let mut ms = make_market_state(Timescale::OneMinute, &[price]);
+    ms.last_price = price;
+    ms.session_vwap = vwap;
+    ms.position_context = max_hold_ms.map(|m| types::market::PositionContext {
+        direction: -1.0,
+        unrealized_pnl_pct: 0.0,
+        hold_duration_ms: 60_000,
+        max_hold_ms: m,
+    });
+    ms
+}
+
+#[test]
+fn vwap_stop_short_exits_above_vwap_plus_buffer() {
+    let action = VwapStop::new(0.4, 0, "vs".into());
+    let pos = short_position(100.0, 100.5, 99.0);
+    // vwap 100, buffer 0.4 % -> stop level 100.40; close 100.45 is above it
+    match action.evaluate(Some(&pos), &vwap_market(100.45, 100.0, None), &default_scores(0.0)) {
+        ActionSignal::Exit { reason } => assert_eq!(reason, ExitReason::FilterAlignment),
+        other => panic!("expected Exit FilterAlignment, got {other:?}"),
+    }
+}
+
+#[test]
+fn vwap_stop_short_holds_inside_buffer() {
+    let action = VwapStop::new(0.4, 0, "vs".into());
+    let pos = short_position(100.0, 100.35, 99.0);
+    assert!(matches!(
+        action.evaluate(Some(&pos), &vwap_market(100.35, 100.0, None), &default_scores(0.0)),
+        ActionSignal::Hold
+    ));
+}
+
+#[test]
+fn vwap_stop_long_mirrors_below_vwap() {
+    let action = VwapStop::new(0.3, 0, "vs".into());
+    let pos = long_position(100.0, 99.6, 100.0);
+    // stop level 99.70; 99.65 is below it -> exit, 99.75 is not
+    assert!(matches!(
+        action.evaluate(Some(&pos), &vwap_market(99.65, 100.0, None), &default_scores(0.0)),
+        ActionSignal::Exit { reason: ExitReason::FilterAlignment }
+    ));
+    assert!(matches!(
+        action.evaluate(Some(&pos), &vwap_market(99.75, 100.0, None), &default_scores(0.0)),
+        ActionSignal::Hold
+    ));
+}
+
+#[test]
+fn vwap_stop_scope_only_long_max_hold_positions() {
+    // scoped to positions whose window set max_hold >= 3 h
+    let action = VwapStop::new(0.4, 10_800_000, "vs".into());
+    let pos = short_position(100.0, 101.0, 99.0);
+    // engine-default max hold (90 min): an ordinary window's position -> untouched
+    assert!(matches!(
+        action.evaluate(Some(&pos), &vwap_market(101.0, 100.0, Some(5_400_000)), &default_scores(0.0)),
+        ActionSignal::Hold
+    ));
+    // no position context -> not in scope
+    assert!(matches!(
+        action.evaluate(Some(&pos), &vwap_market(101.0, 100.0, None), &default_scores(0.0)),
+        ActionSignal::Hold
+    ));
+    // the VWAP window's 3 h override -> in scope
+    assert!(matches!(
+        action.evaluate(Some(&pos), &vwap_market(101.0, 100.0, Some(10_800_000)), &default_scores(0.0)),
+        ActionSignal::Exit { .. }
+    ));
+}
+
+#[test]
+fn vwap_stop_holds_without_position_or_vwap() {
+    let action = VwapStop::new(0.4, 0, "vs".into());
+    assert!(matches!(
+        action.evaluate(None, &vwap_market(101.0, 100.0, None), &default_scores(0.0)),
+        ActionSignal::Hold
+    ));
+    let pos = short_position(100.0, 101.0, 99.0);
+    assert!(matches!(
+        action.evaluate(Some(&pos), &vwap_market(101.0, 0.0, None), &default_scores(0.0)),
+        ActionSignal::Hold
+    ));
+}
+
+#[test]
+fn vwap_stop_factory_reads_params() {
+    let mut params = std::collections::HashMap::new();
+    params.insert("buffer_pct".to_string(), serde_json::json!(0.5));
+    params.insert("scope_min_max_hold_ms".to_string(), serde_json::json!(7_200_000));
+    let cfg = types::action::ActionConfig {
+        action_type: "vwap_stop".into(),
+        instance_id: "vwap_stop_05".into(),
+        phase: ActionPhase::Exit,
+        enabled: true,
+        priority: 2,
+        params,
+        last_modified_by: None,
+        last_modified_at: None,
+        modification_reason: None,
+    };
+    let action = actions::exit::vwap_stop::vwap_stop_factory(&cfg);
+    assert_eq!(action.name(), "vwap_stop");
+    assert_eq!(action.phase(), ActionPhase::Exit);
+    let pos = short_position(100.0, 100.45, 99.0);
+    // 100.45 < 100.50 (0.5 % buffer) -> hold, even in scope
+    assert!(matches!(
+        action.evaluate(Some(&pos), &vwap_market(100.45, 100.0, Some(7_200_000)), &default_scores(0.0)),
+        ActionSignal::Hold
+    ));
+    assert!(matches!(
+        action.evaluate(Some(&pos), &vwap_market(100.55, 100.0, Some(7_200_000)), &default_scores(0.0)),
+        ActionSignal::Exit { .. }
+    ));
 }
