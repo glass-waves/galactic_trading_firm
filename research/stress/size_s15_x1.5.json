@@ -1,0 +1,25 @@
+{
+ "disable": [
+  "sizing_fixed"
+ ],
+ "actions": [
+  {
+   "instance_id": "sizing_tiered_stress",
+   "action_type": "indicator_tiered",
+   "phase": "Sizing",
+   "priority": 0,
+   "enabled": true,
+   "params": {
+    "instance_id": "cross_1m.index_session_ret",
+    "base_fraction": 0.36,
+    "tiers": [
+     {
+      "min": -1.5,
+      "mult": 1.0
+     }
+    ],
+    "fallback_mult": 1.5
+   }
+  }
+ ]
+}
