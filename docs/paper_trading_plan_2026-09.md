@@ -1064,3 +1064,16 @@ months by PF, P&L or Sharpe) never beats static v18 out of sample 2023–2026Q3 
 selector. fitting on 2026 alone is therefore curve-fitting, not adaptation; the five-year gate stays.
 details: `research/volume/walk_forward.md`. side result: VPIN 0.26 shorts-only was the trailing
 choice for eleven straight quarters (5y PF 1.58, 306 trades) — quality, not volume.
+
+### 15.2 multi-day long research (agent, 2026-09-26) — `research/swing/2026-09-26_multiday_long_research.md`
+
+daily bars for 59 liquid names + SPY (2021-06..2026-09, cached in research/swing/daily), EDGAR 8-K earnings
+dates, 10 bps round-trip costs. the only edge beyond beta: **PEAD, hold 10 sessions after a > +3 % reaction
+day**: universe PF 1.55–1.78, +107–135 bps/trade, +67 bps/trade over an unconditional 10-day hold *in every
+year*; ~63 signals/yr uncapped, 30–45/yr with 2–4 slots; the drift accrues in sessions 6–10 (hold 3/5 ≈ beta).
+dead: overnight holds (PF 0.80 net), event *toggle* for intraday longs (reaction-day 09:30–11:30 long return
+−15 bps pooled; event days are ~5 % of sessions and only 5–6 % of the > +1 % mornings — upside mornings are
+not news days; the existing event *exclusion* has the right sign), bear-bounce at daily scale (universe PF
+≈ 1.0; the four-name intraday result is NVDA), breakout momentum (2023 −6.8k), reversal (≈ beta once capped).
+a multi-day book needs persistent positions, gap-aware stops and startup reconciliation (8–12 days of engine
+work); the agent's suggested test is a hand-run PEAD script with a 40-trade accept-if before any build.

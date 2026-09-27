@@ -1,0 +1,939 @@
+{
+ "a_pead_h10_universe": {
+  "stats": {
+   "trades": 321,
+   "pnl": 34326,
+   "win%": 54.2,
+   "pf": 1.55,
+   "avg_bps": 106.9,
+   "maxdd": -15616,
+   "worst": -1576,
+   "avg_hold": 9.0
+  },
+  "per_name": {
+   "top": [
+    [
+     "INTC",
+     6,
+     5666
+    ],
+    [
+     "LLY",
+     10,
+     5584
+    ],
+    [
+     "TSLA",
+     9,
+     4643
+    ],
+    [
+     "BA",
+     5,
+     2923
+    ],
+    [
+     "NVDA",
+     7,
+     2681
+    ],
+    [
+     "T",
+     9,
+     2378
+    ],
+    [
+     "MSFT",
+     7,
+     2306
+    ],
+    [
+     "NFLX",
+     7,
+     2257
+    ]
+   ],
+   "bottom": [
+    [
+     "TMO",
+     5,
+     -1965
+    ],
+    [
+     "V",
+     4,
+     -1970
+    ],
+    [
+     "MA",
+     5,
+     -1971
+    ],
+    [
+     "PLD",
+     4,
+     -2154
+    ]
+   ],
+   "top3_share": 0.46,
+   "names_positive": 41,
+   "names": 59
+  },
+  "concurrency": {
+   "max_concurrent": 16,
+   "mean_when_active": 4.4,
+   "pct_days_in_market": 74.8
+  },
+  "cap2": {
+   "trades": 143,
+   "per_year": 30.2,
+   "pf": 1.53,
+   "pnl": 14579,
+   "avg_bps": 102.0,
+   "maxdd": -4208
+  },
+  "cap4": {
+   "trades": 213,
+   "per_year": 45.0,
+   "pf": 1.28,
+   "pnl": 12358,
+   "avg_bps": 58.0,
+   "maxdd": -8660
+  },
+  "cap8": {
+   "trades": 290,
+   "per_year": 61.3,
+   "pf": 1.46,
+   "pnl": 26796,
+   "avg_bps": 92.4,
+   "maxdd": -13635
+  }
+ },
+ "a_pead_h5_universe": {
+  "stats": {
+   "trades": 321,
+   "pnl": 12367,
+   "win%": 52.3,
+   "pf": 1.25,
+   "avg_bps": 38.5,
+   "maxdd": -7049,
+   "worst": -1446,
+   "avg_hold": 4.0
+  },
+  "per_name": {
+   "top": [
+    [
+     "LLY",
+     10,
+     3319
+    ],
+    [
+     "INTC",
+     6,
+     3201
+    ],
+    [
+     "NFLX",
+     7,
+     2253
+    ],
+    [
+     "MSFT",
+     7,
+     2009
+    ],
+    [
+     "T",
+     9,
+     1612
+    ],
+    [
+     "CRM",
+     8,
+     1385
+    ],
+    [
+     "TSLA",
+     9,
+     1292
+    ],
+    [
+     "DIS",
+     9,
+     1289
+    ]
+   ],
+   "bottom": [
+    [
+     "ORCL",
+     7,
+     -1087
+    ],
+    [
+     "MU",
+     6,
+     -1373
+    ],
+    [
+     "CMCSA",
+     4,
+     -1448
+    ],
+    [
+     "AVGO",
+     8,
+     -1974
+    ]
+   ],
+   "top3_share": 0.71,
+   "names_positive": 33,
+   "names": 59
+  },
+  "concurrency": {
+   "max_concurrent": 9,
+   "mean_when_active": 2.6,
+   "pct_days_in_market": 51.0
+  },
+  "cap2": {
+   "trades": 202,
+   "per_year": 42.7,
+   "pf": 1.16,
+   "pnl": 5042,
+   "avg_bps": 25.0,
+   "maxdd": -4727
+  },
+  "cap4": {
+   "trades": 275,
+   "per_year": 58.1,
+   "pf": 1.2,
+   "pnl": 8557,
+   "avg_bps": 31.1,
+   "maxdd": -6670
+  },
+  "cap8": {
+   "trades": 319,
+   "per_year": 67.4,
+   "pf": 1.24,
+   "pnl": 12032,
+   "avg_bps": 37.7,
+   "maxdd": -7049
+  }
+ },
+ "b_rev_h5_universe": {
+  "stats": {
+   "trades": 1448,
+   "pnl": 54969,
+   "win%": 53.5,
+   "pf": 1.26,
+   "avg_bps": 38.0,
+   "maxdd": -17637,
+   "worst": -2011,
+   "avg_hold": 5.0
+  },
+  "per_name": {
+   "top": [
+    [
+     "AMD",
+     33,
+     9972
+    ],
+    [
+     "AMAT",
+     36,
+     9199
+    ],
+    [
+     "NVDA",
+     39,
+     7831
+    ],
+    [
+     "MU",
+     47,
+     5827
+    ],
+    [
+     "CAT",
+     30,
+     5435
+    ],
+    [
+     "AVGO",
+     44,
+     4037
+    ],
+    [
+     "GE",
+     27,
+     3991
+    ],
+    [
+     "GS",
+     26,
+     3618
+    ]
+   ],
+   "bottom": [
+    [
+     "ABBV",
+     21,
+     -2053
+    ],
+    [
+     "NKE",
+     17,
+     -2446
+    ],
+    [
+     "TSLA",
+     29,
+     -3021
+    ],
+    [
+     "BA",
+     21,
+     -3326
+    ]
+   ],
+   "top3_share": 0.49,
+   "names_positive": 33,
+   "names": 59
+  },
+  "concurrency": {
+   "max_concurrent": 28,
+   "mean_when_active": 8.5,
+   "pct_days_in_market": 74.6
+  },
+  "cap2": {
+   "trades": 311,
+   "per_year": 65.8,
+   "pf": 1.02,
+   "pnl": 917,
+   "avg_bps": 2.9,
+   "maxdd": -11823
+  },
+  "cap4": {
+   "trades": 575,
+   "per_year": 121.6,
+   "pf": 1.11,
+   "pnl": 10435,
+   "avg_bps": 18.1,
+   "maxdd": -14183
+  },
+  "cap8": {
+   "trades": 981,
+   "per_year": 207.4,
+   "pf": 1.15,
+   "pnl": 22616,
+   "avg_bps": 23.1,
+   "maxdd": -12214
+  }
+ },
+ "c_bo_20d_h10_universe": {
+  "stats": {
+   "trades": 650,
+   "pnl": 42460,
+   "win%": 47.1,
+   "pf": 1.31,
+   "avg_bps": 65.3,
+   "maxdd": -21661,
+   "worst": -1239,
+   "avg_hold": 8.4
+  },
+  "per_name": {
+   "top": [
+    [
+     "MU",
+     17,
+     7692
+    ],
+    [
+     "AMD",
+     19,
+     7478
+    ],
+    [
+     "INTC",
+     20,
+     6996
+    ],
+    [
+     "AVGO",
+     14,
+     5079
+    ],
+    [
+     "NVDA",
+     10,
+     4419
+    ],
+    [
+     "QCOM",
+     12,
+     4161
+    ],
+    [
+     "ORCL",
+     17,
+     4133
+    ],
+    [
+     "CAT",
+     17,
+     3403
+    ]
+   ],
+   "bottom": [
+    [
+     "DHR",
+     10,
+     -1921
+    ],
+    [
+     "AMZN",
+     13,
+     -2131
+    ],
+    [
+     "CMCSA",
+     10,
+     -2300
+    ],
+    [
+     "MS",
+     13,
+     -2302
+    ]
+   ],
+   "top3_share": 0.52,
+   "names_positive": 32,
+   "names": 59
+  },
+  "concurrency": {
+   "max_concurrent": 21,
+   "mean_when_active": 6.9,
+   "pct_days_in_market": 72.7
+  },
+  "cap2": {
+   "trades": 170,
+   "per_year": 35.9,
+   "pf": 1.49,
+   "pnl": 16485,
+   "avg_bps": 97.0,
+   "maxdd": -6607
+  },
+  "cap4": {
+   "trades": 320,
+   "per_year": 67.7,
+   "pf": 1.33,
+   "pnl": 21806,
+   "avg_bps": 68.1,
+   "maxdd": -14989
+  },
+  "cap8": {
+   "trades": 508,
+   "per_year": 107.4,
+   "pf": 1.32,
+   "pnl": 34614,
+   "avg_bps": 68.1,
+   "maxdd": -14445
+  }
+ },
+ "c_bo_52w_h10_universe": {
+  "stats": {
+   "trades": 642,
+   "pnl": 19682,
+   "win%": 47.2,
+   "pf": 1.15,
+   "avg_bps": 30.7,
+   "maxdd": -11661,
+   "worst": -2054,
+   "avg_hold": 8.6
+  },
+  "per_name": {
+   "top": [
+    [
+     "MU",
+     20,
+     10646
+    ],
+    [
+     "NVDA",
+     18,
+     4931
+    ],
+    [
+     "INTC",
+     11,
+     4725
+    ],
+    [
+     "TSLA",
+     3,
+     3129
+    ],
+    [
+     "META",
+     19,
+     2340
+    ],
+    [
+     "LLY",
+     16,
+     2100
+    ],
+    [
+     "GE",
+     25,
+     1977
+    ],
+    [
+     "AMD",
+     16,
+     1738
+    ]
+   ],
+   "bottom": [
+    [
+     "GOOGL",
+     20,
+     -1677
+    ],
+    [
+     "UNH",
+     7,
+     -1809
+    ],
+    [
+     "BAC",
+     17,
+     -1905
+    ],
+    [
+     "PLD",
+     7,
+     -2430
+    ]
+   ],
+   "top3_share": 1.03,
+   "names_positive": 25,
+   "names": 56
+  },
+  "concurrency": {
+   "max_concurrent": 22,
+   "mean_when_active": 7.4,
+   "pct_days_in_market": 70.2
+  },
+  "cap2": {
+   "trades": 166,
+   "per_year": 35.1,
+   "pf": 1.06,
+   "pnl": 2008,
+   "avg_bps": 12.1,
+   "maxdd": -5011
+  },
+  "cap4": {
+   "trades": 303,
+   "per_year": 64.1,
+   "pf": 1.02,
+   "pnl": 1035,
+   "avg_bps": 3.4,
+   "maxdd": -9369
+  },
+  "cap8": {
+   "trades": 499,
+   "per_year": 105.5,
+   "pf": 1.08,
+   "pnl": 8276,
+   "avg_bps": 16.6,
+   "maxdd": -11678
+  }
+ },
+ "e_bearbounce_h3_four": {
+  "stats": {
+   "trades": 232,
+   "pnl": 16622,
+   "win%": 51.7,
+   "pf": 1.42,
+   "avg_bps": 71.6,
+   "maxdd": -6032,
+   "worst": -1524,
+   "avg_hold": 3.0
+  },
+  "per_name": {
+   "top": [
+    [
+     "NVDA",
+     74,
+     11858
+    ],
+    [
+     "AMZN",
+     63,
+     2787
+    ],
+    [
+     "MSFT",
+     46,
+     1908
+    ],
+    [
+     "AAPL",
+     49,
+     69
+    ]
+   ],
+   "bottom": [
+    [
+     "NVDA",
+     74,
+     11858
+    ],
+    [
+     "AMZN",
+     63,
+     2787
+    ],
+    [
+     "MSFT",
+     46,
+     1908
+    ],
+    [
+     "AAPL",
+     49,
+     69
+    ]
+   ],
+   "top3_share": 1.0,
+   "names_positive": 4,
+   "names": 4
+  },
+  "concurrency": {
+   "max_concurrent": 4,
+   "mean_when_active": 2.2,
+   "pct_days_in_market": 25.7
+  },
+  "cap2": {
+   "trades": 156,
+   "per_year": 33.0,
+   "pf": 1.35,
+   "pnl": 9596,
+   "avg_bps": 61.5,
+   "maxdd": -5782
+  },
+  "cap4": {
+   "trades": 232,
+   "per_year": 49.0,
+   "pf": 1.42,
+   "pnl": 16622,
+   "avg_bps": 71.6,
+   "maxdd": -6032
+  },
+  "cap8": {
+   "trades": 232,
+   "per_year": 49.0,
+   "pf": 1.42,
+   "pnl": 16622,
+   "avg_bps": 71.6,
+   "maxdd": -6032
+  }
+ },
+ "e_bearbounce_h3_universe": {
+  "stats": {
+   "trades": 2517,
+   "pnl": 39330,
+   "win%": 51.6,
+   "pf": 1.09,
+   "avg_bps": 15.6,
+   "maxdd": -57557,
+   "worst": -2881,
+   "avg_hold": 3.0
+  },
+  "per_name": {
+   "top": [
+    [
+     "NVDA",
+     74,
+     11858
+    ],
+    [
+     "NFLX",
+     60,
+     6978
+    ],
+    [
+     "CRM",
+     57,
+     6748
+    ],
+    [
+     "AMD",
+     71,
+     5304
+    ],
+    [
+     "AVGO",
+     59,
+     4840
+    ],
+    [
+     "AMAT",
+     65,
+     4742
+    ],
+    [
+     "XOM",
+     36,
+     3058
+    ],
+    [
+     "LOW",
+     50,
+     2817
+    ]
+   ],
+   "bottom": [
+    [
+     "NKE",
+     52,
+     -2306
+    ],
+    [
+     "CAT",
+     44,
+     -2495
+    ],
+    [
+     "DE",
+     39,
+     -3855
+    ],
+    [
+     "PLD",
+     39,
+     -4590
+    ]
+   ],
+   "top3_share": 0.65,
+   "names_positive": 32,
+   "names": 59
+  },
+  "concurrency": {
+   "max_concurrent": 57,
+   "mean_when_active": 16.6,
+   "pct_days_in_market": 37.7
+  },
+  "cap2": {
+   "trades": 261,
+   "per_year": 55.2,
+   "pf": 1.27,
+   "pnl": 12607,
+   "avg_bps": 48.3,
+   "maxdd": -8901
+  },
+  "cap4": {
+   "trades": 501,
+   "per_year": 105.9,
+   "pf": 1.28,
+   "pnl": 23538,
+   "avg_bps": 47.0,
+   "maxdd": -10676
+  },
+  "cap8": {
+   "trades": 927,
+   "per_year": 196.0,
+   "pf": 1.13,
+   "pnl": 21213,
+   "avg_bps": 22.9,
+   "maxdd": -19345
+  }
+ },
+ "b_rev_h3_four": {
+  "stats": {
+   "trades": 132,
+   "pnl": 7773,
+   "win%": 53.0,
+   "pf": 1.52,
+   "avg_bps": 58.9,
+   "maxdd": -2934,
+   "worst": -871,
+   "avg_hold": 3.0
+  },
+  "per_name": {
+   "top": [
+    [
+     "NVDA",
+     44,
+     9198
+    ],
+    [
+     "MSFT",
+     28,
+     1902
+    ],
+    [
+     "AMZN",
+     37,
+     -1526
+    ],
+    [
+     "AAPL",
+     23,
+     -1801
+    ]
+   ],
+   "bottom": [
+    [
+     "NVDA",
+     44,
+     9198
+    ],
+    [
+     "MSFT",
+     28,
+     1902
+    ],
+    [
+     "AMZN",
+     37,
+     -1526
+    ],
+    [
+     "AAPL",
+     23,
+     -1801
+    ]
+   ],
+   "top3_share": 1.23,
+   "names_positive": 2,
+   "names": 4
+  },
+  "concurrency": {
+   "max_concurrent": 4,
+   "mean_when_active": 1.4,
+   "pct_days_in_market": 25.7
+  },
+  "cap2": {
+   "trades": 122,
+   "per_year": 25.8,
+   "pf": 1.47,
+   "pnl": 6428,
+   "avg_bps": 52.7,
+   "maxdd": -2614
+  },
+  "cap4": {
+   "trades": 132,
+   "per_year": 27.9,
+   "pf": 1.52,
+   "pnl": 7773,
+   "avg_bps": 58.9,
+   "maxdd": -2934
+  },
+  "cap8": {
+   "trades": 132,
+   "per_year": 27.9,
+   "pf": 1.52,
+   "pnl": 7773,
+   "avg_bps": 58.9,
+   "maxdd": -2934
+  }
+ },
+ "pead_h10_ex_top_name": {
+  "dropped": "INTC",
+  "trades": 315,
+  "pnl": 28661,
+  "win%": 54.0,
+  "pf": 1.47,
+  "avg_bps": 91.0,
+  "maxdd": -15616,
+  "worst": -1576,
+  "avg_hold": 9.0
+ },
+ "pead_h10_thresh0.01": {
+  "trades": 484,
+  "pnl": 44119,
+  "win%": 53.9,
+  "pf": 1.5,
+  "avg_bps": 91.2,
+  "maxdd": -18094,
+  "worst": -1576,
+  "avg_hold": 9.0
+ },
+ "pead_h10_thresh0.02": {
+  "trades": 396,
+  "pnl": 36308,
+  "win%": 53.8,
+  "pf": 1.48,
+  "avg_bps": 91.7,
+  "maxdd": -17769,
+  "worst": -1576,
+  "avg_hold": 9.0
+ },
+ "pead_h10_thresh0.03": {
+  "trades": 321,
+  "pnl": 34326,
+  "win%": 54.2,
+  "pf": 1.55,
+  "avg_bps": 106.9,
+  "maxdd": -15616,
+  "worst": -1576,
+  "avg_hold": 9.0
+ },
+ "pead_h10_thresh0.05": {
+  "trades": 201,
+  "pnl": 23777,
+  "win%": 54.7,
+  "pf": 1.57,
+  "avg_bps": 118.3,
+  "maxdd": -10364,
+  "worst": -1576,
+  "avg_hold": 9.0
+ },
+ "pead_h10_thresh0.08": {
+  "trades": 102,
+  "pnl": 19382,
+  "win%": 54.9,
+  "pf": 1.92,
+  "avg_bps": 190.0,
+  "maxdd": -6106,
+  "worst": -1413,
+  "avg_hold": 9.0
+ },
+ "control_long_after_neg_reaction_h10": {
+  "trades": 320,
+  "pnl": 14837,
+  "win%": 51.6,
+  "pf": 1.22,
+  "avg_bps": 46.4,
+  "maxdd": -10672,
+  "worst": -3275,
+  "avg_hold": 9.0
+ },
+ "oc_event_split_four": {
+  "event_days": 76,
+  "event_oc_mean_bps": -25.1,
+  "event_oc_win%": 46.1,
+  "event_oc_std_bps": 306,
+  "ordinary_days": 4672,
+  "ordinary_oc_mean_bps": 6.1,
+  "ordinary_oc_win%": 52.3,
+  "share_of_+2%_oc_days_that_are_event_days": 2.6,
+  "event_day_share_of_all_days": 1.6
+ },
+ "oc_event_split_universe": {
+  "event_days": 1121,
+  "event_oc_mean_bps": -5.6,
+  "event_oc_win%": 49.1,
+  "event_oc_std_bps": 282,
+  "ordinary_days": 68912,
+  "ordinary_oc_mean_bps": 3.2,
+  "ordinary_oc_win%": 51.1,
+  "share_of_+2%_oc_days_that_are_event_days": 4.1,
+  "event_day_share_of_all_days": 1.6
+ },
+ "overnight_gross_bps": {
+  "four": 1.5,
+  "universe": 1.7
+ }
+}

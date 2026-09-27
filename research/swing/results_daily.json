@@ -1,0 +1,4830 @@
+{
+ "a_pead_h3_four": {
+  "all": {
+   "trades": 32,
+   "pnl": 2645,
+   "win%": 56.2,
+   "pf": 1.84,
+   "avg_bps": 82.7,
+   "maxdd": -702,
+   "worst": -541,
+   "avg_hold": 2.0
+  },
+  "2022": {
+   "trades": 9,
+   "pnl": 744,
+   "win%": 66.7,
+   "pf": 2.02,
+   "avg_bps": 82.7,
+   "maxdd": -541,
+   "worst": -541,
+   "avg_hold": 2.0
+  },
+  "2023": {
+   "trades": 9,
+   "pnl": 586,
+   "win%": 44.4,
+   "pf": 1.76,
+   "avg_bps": 65.2,
+   "maxdd": -702,
+   "worst": -391,
+   "avg_hold": 2.0
+  },
+  "2024": {
+   "trades": 5,
+   "pnl": 1267,
+   "win%": 80.0,
+   "pf": 5.72,
+   "avg_bps": 253.5,
+   "maxdd": -269,
+   "worst": -269,
+   "avg_hold": 2.0
+  },
+  "2025": {
+   "trades": 5,
+   "pnl": -506,
+   "win%": 40.0,
+   "pf": 0.28,
+   "avg_bps": -101.3,
+   "maxdd": -506,
+   "worst": -346,
+   "avg_hold": 2.0
+  },
+  "2026": {
+   "trades": 4,
+   "pnl": 553,
+   "win%": 50.0,
+   "pf": 1.84,
+   "avg_bps": 138.3,
+   "maxdd": -659,
+   "worst": -446,
+   "avg_hold": 2.0
+  },
+  "spy>200": {
+   "trades": 19,
+   "pnl": 1774,
+   "win%": 52.6,
+   "pf": 1.91,
+   "avg_bps": 93.3,
+   "maxdd": -856,
+   "worst": -446,
+   "avg_hold": 2.0
+  },
+  "spy<200": {
+   "trades": 13,
+   "pnl": 871,
+   "win%": 61.5,
+   "pf": 1.74,
+   "avg_bps": 67.0,
+   "maxdd": -645,
+   "worst": -541,
+   "avg_hold": 2.0
+  },
+  "trades_per_year": 6.8,
+  "universe": "four"
+ },
+ "a_pead_h5_four": {
+  "all": {
+   "trades": 32,
+   "pnl": 3312,
+   "win%": 68.8,
+   "pf": 2.01,
+   "avg_bps": 103.5,
+   "maxdd": -975,
+   "worst": -975,
+   "avg_hold": 4.0
+  },
+  "2022": {
+   "trades": 9,
+   "pnl": 66,
+   "win%": 66.7,
+   "pf": 1.04,
+   "avg_bps": 7.4,
+   "maxdd": -975,
+   "worst": -975,
+   "avg_hold": 4.0
+  },
+  "2023": {
+   "trades": 9,
+   "pnl": 1124,
+   "win%": 66.7,
+   "pf": 3.03,
+   "avg_bps": 124.9,
+   "maxdd": -361,
+   "worst": -356,
+   "avg_hold": 4.0
+  },
+  "2024": {
+   "trades": 5,
+   "pnl": 1123,
+   "win%": 80.0,
+   "pf": 6.15,
+   "avg_bps": 224.6,
+   "maxdd": -218,
+   "worst": -218,
+   "avg_hold": 4.0
+  },
+  "2025": {
+   "trades": 5,
+   "pnl": -469,
+   "win%": 60.0,
+   "pf": 0.34,
+   "avg_bps": -93.8,
+   "maxdd": -713,
+   "worst": -439,
+   "avg_hold": 4.0
+  },
+  "2026": {
+   "trades": 4,
+   "pnl": 1468,
+   "win%": 75.0,
+   "pf": 10.99,
+   "avg_bps": 366.9,
+   "maxdd": -147,
+   "worst": -147,
+   "avg_hold": 4.0
+  },
+  "spy>200": {
+   "trades": 19,
+   "pnl": 2256,
+   "win%": 63.2,
+   "pf": 2.38,
+   "avg_bps": 118.7,
+   "maxdd": -713,
+   "worst": -439,
+   "avg_hold": 4.0
+  },
+  "spy<200": {
+   "trades": 13,
+   "pnl": 1056,
+   "win%": 76.9,
+   "pf": 1.64,
+   "avg_bps": 81.2,
+   "maxdd": -975,
+   "worst": -975,
+   "avg_hold": 4.0
+  },
+  "trades_per_year": 6.8,
+  "universe": "four"
+ },
+ "a_pead_h10_four": {
+  "all": {
+   "trades": 32,
+   "pnl": 6487,
+   "win%": 62.5,
+   "pf": 2.06,
+   "avg_bps": 202.7,
+   "maxdd": -3239,
+   "worst": -1201,
+   "avg_hold": 9.0
+  },
+  "2022": {
+   "trades": 9,
+   "pnl": -1459,
+   "win%": 33.3,
+   "pf": 0.58,
+   "avg_bps": -162.2,
+   "maxdd": -3239,
+   "worst": -1201,
+   "avg_hold": 9.0
+  },
+  "2023": {
+   "trades": 9,
+   "pnl": 2918,
+   "win%": 88.9,
+   "pf": 6.2,
+   "avg_bps": 324.2,
+   "maxdd": -561,
+   "worst": -561,
+   "avg_hold": 9.0
+  },
+  "2024": {
+   "trades": 5,
+   "pnl": 3680,
+   "win%": 80.0,
+   "pf": 73.81,
+   "avg_bps": 735.9,
+   "maxdd": -51,
+   "worst": -51,
+   "avg_hold": 9.0
+  },
+  "2025": {
+   "trades": 5,
+   "pnl": 573,
+   "win%": 60.0,
+   "pf": 1.54,
+   "avg_bps": 114.5,
+   "maxdd": -1063,
+   "worst": -819,
+   "avg_hold": 9.0
+  },
+  "2026": {
+   "trades": 4,
+   "pnl": 777,
+   "win%": 50.0,
+   "pf": 1.79,
+   "avg_bps": 194.1,
+   "maxdd": -981,
+   "worst": -572,
+   "avg_hold": 9.0
+  },
+  "spy>200": {
+   "trades": 19,
+   "pnl": 5042,
+   "win%": 68.4,
+   "pf": 2.9,
+   "avg_bps": 265.3,
+   "maxdd": -1063,
+   "worst": -819,
+   "avg_hold": 9.0
+  },
+  "spy<200": {
+   "trades": 13,
+   "pnl": 1446,
+   "win%": 53.8,
+   "pf": 1.42,
+   "avg_bps": 111.2,
+   "maxdd": -3239,
+   "worst": -1201,
+   "avg_hold": 9.0
+  },
+  "trades_per_year": 6.8,
+  "universe": "four"
+ },
+ "a_pead_h5_gap5_four": {
+  "all": {
+   "trades": 21,
+   "pnl": 2935,
+   "win%": 71.4,
+   "pf": 2.27,
+   "avg_bps": 139.8,
+   "maxdd": -975,
+   "worst": -975,
+   "avg_hold": 4.0
+  },
+  "2022": {
+   "trades": 6,
+   "pnl": -28,
+   "win%": 66.7,
+   "pf": 0.98,
+   "avg_bps": -4.7,
+   "maxdd": -975,
+   "worst": -975,
+   "avg_hold": 4.0
+  },
+  "2023": {
+   "trades": 5,
+   "pnl": 1151,
+   "win%": 80.0,
+   "pf": 6.96,
+   "avg_bps": 230.2,
+   "maxdd": -193,
+   "worst": -193,
+   "avg_hold": 4.0
+  },
+  "2024": {
+   "trades": 5,
+   "pnl": 1123,
+   "win%": 80.0,
+   "pf": 6.15,
+   "avg_bps": 224.6,
+   "maxdd": -218,
+   "worst": -218,
+   "avg_hold": 4.0
+  },
+  "2025": {
+   "trades": 2,
+   "pnl": -300,
+   "win%": 50.0,
+   "pf": 0.32,
+   "avg_bps": -149.9,
+   "maxdd": -439,
+   "worst": -439,
+   "avg_hold": 4.0
+  },
+  "2026": {
+   "trades": 3,
+   "pnl": 989,
+   "win%": 66.7,
+   "pf": 7.73,
+   "avg_bps": 329.7,
+   "maxdd": -147,
+   "worst": -147,
+   "avg_hold": 4.0
+  },
+  "spy>200": {
+   "trades": 13,
+   "pnl": 2150,
+   "win%": 69.2,
+   "pf": 3.16,
+   "avg_bps": 165.3,
+   "maxdd": -439,
+   "worst": -439,
+   "avg_hold": 4.0
+  },
+  "spy<200": {
+   "trades": 8,
+   "pnl": 786,
+   "win%": 75.0,
+   "pf": 1.6,
+   "avg_bps": 98.2,
+   "maxdd": -975,
+   "worst": -975,
+   "avg_hold": 4.0
+  },
+  "trades_per_year": 4.4,
+  "universe": "four"
+ },
+ "b_rev_h3_four": {
+  "all": {
+   "trades": 132,
+   "pnl": 7773,
+   "win%": 53.0,
+   "pf": 1.52,
+   "avg_bps": 58.9,
+   "maxdd": -2934,
+   "worst": -871,
+   "avg_hold": 3.0
+  },
+  "2022": {
+   "trades": 3,
+   "pnl": -1476,
+   "win%": 0.0,
+   "pf": 0.0,
+   "avg_bps": -492.1,
+   "maxdd": -1476,
+   "worst": -871,
+   "avg_hold": 3.0
+  },
+  "2023": {
+   "trades": 40,
+   "pnl": 6336,
+   "win%": 60.0,
+   "pf": 2.63,
+   "avg_bps": 158.4,
+   "maxdd": -1686,
+   "worst": -771,
+   "avg_hold": 3.0
+  },
+  "2024": {
+   "trades": 40,
+   "pnl": 3427,
+   "win%": 65.0,
+   "pf": 2.01,
+   "avg_bps": 85.7,
+   "maxdd": -760,
+   "worst": -502,
+   "avg_hold": 3.0
+  },
+  "2025": {
+   "trades": 25,
+   "pnl": 16,
+   "win%": 48.0,
+   "pf": 1.01,
+   "avg_bps": 0.6,
+   "maxdd": -1041,
+   "worst": -521,
+   "avg_hold": 3.0
+  },
+  "2026": {
+   "trades": 24,
+   "pnl": -530,
+   "win%": 33.3,
+   "pf": 0.85,
+   "avg_bps": -22.1,
+   "maxdd": -2217,
+   "worst": -473,
+   "avg_hold": 3.0
+  },
+  "spy>200": {
+   "trades": 132,
+   "pnl": 7773,
+   "win%": 53.0,
+   "pf": 1.52,
+   "avg_bps": 58.9,
+   "maxdd": -2934,
+   "worst": -871,
+   "avg_hold": 3.0
+  },
+  "spy<200": {
+   "trades": 0
+  },
+  "trades_per_year": 27.9,
+  "universe": "four"
+ },
+ "b_rev_h3_noregime_four": {
+  "all": {
+   "trades": 162,
+   "pnl": 10772,
+   "win%": 54.3,
+   "pf": 1.52,
+   "avg_bps": 66.5,
+   "maxdd": -3032,
+   "worst": -1372,
+   "avg_hold": 3.0
+  },
+  "2022": {
+   "trades": 31,
+   "pnl": 926,
+   "win%": 51.6,
+   "pf": 1.13,
+   "avg_bps": 29.9,
+   "maxdd": -3032,
+   "worst": -1372,
+   "avg_hold": 3.0
+  },
+  "2023": {
+   "trades": 42,
+   "pnl": 6934,
+   "win%": 61.9,
+   "pf": 2.78,
+   "avg_bps": 165.1,
+   "maxdd": -1686,
+   "worst": -771,
+   "avg_hold": 3.0
+  },
+  "2024": {
+   "trades": 40,
+   "pnl": 3427,
+   "win%": 65.0,
+   "pf": 2.01,
+   "avg_bps": 85.7,
+   "maxdd": -760,
+   "worst": -502,
+   "avg_hold": 3.0
+  },
+  "2025": {
+   "trades": 25,
+   "pnl": 16,
+   "win%": 48.0,
+   "pf": 1.01,
+   "avg_bps": 0.6,
+   "maxdd": -1041,
+   "worst": -521,
+   "avg_hold": 3.0
+  },
+  "2026": {
+   "trades": 24,
+   "pnl": -530,
+   "win%": 33.3,
+   "pf": 0.85,
+   "avg_bps": -22.1,
+   "maxdd": -2217,
+   "worst": -473,
+   "avg_hold": 3.0
+  },
+  "spy>200": {
+   "trades": 131,
+   "pnl": 8226,
+   "win%": 53.4,
+   "pf": 1.57,
+   "avg_bps": 62.8,
+   "maxdd": -2934,
+   "worst": -871,
+   "avg_hold": 3.0
+  },
+  "spy<200": {
+   "trades": 31,
+   "pnl": 2547,
+   "win%": 58.1,
+   "pf": 1.42,
+   "avg_bps": 82.1,
+   "maxdd": -3032,
+   "worst": -1372,
+   "avg_hold": 3.0
+  },
+  "trades_per_year": 34.2,
+  "universe": "four"
+ },
+ "b_rev_h5_four": {
+  "all": {
+   "trades": 121,
+   "pnl": 6558,
+   "win%": 51.2,
+   "pf": 1.36,
+   "avg_bps": 54.2,
+   "maxdd": -3319,
+   "worst": -1354,
+   "avg_hold": 5.0
+  },
+  "2022": {
+   "trades": 3,
+   "pnl": -2001,
+   "win%": 0.0,
+   "pf": 0.0,
+   "avg_bps": -667.0,
+   "maxdd": -2001,
+   "worst": -1354,
+   "avg_hold": 5.0
+  },
+  "2023": {
+   "trades": 37,
+   "pnl": 5982,
+   "win%": 56.8,
+   "pf": 2.33,
+   "avg_bps": 161.7,
+   "maxdd": -3319,
+   "worst": -700,
+   "avg_hold": 5.0
+  },
+  "2024": {
+   "trades": 36,
+   "pnl": 3327,
+   "win%": 52.8,
+   "pf": 1.73,
+   "avg_bps": 92.4,
+   "maxdd": -1977,
+   "worst": -538,
+   "avg_hold": 5.0
+  },
+  "2025": {
+   "trades": 24,
+   "pnl": 790,
+   "win%": 50.0,
+   "pf": 1.25,
+   "avg_bps": 32.9,
+   "maxdd": -1540,
+   "worst": -767,
+   "avg_hold": 5.0
+  },
+  "2026": {
+   "trades": 21,
+   "pnl": -1540,
+   "win%": 47.6,
+   "pf": 0.62,
+   "avg_bps": -73.3,
+   "maxdd": -1575,
+   "worst": -1221,
+   "avg_hold": 5.0
+  },
+  "spy>200": {
+   "trades": 121,
+   "pnl": 6558,
+   "win%": 51.2,
+   "pf": 1.36,
+   "avg_bps": 54.2,
+   "maxdd": -3319,
+   "worst": -1354,
+   "avg_hold": 5.0
+  },
+  "spy<200": {
+   "trades": 0
+  },
+  "trades_per_year": 25.6,
+  "universe": "four"
+ },
+ "b_rev_h5_noregime_four": {
+  "all": {
+   "trades": 146,
+   "pnl": 10369,
+   "win%": 52.7,
+   "pf": 1.46,
+   "avg_bps": 71.0,
+   "maxdd": -3319,
+   "worst": -1354,
+   "avg_hold": 5.0
+  },
+  "2022": {
+   "trades": 26,
+   "pnl": 292,
+   "win%": 50.0,
+   "pf": 1.05,
+   "avg_bps": 11.2,
+   "maxdd": -3018,
+   "worst": -1354,
+   "avg_hold": 5.0
+  },
+  "2023": {
+   "trades": 39,
+   "pnl": 7500,
+   "win%": 59.0,
+   "pf": 2.67,
+   "avg_bps": 192.3,
+   "maxdd": -3319,
+   "worst": -700,
+   "avg_hold": 5.0
+  },
+  "2024": {
+   "trades": 36,
+   "pnl": 3327,
+   "win%": 52.8,
+   "pf": 1.73,
+   "avg_bps": 92.4,
+   "maxdd": -1977,
+   "worst": -538,
+   "avg_hold": 5.0
+  },
+  "2025": {
+   "trades": 24,
+   "pnl": 790,
+   "win%": 50.0,
+   "pf": 1.25,
+   "avg_bps": 32.9,
+   "maxdd": -1540,
+   "worst": -767,
+   "avg_hold": 5.0
+  },
+  "2026": {
+   "trades": 21,
+   "pnl": -1540,
+   "win%": 47.6,
+   "pf": 0.62,
+   "avg_bps": -73.3,
+   "maxdd": -1575,
+   "worst": -1221,
+   "avg_hold": 5.0
+  },
+  "spy>200": {
+   "trades": 120,
+   "pnl": 6952,
+   "win%": 51.7,
+   "pf": 1.39,
+   "avg_bps": 57.9,
+   "maxdd": -3319,
+   "worst": -1354,
+   "avg_hold": 5.0
+  },
+  "spy<200": {
+   "trades": 26,
+   "pnl": 3416,
+   "win%": 57.7,
+   "pf": 1.75,
+   "avg_bps": 131.4,
+   "maxdd": -2143,
+   "worst": -901,
+   "avg_hold": 5.0
+  },
+  "trades_per_year": 30.9,
+  "universe": "four"
+ },
+ "b_rev_hi5_four": {
+  "all": {
+   "trades": 106,
+   "pnl": 8573,
+   "win%": 65.1,
+   "pf": 1.48,
+   "avg_bps": 80.9,
+   "maxdd": -3255,
+   "worst": -1856,
+   "avg_hold": 7.1
+  },
+  "2022": {
+   "trades": 3,
+   "pnl": -2384,
+   "win%": 33.3,
+   "pf": 0.0,
+   "avg_bps": -794.8,
+   "maxdd": -2396,
+   "worst": -1856,
+   "avg_hold": 9.0
+  },
+  "2023": {
+   "trades": 32,
+   "pnl": 4698,
+   "win%": 68.8,
+   "pf": 1.93,
+   "avg_bps": 146.8,
+   "maxdd": -3255,
+   "worst": -1139,
+   "avg_hold": 6.3
+  },
+  "2024": {
+   "trades": 33,
+   "pnl": 4594,
+   "win%": 66.7,
+   "pf": 2.05,
+   "avg_bps": 139.2,
+   "maxdd": -2187,
+   "worst": -895,
+   "avg_hold": 7.4
+  },
+  "2025": {
+   "trades": 21,
+   "pnl": 2497,
+   "win%": 57.1,
+   "pf": 2.05,
+   "avg_bps": 118.9,
+   "maxdd": -760,
+   "worst": -463,
+   "avg_hold": 7.5
+  },
+  "2026": {
+   "trades": 17,
+   "pnl": -832,
+   "win%": 70.6,
+   "pf": 0.78,
+   "avg_bps": -48.9,
+   "maxdd": -2317,
+   "worst": -1703,
+   "avg_hold": 7.4
+  },
+  "spy>200": {
+   "trades": 106,
+   "pnl": 8573,
+   "win%": 65.1,
+   "pf": 1.48,
+   "avg_bps": 80.9,
+   "maxdd": -3255,
+   "worst": -1856,
+   "avg_hold": 7.1
+  },
+  "spy<200": {
+   "trades": 0
+  },
+  "trades_per_year": 22.4,
+  "universe": "four"
+ },
+ "b_rev_hi5_noregime_four": {
+  "all": {
+   "trades": 129,
+   "pnl": 9050,
+   "win%": 63.6,
+   "pf": 1.34,
+   "avg_bps": 70.2,
+   "maxdd": -5137,
+   "worst": -2363,
+   "avg_hold": 6.9
+  },
+  "2022": {
+   "trades": 24,
+   "pnl": -2814,
+   "win%": 50.0,
+   "pf": 0.75,
+   "avg_bps": -117.3,
+   "maxdd": -5137,
+   "worst": -2363,
+   "avg_hold": 6.3
+  },
+  "2023": {
+   "trades": 34,
+   "pnl": 5605,
+   "win%": 70.6,
+   "pf": 2.11,
+   "avg_bps": 164.8,
+   "maxdd": -3255,
+   "worst": -1139,
+   "avg_hold": 6.1
+  },
+  "2024": {
+   "trades": 33,
+   "pnl": 4594,
+   "win%": 66.7,
+   "pf": 2.05,
+   "avg_bps": 139.2,
+   "maxdd": -2187,
+   "worst": -895,
+   "avg_hold": 7.4
+  },
+  "2025": {
+   "trades": 21,
+   "pnl": 2497,
+   "win%": 57.1,
+   "pf": 2.05,
+   "avg_bps": 118.9,
+   "maxdd": -760,
+   "worst": -463,
+   "avg_hold": 7.5
+  },
+  "2026": {
+   "trades": 17,
+   "pnl": -832,
+   "win%": 70.6,
+   "pf": 0.78,
+   "avg_bps": -48.9,
+   "maxdd": -2317,
+   "worst": -1703,
+   "avg_hold": 7.4
+  },
+  "spy>200": {
+   "trades": 105,
+   "pnl": 8561,
+   "win%": 64.8,
+   "pf": 1.48,
+   "avg_bps": 81.5,
+   "maxdd": -3255,
+   "worst": -1856,
+   "avg_hold": 7.1
+  },
+  "spy<200": {
+   "trades": 24,
+   "pnl": 489,
+   "win%": 58.3,
+   "pf": 1.06,
+   "avg_bps": 20.4,
+   "maxdd": -4731,
+   "worst": -2363,
+   "avg_hold": 5.8
+  },
+  "trades_per_year": 27.3,
+  "universe": "four"
+ },
+ "c_bo_52w_h5_four": {
+  "all": {
+   "trades": 75,
+   "pnl": 910,
+   "win%": 52.0,
+   "pf": 1.09,
+   "avg_bps": 12.1,
+   "maxdd": -2727,
+   "worst": -963,
+   "avg_hold": 4.7
+  },
+  "2022": {
+   "trades": 0
+  },
+  "2023": {
+   "trades": 21,
+   "pnl": -1347,
+   "win%": 38.1,
+   "pf": 0.52,
+   "avg_bps": -64.1,
+   "maxdd": -1908,
+   "worst": -510,
+   "avg_hold": 4.6
+  },
+  "2024": {
+   "trades": 28,
+   "pnl": 4374,
+   "win%": 67.9,
+   "pf": 2.47,
+   "avg_bps": 156.2,
+   "maxdd": -1520,
+   "worst": -510,
+   "avg_hold": 4.8
+  },
+  "2025": {
+   "trades": 17,
+   "pnl": -577,
+   "win%": 47.1,
+   "pf": 0.7,
+   "avg_bps": -33.9,
+   "maxdd": -1009,
+   "worst": -510,
+   "avg_hold": 4.6
+  },
+  "2026": {
+   "trades": 9,
+   "pnl": -1540,
+   "win%": 44.4,
+   "pf": 0.32,
+   "avg_bps": -171.1,
+   "maxdd": -1751,
+   "worst": -963,
+   "avg_hold": 4.7
+  },
+  "spy>200": {
+   "trades": 75,
+   "pnl": 910,
+   "win%": 52.0,
+   "pf": 1.09,
+   "avg_bps": 12.1,
+   "maxdd": -2727,
+   "worst": -963,
+   "avg_hold": 4.7
+  },
+  "spy<200": {
+   "trades": 0
+  },
+  "trades_per_year": 15.9,
+  "universe": "four"
+ },
+ "c_bo_52w_h5_noregime_four": {
+  "all": {
+   "trades": 75,
+   "pnl": 910,
+   "win%": 52.0,
+   "pf": 1.09,
+   "avg_bps": 12.1,
+   "maxdd": -2727,
+   "worst": -963,
+   "avg_hold": 4.7
+  },
+  "2022": {
+   "trades": 0
+  },
+  "2023": {
+   "trades": 21,
+   "pnl": -1347,
+   "win%": 38.1,
+   "pf": 0.52,
+   "avg_bps": -64.1,
+   "maxdd": -1908,
+   "worst": -510,
+   "avg_hold": 4.6
+  },
+  "2024": {
+   "trades": 28,
+   "pnl": 4374,
+   "win%": 67.9,
+   "pf": 2.47,
+   "avg_bps": 156.2,
+   "maxdd": -1520,
+   "worst": -510,
+   "avg_hold": 4.8
+  },
+  "2025": {
+   "trades": 17,
+   "pnl": -577,
+   "win%": 47.1,
+   "pf": 0.7,
+   "avg_bps": -33.9,
+   "maxdd": -1009,
+   "worst": -510,
+   "avg_hold": 4.6
+  },
+  "2026": {
+   "trades": 9,
+   "pnl": -1540,
+   "win%": 44.4,
+   "pf": 0.32,
+   "avg_bps": -171.1,
+   "maxdd": -1751,
+   "worst": -963,
+   "avg_hold": 4.7
+  },
+  "spy>200": {
+   "trades": 75,
+   "pnl": 910,
+   "win%": 52.0,
+   "pf": 1.09,
+   "avg_bps": 12.1,
+   "maxdd": -2727,
+   "worst": -963,
+   "avg_hold": 4.7
+  },
+  "spy<200": {
+   "trades": 0
+  },
+  "trades_per_year": 15.9,
+  "universe": "four"
+ },
+ "c_bo_52w_h10_four": {
+  "all": {
+   "trades": 56,
+   "pnl": 7028,
+   "win%": 57.1,
+   "pf": 1.75,
+   "avg_bps": 125.5,
+   "maxdd": -2950,
+   "worst": -510,
+   "avg_hold": 8.8
+  },
+  "2022": {
+   "trades": 0
+  },
+  "2023": {
+   "trades": 17,
+   "pnl": -1102,
+   "win%": 41.2,
+   "pf": 0.73,
+   "avg_bps": -64.8,
+   "maxdd": -2950,
+   "worst": -510,
+   "avg_hold": 7.6
+  },
+  "2024": {
+   "trades": 20,
+   "pnl": 7608,
+   "win%": 70.0,
+   "pf": 4.99,
+   "avg_bps": 380.4,
+   "maxdd": -626,
+   "worst": -510,
+   "avg_hold": 9.6
+  },
+  "2025": {
+   "trades": 12,
+   "pnl": 1117,
+   "win%": 66.7,
+   "pf": 1.7,
+   "avg_bps": 93.1,
+   "maxdd": -1349,
+   "worst": -510,
+   "avg_hold": 9.8
+  },
+  "2026": {
+   "trades": 7,
+   "pnl": -595,
+   "win%": 42.9,
+   "pf": 0.66,
+   "avg_bps": -85.0,
+   "maxdd": -922,
+   "worst": -510,
+   "avg_hold": 7.9
+  },
+  "spy>200": {
+   "trades": 56,
+   "pnl": 7028,
+   "win%": 57.1,
+   "pf": 1.75,
+   "avg_bps": 125.5,
+   "maxdd": -2950,
+   "worst": -510,
+   "avg_hold": 8.8
+  },
+  "spy<200": {
+   "trades": 0
+  },
+  "trades_per_year": 11.8,
+  "universe": "four"
+ },
+ "c_bo_52w_h10_noregime_four": {
+  "all": {
+   "trades": 56,
+   "pnl": 7028,
+   "win%": 57.1,
+   "pf": 1.75,
+   "avg_bps": 125.5,
+   "maxdd": -2950,
+   "worst": -510,
+   "avg_hold": 8.8
+  },
+  "2022": {
+   "trades": 0
+  },
+  "2023": {
+   "trades": 17,
+   "pnl": -1102,
+   "win%": 41.2,
+   "pf": 0.73,
+   "avg_bps": -64.8,
+   "maxdd": -2950,
+   "worst": -510,
+   "avg_hold": 7.6
+  },
+  "2024": {
+   "trades": 20,
+   "pnl": 7608,
+   "win%": 70.0,
+   "pf": 4.99,
+   "avg_bps": 380.4,
+   "maxdd": -626,
+   "worst": -510,
+   "avg_hold": 9.6
+  },
+  "2025": {
+   "trades": 12,
+   "pnl": 1117,
+   "win%": 66.7,
+   "pf": 1.7,
+   "avg_bps": 93.1,
+   "maxdd": -1349,
+   "worst": -510,
+   "avg_hold": 9.8
+  },
+  "2026": {
+   "trades": 7,
+   "pnl": -595,
+   "win%": 42.9,
+   "pf": 0.66,
+   "avg_bps": -85.0,
+   "maxdd": -922,
+   "worst": -510,
+   "avg_hold": 7.9
+  },
+  "spy>200": {
+   "trades": 56,
+   "pnl": 7028,
+   "win%": 57.1,
+   "pf": 1.75,
+   "avg_bps": 125.5,
+   "maxdd": -2950,
+   "worst": -510,
+   "avg_hold": 8.8
+  },
+  "spy<200": {
+   "trades": 0
+  },
+  "trades_per_year": 11.8,
+  "universe": "four"
+ },
+ "c_bo_20d_h5_four": {
+  "all": {
+   "trades": 47,
+   "pnl": 1583,
+   "win%": 46.8,
+   "pf": 1.27,
+   "avg_bps": 33.7,
+   "maxdd": -1985,
+   "worst": -688,
+   "avg_hold": 4.7
+  },
+  "2022": {
+   "trades": 1,
+   "pnl": -510,
+   "win%": 0.0,
+   "pf": 0.0,
+   "avg_bps": -510.0,
+   "maxdd": -510,
+   "worst": -510,
+   "avg_hold": 5.0
+  },
+  "2023": {
+   "trades": 16,
+   "pnl": -1346,
+   "win%": 37.5,
+   "pf": 0.48,
+   "avg_bps": -84.1,
+   "maxdd": -1475,
+   "worst": -688,
+   "avg_hold": 4.6
+  },
+  "2024": {
+   "trades": 11,
+   "pnl": 2352,
+   "win%": 72.7,
+   "pf": 8.18,
+   "avg_bps": 213.8,
+   "maxdd": -199,
+   "worst": -199,
+   "avg_hold": 5.0
+  },
+  "2025": {
+   "trades": 12,
+   "pnl": -152,
+   "win%": 33.3,
+   "pf": 0.89,
+   "avg_bps": -12.7,
+   "maxdd": -639,
+   "worst": -510,
+   "avg_hold": 4.9
+  },
+  "2026": {
+   "trades": 7,
+   "pnl": 1239,
+   "win%": 57.1,
+   "pf": 2.16,
+   "avg_bps": 177.0,
+   "maxdd": -510,
+   "worst": -510,
+   "avg_hold": 4.3
+  },
+  "spy>200": {
+   "trades": 47,
+   "pnl": 1583,
+   "win%": 46.8,
+   "pf": 1.27,
+   "avg_bps": 33.7,
+   "maxdd": -1985,
+   "worst": -688,
+   "avg_hold": 4.7
+  },
+  "spy<200": {
+   "trades": 0
+  },
+  "trades_per_year": 9.9,
+  "universe": "four"
+ },
+ "c_bo_20d_h5_noregime_four": {
+  "all": {
+   "trades": 53,
+   "pnl": 1823,
+   "win%": 49.1,
+   "pf": 1.26,
+   "avg_bps": 34.4,
+   "maxdd": -2607,
+   "worst": -688,
+   "avg_hold": 4.7
+  },
+  "2022": {
+   "trades": 4,
+   "pnl": -1107,
+   "win%": 25.0,
+   "pf": 0.28,
+   "avg_bps": -276.6,
+   "maxdd": -1530,
+   "worst": -510,
+   "avg_hold": 4.0
+  },
+  "2023": {
+   "trades": 18,
+   "pnl": -799,
+   "win%": 44.4,
+   "pf": 0.69,
+   "avg_bps": -44.4,
+   "maxdd": -1077,
+   "worst": -688,
+   "avg_hold": 4.6
+  },
+  "2024": {
+   "trades": 11,
+   "pnl": 2352,
+   "win%": 72.7,
+   "pf": 8.18,
+   "avg_bps": 213.8,
+   "maxdd": -199,
+   "worst": -199,
+   "avg_hold": 5.0
+  },
+  "2025": {
+   "trades": 13,
+   "pnl": 138,
+   "win%": 38.5,
+   "pf": 1.1,
+   "avg_bps": 10.6,
+   "maxdd": -639,
+   "worst": -510,
+   "avg_hold": 4.9
+  },
+  "2026": {
+   "trades": 7,
+   "pnl": 1239,
+   "win%": 57.1,
+   "pf": 2.16,
+   "avg_bps": 177.0,
+   "maxdd": -510,
+   "worst": -510,
+   "avg_hold": 4.3
+  },
+  "spy>200": {
+   "trades": 47,
+   "pnl": 1583,
+   "win%": 46.8,
+   "pf": 1.27,
+   "avg_bps": 33.7,
+   "maxdd": -1985,
+   "worst": -688,
+   "avg_hold": 4.7
+  },
+  "spy<200": {
+   "trades": 6,
+   "pnl": 240,
+   "win%": 66.7,
+   "pf": 1.24,
+   "avg_bps": 40.0,
+   "maxdd": -1020,
+   "worst": -510,
+   "avg_hold": 4.3
+  },
+  "trades_per_year": 11.2,
+  "universe": "four"
+ },
+ "c_bo_20d_h10_four": {
+  "all": {
+   "trades": 47,
+   "pnl": 2504,
+   "win%": 46.8,
+   "pf": 1.25,
+   "avg_bps": 53.3,
+   "maxdd": -2324,
+   "worst": -688,
+   "avg_hold": 8.6
+  },
+  "2022": {
+   "trades": 1,
+   "pnl": -510,
+   "win%": 0.0,
+   "pf": 0.0,
+   "avg_bps": -510.0,
+   "maxdd": -510,
+   "worst": -510,
+   "avg_hold": 5.0
+  },
+  "2023": {
+   "trades": 16,
+   "pnl": -1814,
+   "win%": 43.8,
+   "pf": 0.56,
+   "avg_bps": -113.4,
+   "maxdd": -2288,
+   "worst": -688,
+   "avg_hold": 8.1
+  },
+  "2024": {
+   "trades": 11,
+   "pnl": 4979,
+   "win%": 63.6,
+   "pf": 4.89,
+   "avg_bps": 452.6,
+   "maxdd": -794,
+   "worst": -510,
+   "avg_hold": 9.9
+  },
+  "2025": {
+   "trades": 12,
+   "pnl": -901,
+   "win%": 41.7,
+   "pf": 0.62,
+   "avg_bps": -75.1,
+   "maxdd": -1420,
+   "worst": -510,
+   "avg_hold": 9.2
+  },
+  "2026": {
+   "trades": 7,
+   "pnl": 750,
+   "win%": 42.9,
+   "pf": 1.4,
+   "avg_bps": 107.2,
+   "maxdd": -849,
+   "worst": -510,
+   "avg_hold": 7.3
+  },
+  "spy>200": {
+   "trades": 47,
+   "pnl": 2504,
+   "win%": 46.8,
+   "pf": 1.25,
+   "avg_bps": 53.3,
+   "maxdd": -2324,
+   "worst": -688,
+   "avg_hold": 8.6
+  },
+  "spy<200": {
+   "trades": 0
+  },
+  "trades_per_year": 9.9,
+  "universe": "four"
+ },
+ "c_bo_20d_h10_noregime_four": {
+  "all": {
+   "trades": 53,
+   "pnl": 4191,
+   "win%": 49.1,
+   "pf": 1.38,
+   "avg_bps": 79.1,
+   "maxdd": -2417,
+   "worst": -688,
+   "avg_hold": 8.5
+  },
+  "2022": {
+   "trades": 4,
+   "pnl": -903,
+   "win%": 25.0,
+   "pf": 0.41,
+   "avg_bps": -225.7,
+   "maxdd": -1530,
+   "worst": -510,
+   "avg_hold": 5.2
+  },
+  "2023": {
+   "trades": 18,
+   "pnl": -376,
+   "win%": 50.0,
+   "pf": 0.91,
+   "avg_bps": -20.9,
+   "maxdd": -1524,
+   "worst": -688,
+   "avg_hold": 8.3
+  },
+  "2024": {
+   "trades": 11,
+   "pnl": 4979,
+   "win%": 63.6,
+   "pf": 4.89,
+   "avg_bps": 452.6,
+   "maxdd": -794,
+   "worst": -510,
+   "avg_hold": 9.9
+  },
+  "2025": {
+   "trades": 13,
+   "pnl": -259,
+   "win%": 46.2,
+   "pf": 0.89,
+   "avg_bps": -20.0,
+   "maxdd": -1420,
+   "worst": -510,
+   "avg_hold": 9.2
+  },
+  "2026": {
+   "trades": 7,
+   "pnl": 750,
+   "win%": 42.9,
+   "pf": 1.4,
+   "avg_bps": 107.2,
+   "maxdd": -849,
+   "worst": -510,
+   "avg_hold": 7.3
+  },
+  "spy>200": {
+   "trades": 47,
+   "pnl": 2504,
+   "win%": 46.8,
+   "pf": 1.25,
+   "avg_bps": 53.3,
+   "maxdd": -2324,
+   "worst": -688,
+   "avg_hold": 8.6
+  },
+  "spy<200": {
+   "trades": 6,
+   "pnl": 1687,
+   "win%": 66.7,
+   "pf": 2.65,
+   "avg_bps": 281.2,
+   "maxdd": -1020,
+   "worst": -510,
+   "avg_hold": 7.7
+  },
+  "trades_per_year": 11.2,
+  "universe": "four"
+ },
+ "d_overnight_uncond_four": {
+  "all": {
+   "trades": 2272,
+   "pnl": -19204,
+   "win%": 45.6,
+   "pf": 0.83,
+   "avg_bps": -8.5,
+   "maxdd": -20133,
+   "worst": -1428,
+   "avg_hold": 1.0
+  },
+  "2022": {
+   "trades": 404,
+   "pnl": -10510,
+   "win%": 41.1,
+   "pf": 0.64,
+   "avg_bps": -26.0,
+   "maxdd": -11518,
+   "worst": -1187,
+   "avg_hold": 1.0
+  },
+  "2023": {
+   "trades": 500,
+   "pnl": -4348,
+   "win%": 45.2,
+   "pf": 0.8,
+   "avg_bps": -8.7,
+   "maxdd": -6726,
+   "worst": -688,
+   "avg_hold": 1.0
+  },
+  "2024": {
+   "trades": 504,
+   "pnl": 2080,
+   "win%": 50.2,
+   "pf": 1.11,
+   "avg_bps": 4.1,
+   "maxdd": -3717,
+   "worst": -1428,
+   "avg_hold": 1.0
+  },
+  "2025": {
+   "trades": 500,
+   "pnl": 44,
+   "win%": 49.2,
+   "pf": 1.0,
+   "avg_bps": 0.1,
+   "maxdd": -9244,
+   "worst": -830,
+   "avg_hold": 1.0
+  },
+  "2026": {
+   "trades": 364,
+   "pnl": -6469,
+   "win%": 40.1,
+   "pf": 0.67,
+   "avg_bps": -17.8,
+   "maxdd": -6526,
+   "worst": -908,
+   "avg_hold": 1.0
+  },
+  "spy>200": {
+   "trades": 1740,
+   "pnl": -10184,
+   "win%": 46.1,
+   "pf": 0.86,
+   "avg_bps": -5.9,
+   "maxdd": -10184,
+   "worst": -1428,
+   "avg_hold": 1.0
+  },
+  "spy<200": {
+   "trades": 532,
+   "pnl": -9019,
+   "win%": 44.2,
+   "pf": 0.76,
+   "avg_bps": -17.0,
+   "maxdd": -12664,
+   "worst": -1187,
+   "avg_hold": 1.0
+  },
+  "trades_per_year": 480.2,
+  "universe": "four"
+ },
+ "d_overnight_spy200_four": {
+  "all": {
+   "trades": 1748,
+   "pnl": -11270,
+   "win%": 45.7,
+   "pf": 0.85,
+   "avg_bps": -6.4,
+   "maxdd": -11270,
+   "worst": -1259,
+   "avg_hold": 1.0
+  },
+  "2022": {
+   "trades": 36,
+   "pnl": -1655,
+   "win%": 36.1,
+   "pf": 0.25,
+   "avg_bps": -46.0,
+   "maxdd": -1655,
+   "worst": -396,
+   "avg_hold": 1.0
+  },
+  "2023": {
+   "trades": 452,
+   "pnl": -6837,
+   "win%": 40.7,
+   "pf": 0.66,
+   "avg_bps": -15.1,
+   "maxdd": -7020,
+   "worst": -688,
+   "avg_hold": 1.0
+  },
+  "2024": {
+   "trades": 504,
+   "pnl": 4458,
+   "win%": 51.0,
+   "pf": 1.24,
+   "avg_bps": 8.8,
+   "maxdd": -1982,
+   "worst": -951,
+   "avg_hold": 1.0
+  },
+  "2025": {
+   "trades": 416,
+   "pnl": -2431,
+   "win%": 48.1,
+   "pf": 0.85,
+   "avg_bps": -5.8,
+   "maxdd": -5007,
+   "worst": -1259,
+   "avg_hold": 1.0
+  },
+  "2026": {
+   "trades": 340,
+   "pnl": -4805,
+   "win%": 42.4,
+   "pf": 0.72,
+   "avg_bps": -14.1,
+   "maxdd": -5115,
+   "worst": -868,
+   "avg_hold": 1.0
+  },
+  "spy>200": {
+   "trades": 1748,
+   "pnl": -11270,
+   "win%": 45.7,
+   "pf": 0.85,
+   "avg_bps": -6.4,
+   "maxdd": -11270,
+   "worst": -1259,
+   "avg_hold": 1.0
+  },
+  "spy<200": {
+   "trades": 0
+  },
+  "trades_per_year": 369.5,
+  "universe": "four"
+ },
+ "d_overnight_spy50_four": {
+  "all": {
+   "trades": 1628,
+   "pnl": -1436,
+   "win%": 47.4,
+   "pf": 0.98,
+   "avg_bps": -0.9,
+   "maxdd": -7793,
+   "worst": -1259,
+   "avg_hold": 1.0
+  },
+  "2022": {
+   "trades": 168,
+   "pnl": -4776,
+   "win%": 41.7,
+   "pf": 0.49,
+   "avg_bps": -28.4,
+   "maxdd": -4952,
+   "worst": -452,
+   "avg_hold": 1.0
+  },
+  "2023": {
+   "trades": 368,
+   "pnl": -2264,
+   "win%": 45.9,
+   "pf": 0.85,
+   "avg_bps": -6.2,
+   "maxdd": -3001,
+   "worst": -400,
+   "avg_hold": 1.0
+  },
+  "2024": {
+   "trades": 436,
+   "pnl": 2497,
+   "win%": 48.9,
+   "pf": 1.17,
+   "avg_bps": 5.7,
+   "maxdd": -2097,
+   "worst": -406,
+   "avg_hold": 1.0
+  },
+  "2025": {
+   "trades": 380,
+   "pnl": 4260,
+   "win%": 52.4,
+   "pf": 1.33,
+   "avg_bps": 11.2,
+   "maxdd": -2880,
+   "worst": -1259,
+   "avg_hold": 1.0
+  },
+  "2026": {
+   "trades": 276,
+   "pnl": -1152,
+   "win%": 43.8,
+   "pf": 0.9,
+   "avg_bps": -4.2,
+   "maxdd": -2048,
+   "worst": -357,
+   "avg_hold": 1.0
+  },
+  "spy>200": {
+   "trades": 1464,
+   "pnl": -705,
+   "win%": 47.4,
+   "pf": 0.99,
+   "avg_bps": -0.5,
+   "maxdd": -4956,
+   "worst": -1259,
+   "avg_hold": 1.0
+  },
+  "spy<200": {
+   "trades": 164,
+   "pnl": -731,
+   "win%": 47.6,
+   "pf": 0.91,
+   "avg_bps": -4.5,
+   "maxdd": -3780,
+   "worst": -452,
+   "avg_hold": 1.0
+  },
+  "trades_per_year": 344.1,
+  "universe": "four"
+ },
+ "e_bearbounce_h1_four": {
+  "all": {
+   "trades": 298,
+   "pnl": 11208,
+   "win%": 55.0,
+   "pf": 1.41,
+   "avg_bps": 37.6,
+   "maxdd": -3052,
+   "worst": -746,
+   "avg_hold": 1.0
+  },
+  "2022": {
+   "trades": 151,
+   "pnl": 5609,
+   "win%": 52.3,
+   "pf": 1.36,
+   "avg_bps": 37.1,
+   "maxdd": -2328,
+   "worst": -734,
+   "avg_hold": 1.0
+  },
+  "2023": {
+   "trades": 38,
+   "pnl": 706,
+   "win%": 57.9,
+   "pf": 1.26,
+   "avg_bps": 18.6,
+   "maxdd": -1278,
+   "worst": -406,
+   "avg_hold": 1.0
+  },
+  "2024": {
+   "trades": 27,
+   "pnl": 3439,
+   "win%": 63.0,
+   "pf": 2.88,
+   "avg_bps": 127.4,
+   "maxdd": -1051,
+   "worst": -420,
+   "avg_hold": 1.0
+  },
+  "2025": {
+   "trades": 51,
+   "pnl": 403,
+   "win%": 49.0,
+   "pf": 1.08,
+   "avg_bps": 7.9,
+   "maxdd": -3052,
+   "worst": -746,
+   "avg_hold": 1.0
+  },
+  "2026": {
+   "trades": 31,
+   "pnl": 1052,
+   "win%": 67.7,
+   "pf": 1.75,
+   "avg_bps": 33.9,
+   "maxdd": -674,
+   "worst": -565,
+   "avg_hold": 1.0
+  },
+  "spy>200": {
+   "trades": 100,
+   "pnl": 4682,
+   "win%": 57.0,
+   "pf": 1.8,
+   "avg_bps": 46.8,
+   "maxdd": -1064,
+   "worst": -565,
+   "avg_hold": 1.0
+  },
+  "spy<200": {
+   "trades": 198,
+   "pnl": 6526,
+   "win%": 54.0,
+   "pf": 1.31,
+   "avg_bps": 33.0,
+   "maxdd": -3069,
+   "worst": -746,
+   "avg_hold": 1.0
+  },
+  "trades_per_year": 63.0,
+  "universe": "four"
+ },
+ "e_bearbounce_h2_four": {
+  "all": {
+   "trades": 257,
+   "pnl": 12489,
+   "win%": 52.1,
+   "pf": 1.33,
+   "avg_bps": 48.6,
+   "maxdd": -4884,
+   "worst": -1340,
+   "avg_hold": 2.0
+  },
+  "2022": {
+   "trades": 128,
+   "pnl": 5286,
+   "win%": 50.0,
+   "pf": 1.23,
+   "avg_bps": 41.3,
+   "maxdd": -4884,
+   "worst": -1340,
+   "avg_hold": 2.0
+  },
+  "2023": {
+   "trades": 37,
+   "pnl": 3561,
+   "win%": 48.6,
+   "pf": 2.13,
+   "avg_bps": 96.2,
+   "maxdd": -1455,
+   "worst": -344,
+   "avg_hold": 2.0
+  },
+  "2024": {
+   "trades": 24,
+   "pnl": 4809,
+   "win%": 62.5,
+   "pf": 4.1,
+   "avg_bps": 200.4,
+   "maxdd": -740,
+   "worst": -366,
+   "avg_hold": 2.0
+  },
+  "2025": {
+   "trades": 38,
+   "pnl": -3734,
+   "win%": 42.1,
+   "pf": 0.52,
+   "avg_bps": -98.3,
+   "maxdd": -4349,
+   "worst": -1079,
+   "avg_hold": 2.0
+  },
+  "2026": {
+   "trades": 30,
+   "pnl": 2567,
+   "win%": 70.0,
+   "pf": 2.13,
+   "avg_bps": 85.6,
+   "maxdd": -690,
+   "worst": -637,
+   "avg_hold": 2.0
+  },
+  "spy>200": {
+   "trades": 91,
+   "pnl": 5345,
+   "win%": 53.8,
+   "pf": 1.63,
+   "avg_bps": 58.7,
+   "maxdd": -2431,
+   "worst": -637,
+   "avg_hold": 2.0
+  },
+  "spy<200": {
+   "trades": 166,
+   "pnl": 7143,
+   "win%": 51.2,
+   "pf": 1.25,
+   "avg_bps": 43.0,
+   "maxdd": -4884,
+   "worst": -1340,
+   "avg_hold": 2.0
+  },
+  "trades_per_year": 54.3,
+  "universe": "four"
+ },
+ "e_bearbounce_h3_four": {
+  "all": {
+   "trades": 232,
+   "pnl": 16622,
+   "win%": 51.7,
+   "pf": 1.42,
+   "avg_bps": 71.6,
+   "maxdd": -6032,
+   "worst": -1524,
+   "avg_hold": 3.0
+  },
+  "2022": {
+   "trades": 112,
+   "pnl": 7818,
+   "win%": 50.9,
+   "pf": 1.33,
+   "avg_bps": 69.8,
+   "maxdd": -4068,
+   "worst": -1234,
+   "avg_hold": 3.0
+  },
+  "2023": {
+   "trades": 32,
+   "pnl": 4675,
+   "win%": 56.2,
+   "pf": 2.26,
+   "avg_bps": 146.1,
+   "maxdd": -1940,
+   "worst": -727,
+   "avg_hold": 3.0
+  },
+  "2024": {
+   "trades": 22,
+   "pnl": 5337,
+   "win%": 59.1,
+   "pf": 4.12,
+   "avg_bps": 242.6,
+   "maxdd": -572,
+   "worst": -337,
+   "avg_hold": 3.0
+  },
+  "2025": {
+   "trades": 37,
+   "pnl": -5188,
+   "win%": 32.4,
+   "pf": 0.43,
+   "avg_bps": -140.2,
+   "maxdd": -6032,
+   "worst": -1524,
+   "avg_hold": 3.0
+  },
+  "2026": {
+   "trades": 29,
+   "pnl": 3980,
+   "win%": 69.0,
+   "pf": 3.04,
+   "avg_bps": 137.2,
+   "maxdd": -716,
+   "worst": -716,
+   "avg_hold": 3.0
+  },
+  "spy>200": {
+   "trades": 83,
+   "pnl": 5534,
+   "win%": 50.6,
+   "pf": 1.55,
+   "avg_bps": 66.7,
+   "maxdd": -3081,
+   "worst": -788,
+   "avg_hold": 3.0
+  },
+  "spy<200": {
+   "trades": 149,
+   "pnl": 11088,
+   "win%": 52.3,
+   "pf": 1.37,
+   "avg_bps": 74.4,
+   "maxdd": -4068,
+   "worst": -1524,
+   "avg_hold": 3.0
+  },
+  "trades_per_year": 49.0,
+  "universe": "four"
+ },
+ "a_pead_h3_universe": {
+  "all": {
+   "trades": 321,
+   "pnl": 9262,
+   "win%": 51.1,
+   "pf": 1.21,
+   "avg_bps": 28.9,
+   "maxdd": -6013,
+   "worst": -1374,
+   "avg_hold": 2.0
+  },
+  "2022": {
+   "trades": 68,
+   "pnl": -3031,
+   "win%": 45.6,
+   "pf": 0.76,
+   "avg_bps": -44.6,
+   "maxdd": -6013,
+   "worst": -1374,
+   "avg_hold": 2.0
+  },
+  "2023": {
+   "trades": 74,
+   "pnl": 1121,
+   "win%": 48.6,
+   "pf": 1.13,
+   "avg_bps": 15.2,
+   "maxdd": -4036,
+   "worst": -708,
+   "avg_hold": 2.0
+  },
+  "2024": {
+   "trades": 66,
+   "pnl": 2456,
+   "win%": 53.0,
+   "pf": 1.26,
+   "avg_bps": 37.2,
+   "maxdd": -2955,
+   "worst": -932,
+   "avg_hold": 2.0
+  },
+  "2025": {
+   "trades": 59,
+   "pnl": 5983,
+   "win%": 57.6,
+   "pf": 2.18,
+   "avg_bps": 101.4,
+   "maxdd": -1365,
+   "worst": -864,
+   "avg_hold": 2.0
+  },
+  "2026": {
+   "trades": 54,
+   "pnl": 2733,
+   "win%": 51.9,
+   "pf": 1.36,
+   "avg_bps": 50.6,
+   "maxdd": -2641,
+   "worst": -1082,
+   "avg_hold": 2.0
+  },
+  "spy>200": {
+   "trades": 230,
+   "pnl": 9115,
+   "win%": 51.7,
+   "pf": 1.32,
+   "avg_bps": 39.6,
+   "maxdd": -3702,
+   "worst": -1082,
+   "avg_hold": 2.0
+  },
+  "spy<200": {
+   "trades": 91,
+   "pnl": 147,
+   "win%": 49.5,
+   "pf": 1.01,
+   "avg_bps": 1.6,
+   "maxdd": -6013,
+   "worst": -1374,
+   "avg_hold": 2.0
+  },
+  "trades_per_year": 67.9,
+  "universe": "universe"
+ },
+ "a_pead_h5_universe": {
+  "all": {
+   "trades": 321,
+   "pnl": 12367,
+   "win%": 52.3,
+   "pf": 1.25,
+   "avg_bps": 38.5,
+   "maxdd": -7049,
+   "worst": -1446,
+   "avg_hold": 4.0
+  },
+  "2022": {
+   "trades": 68,
+   "pnl": 897,
+   "win%": 54.4,
+   "pf": 1.07,
+   "avg_bps": 13.2,
+   "maxdd": -6789,
+   "worst": -1364,
+   "avg_hold": 4.0
+  },
+  "2023": {
+   "trades": 74,
+   "pnl": -743,
+   "win%": 47.3,
+   "pf": 0.93,
+   "avg_bps": -10.0,
+   "maxdd": -7049,
+   "worst": -1105,
+   "avg_hold": 4.0
+  },
+  "2024": {
+   "trades": 66,
+   "pnl": 3798,
+   "win%": 51.5,
+   "pf": 1.44,
+   "avg_bps": 57.5,
+   "maxdd": -2402,
+   "worst": -1136,
+   "avg_hold": 4.0
+  },
+  "2025": {
+   "trades": 59,
+   "pnl": 6542,
+   "win%": 55.9,
+   "pf": 2.05,
+   "avg_bps": 110.9,
+   "maxdd": -2861,
+   "worst": -952,
+   "avg_hold": 4.0
+  },
+  "2026": {
+   "trades": 54,
+   "pnl": 1873,
+   "win%": 53.7,
+   "pf": 1.18,
+   "avg_bps": 34.7,
+   "maxdd": -3258,
+   "worst": -1446,
+   "avg_hold": 4.0
+  },
+  "spy>200": {
+   "trades": 230,
+   "pnl": 6275,
+   "win%": 50.4,
+   "pf": 1.18,
+   "avg_bps": 27.3,
+   "maxdd": -6335,
+   "worst": -1446,
+   "avg_hold": 4.0
+  },
+  "spy<200": {
+   "trades": 91,
+   "pnl": 6092,
+   "win%": 57.1,
+   "pf": 1.4,
+   "avg_bps": 66.9,
+   "maxdd": -6789,
+   "worst": -1364,
+   "avg_hold": 4.0
+  },
+  "trades_per_year": 67.9,
+  "universe": "universe"
+ },
+ "a_pead_h10_universe": {
+  "all": {
+   "trades": 321,
+   "pnl": 34326,
+   "win%": 54.2,
+   "pf": 1.55,
+   "avg_bps": 106.9,
+   "maxdd": -15616,
+   "worst": -1576,
+   "avg_hold": 9.0
+  },
+  "2022": {
+   "trades": 68,
+   "pnl": 111,
+   "win%": 50.0,
+   "pf": 1.01,
+   "avg_bps": 1.6,
+   "maxdd": -15616,
+   "worst": -1406,
+   "avg_hold": 9.0
+  },
+  "2023": {
+   "trades": 74,
+   "pnl": 8673,
+   "win%": 58.1,
+   "pf": 1.83,
+   "avg_bps": 117.2,
+   "maxdd": -3334,
+   "worst": -979,
+   "avg_hold": 9.0
+  },
+  "2024": {
+   "trades": 66,
+   "pnl": 10537,
+   "win%": 53.0,
+   "pf": 2.19,
+   "avg_bps": 159.6,
+   "maxdd": -2095,
+   "worst": -1576,
+   "avg_hold": 9.0
+  },
+  "2025": {
+   "trades": 59,
+   "pnl": 8657,
+   "win%": 61.0,
+   "pf": 1.93,
+   "avg_bps": 146.7,
+   "maxdd": -3134,
+   "worst": -1142,
+   "avg_hold": 9.0
+  },
+  "2026": {
+   "trades": 54,
+   "pnl": 6348,
+   "win%": 48.1,
+   "pf": 1.46,
+   "avg_bps": 117.6,
+   "maxdd": -4433,
+   "worst": -1535,
+   "avg_hold": 9.0
+  },
+  "spy>200": {
+   "trades": 230,
+   "pnl": 23589,
+   "win%": 52.6,
+   "pf": 1.57,
+   "avg_bps": 102.6,
+   "maxdd": -4433,
+   "worst": -1576,
+   "avg_hold": 9.0
+  },
+  "spy<200": {
+   "trades": 91,
+   "pnl": 10737,
+   "win%": 58.2,
+   "pf": 1.5,
+   "avg_bps": 118.0,
+   "maxdd": -15616,
+   "worst": -1406,
+   "avg_hold": 9.0
+  },
+  "trades_per_year": 67.9,
+  "universe": "universe"
+ },
+ "a_pead_h5_gap5_universe": {
+  "all": {
+   "trades": 201,
+   "pnl": 11180,
+   "win%": 53.2,
+   "pf": 1.33,
+   "avg_bps": 55.6,
+   "maxdd": -4936,
+   "worst": -1446,
+   "avg_hold": 4.0
+  },
+  "2022": {
+   "trades": 39,
+   "pnl": 1451,
+   "win%": 59.0,
+   "pf": 1.17,
+   "avg_bps": 37.2,
+   "maxdd": -3487,
+   "worst": -1299,
+   "avg_hold": 4.0
+  },
+  "2023": {
+   "trades": 48,
+   "pnl": 279,
+   "win%": 45.8,
+   "pf": 1.04,
+   "avg_bps": 5.8,
+   "maxdd": -4936,
+   "worst": -1105,
+   "avg_hold": 4.0
+  },
+  "2024": {
+   "trades": 47,
+   "pnl": 5769,
+   "win%": 55.3,
+   "pf": 2.2,
+   "avg_bps": 122.7,
+   "maxdd": -1209,
+   "worst": -921,
+   "avg_hold": 4.0
+  },
+  "2025": {
+   "trades": 32,
+   "pnl": 3362,
+   "win%": 59.4,
+   "pf": 1.78,
+   "avg_bps": 105.1,
+   "maxdd": -2985,
+   "worst": -952,
+   "avg_hold": 4.0
+  },
+  "2026": {
+   "trades": 35,
+   "pnl": 319,
+   "win%": 48.6,
+   "pf": 1.04,
+   "avg_bps": 9.1,
+   "maxdd": -3218,
+   "worst": -1446,
+   "avg_hold": 4.0
+  },
+  "spy>200": {
+   "trades": 146,
+   "pnl": 5178,
+   "win%": 50.7,
+   "pf": 1.21,
+   "avg_bps": 35.5,
+   "maxdd": -5279,
+   "worst": -1446,
+   "avg_hold": 4.0
+  },
+  "spy<200": {
+   "trades": 55,
+   "pnl": 6002,
+   "win%": 60.0,
+   "pf": 1.64,
+   "avg_bps": 109.1,
+   "maxdd": -3487,
+   "worst": -1299,
+   "avg_hold": 4.0
+  },
+  "trades_per_year": 42.5,
+  "universe": "universe"
+ },
+ "b_rev_h3_universe": {
+  "all": {
+   "trades": 1590,
+   "pnl": 33638,
+   "win%": 52.4,
+   "pf": 1.18,
+   "avg_bps": 21.2,
+   "maxdd": -11767,
+   "worst": -1842,
+   "avg_hold": 3.0
+  },
+  "2022": {
+   "trades": 22,
+   "pnl": -4831,
+   "win%": 22.7,
+   "pf": 0.26,
+   "avg_bps": -219.6,
+   "maxdd": -5235,
+   "worst": -936,
+   "avg_hold": 3.0
+  },
+  "2023": {
+   "trades": 381,
+   "pnl": 16819,
+   "win%": 54.3,
+   "pf": 1.43,
+   "avg_bps": 44.1,
+   "maxdd": -11767,
+   "worst": -852,
+   "avg_hold": 3.0
+  },
+  "2024": {
+   "trades": 483,
+   "pnl": 12122,
+   "win%": 55.3,
+   "pf": 1.25,
+   "avg_bps": 25.1,
+   "maxdd": -7533,
+   "worst": -1842,
+   "avg_hold": 3.0
+  },
+  "2025": {
+   "trades": 388,
+   "pnl": -589,
+   "win%": 50.0,
+   "pf": 0.99,
+   "avg_bps": -1.5,
+   "maxdd": -8097,
+   "worst": -1687,
+   "avg_hold": 3.0
+  },
+  "2026": {
+   "trades": 316,
+   "pnl": 10118,
+   "win%": 50.6,
+   "pf": 1.23,
+   "avg_bps": 32.0,
+   "maxdd": -7398,
+   "worst": -1554,
+   "avg_hold": 3.0
+  },
+  "spy>200": {
+   "trades": 1590,
+   "pnl": 33638,
+   "win%": 52.4,
+   "pf": 1.18,
+   "avg_bps": 21.2,
+   "maxdd": -11767,
+   "worst": -1842,
+   "avg_hold": 3.0
+  },
+  "spy<200": {
+   "trades": 0
+  },
+  "trades_per_year": 336.1,
+  "universe": "universe"
+ },
+ "b_rev_h3_noregime_universe": {
+  "all": {
+   "trades": 1993,
+   "pnl": 15969,
+   "win%": 51.1,
+   "pf": 1.06,
+   "avg_bps": 8.0,
+   "maxdd": -32822,
+   "worst": -1927,
+   "avg_hold": 3.0
+  },
+  "2022": {
+   "trades": 374,
+   "pnl": -24017,
+   "win%": 42.8,
+   "pf": 0.63,
+   "avg_bps": -64.2,
+   "maxdd": -32822,
+   "worst": -1372,
+   "avg_hold": 3.0
+  },
+  "2023": {
+   "trades": 404,
+   "pnl": 22168,
+   "win%": 55.2,
+   "pf": 1.54,
+   "avg_bps": 54.9,
+   "maxdd": -12100,
+   "worst": -852,
+   "avg_hold": 3.0
+  },
+  "2024": {
+   "trades": 483,
+   "pnl": 12122,
+   "win%": 55.3,
+   "pf": 1.25,
+   "avg_bps": 25.1,
+   "maxdd": -7533,
+   "worst": -1842,
+   "avg_hold": 3.0
+  },
+  "2025": {
+   "trades": 412,
+   "pnl": -3113,
+   "win%": 50.2,
+   "pf": 0.94,
+   "avg_bps": -7.6,
+   "maxdd": -11539,
+   "worst": -1927,
+   "avg_hold": 3.0
+  },
+  "2026": {
+   "trades": 320,
+   "pnl": 8808,
+   "win%": 50.6,
+   "pf": 1.19,
+   "avg_bps": 27.5,
+   "maxdd": -8708,
+   "worst": -1554,
+   "avg_hold": 3.0
+  },
+  "spy>200": {
+   "trades": 1580,
+   "pnl": 35195,
+   "win%": 52.5,
+   "pf": 1.19,
+   "avg_bps": 22.3,
+   "maxdd": -11175,
+   "worst": -1842,
+   "avg_hold": 3.0
+  },
+  "spy<200": {
+   "trades": 413,
+   "pnl": -19226,
+   "win%": 45.8,
+   "pf": 0.72,
+   "avg_bps": -46.6,
+   "maxdd": -29622,
+   "worst": -1927,
+   "avg_hold": 3.0
+  },
+  "trades_per_year": 421.3,
+  "universe": "universe"
+ },
+ "b_rev_h5_universe": {
+  "all": {
+   "trades": 1448,
+   "pnl": 54969,
+   "win%": 53.5,
+   "pf": 1.26,
+   "avg_bps": 38.0,
+   "maxdd": -17637,
+   "worst": -2011,
+   "avg_hold": 5.0
+  },
+  "2022": {
+   "trades": 19,
+   "pnl": -5233,
+   "win%": 36.8,
+   "pf": 0.23,
+   "avg_bps": -275.4,
+   "maxdd": -6401,
+   "worst": -1354,
+   "avg_hold": 5.0
+  },
+  "2023": {
+   "trades": 351,
+   "pnl": 10147,
+   "win%": 51.0,
+   "pf": 1.21,
+   "avg_bps": 28.9,
+   "maxdd": -17637,
+   "worst": -1568,
+   "avg_hold": 5.0
+  },
+  "2024": {
+   "trades": 438,
+   "pnl": 10360,
+   "win%": 50.9,
+   "pf": 1.18,
+   "avg_bps": 23.7,
+   "maxdd": -14183,
+   "worst": -2011,
+   "avg_hold": 5.0
+  },
+  "2025": {
+   "trades": 358,
+   "pnl": 17083,
+   "win%": 57.3,
+   "pf": 1.36,
+   "avg_bps": 47.7,
+   "maxdd": -7767,
+   "worst": -1413,
+   "avg_hold": 5.0
+  },
+  "2026": {
+   "trades": 282,
+   "pnl": 22612,
+   "win%": 56.7,
+   "pf": 1.48,
+   "avg_bps": 80.2,
+   "maxdd": -11588,
+   "worst": -1817,
+   "avg_hold": 5.0
+  },
+  "spy>200": {
+   "trades": 1448,
+   "pnl": 54969,
+   "win%": 53.5,
+   "pf": 1.26,
+   "avg_bps": 38.0,
+   "maxdd": -17637,
+   "worst": -2011,
+   "avg_hold": 5.0
+  },
+  "spy<200": {
+   "trades": 0
+  },
+  "trades_per_year": 306.1,
+  "universe": "universe"
+ },
+ "b_rev_h5_noregime_universe": {
+  "all": {
+   "trades": 1812,
+   "pnl": 40469,
+   "win%": 52.4,
+   "pf": 1.14,
+   "avg_bps": 22.3,
+   "maxdd": -33604,
+   "worst": -2052,
+   "avg_hold": 5.0
+  },
+  "2022": {
+   "trades": 336,
+   "pnl": -24190,
+   "win%": 45.8,
+   "pf": 0.66,
+   "avg_bps": -72.0,
+   "maxdd": -33604,
+   "worst": -1747,
+   "avg_hold": 5.0
+  },
+  "2023": {
+   "trades": 374,
+   "pnl": 16335,
+   "win%": 52.4,
+   "pf": 1.32,
+   "avg_bps": 43.7,
+   "maxdd": -19502,
+   "worst": -1568,
+   "avg_hold": 5.0
+  },
+  "2024": {
+   "trades": 438,
+   "pnl": 10360,
+   "win%": 50.9,
+   "pf": 1.18,
+   "avg_bps": 23.7,
+   "maxdd": -14183,
+   "worst": -2011,
+   "avg_hold": 5.0
+  },
+  "2025": {
+   "trades": 379,
+   "pnl": 16597,
+   "win%": 57.0,
+   "pf": 1.32,
+   "avg_bps": 43.8,
+   "maxdd": -11367,
+   "worst": -1413,
+   "avg_hold": 5.0
+  },
+  "2026": {
+   "trades": 285,
+   "pnl": 21367,
+   "win%": 56.5,
+   "pf": 1.43,
+   "avg_bps": 75.0,
+   "maxdd": -12833,
+   "worst": -2052,
+   "avg_hold": 5.0
+  },
+  "spy>200": {
+   "trades": 1437,
+   "pnl": 56107,
+   "win%": 53.6,
+   "pf": 1.27,
+   "avg_bps": 39.0,
+   "maxdd": -17488,
+   "worst": -2011,
+   "avg_hold": 5.0
+  },
+  "spy<200": {
+   "trades": 375,
+   "pnl": -15638,
+   "win%": 48.0,
+   "pf": 0.79,
+   "avg_bps": -41.7,
+   "maxdd": -29970,
+   "worst": -2052,
+   "avg_hold": 5.0
+  },
+  "trades_per_year": 383.0,
+  "universe": "universe"
+ },
+ "b_rev_hi5_universe": {
+  "all": {
+   "trades": 1303,
+   "pnl": 45006,
+   "win%": 61.1,
+   "pf": 1.18,
+   "avg_bps": 34.5,
+   "maxdd": -25933,
+   "worst": -3497,
+   "avg_hold": 7.4
+  },
+  "2022": {
+   "trades": 19,
+   "pnl": -6691,
+   "win%": 36.8,
+   "pf": 0.27,
+   "avg_bps": -352.2,
+   "maxdd": -9216,
+   "worst": -1856,
+   "avg_hold": 8.3
+  },
+  "2023": {
+   "trades": 315,
+   "pnl": 12491,
+   "win%": 58.7,
+   "pf": 1.23,
+   "avg_bps": 39.7,
+   "maxdd": -19988,
+   "worst": -1755,
+   "avg_hold": 7.3
+  },
+  "2024": {
+   "trades": 391,
+   "pnl": 15029,
+   "win%": 61.9,
+   "pf": 1.24,
+   "avg_bps": 38.4,
+   "maxdd": -15951,
+   "worst": -3497,
+   "avg_hold": 7.5
+  },
+  "2025": {
+   "trades": 327,
+   "pnl": 6129,
+   "win%": 62.1,
+   "pf": 1.1,
+   "avg_bps": 18.7,
+   "maxdd": -21924,
+   "worst": -2957,
+   "avg_hold": 7.5
+  },
+  "2026": {
+   "trades": 251,
+   "pnl": 18049,
+   "win%": 63.3,
+   "pf": 1.33,
+   "avg_bps": 71.9,
+   "maxdd": -14703,
+   "worst": -1974,
+   "avg_hold": 7.3
+  },
+  "spy>200": {
+   "trades": 1303,
+   "pnl": 45006,
+   "win%": 61.1,
+   "pf": 1.18,
+   "avg_bps": 34.5,
+   "maxdd": -25933,
+   "worst": -3497,
+   "avg_hold": 7.4
+  },
+  "spy<200": {
+   "trades": 0
+  },
+  "trades_per_year": 275.4,
+  "universe": "universe"
+ },
+ "b_rev_hi5_noregime_universe": {
+  "all": {
+   "trades": 1616,
+   "pnl": 18724,
+   "win%": 59.3,
+   "pf": 1.06,
+   "avg_bps": 11.6,
+   "maxdd": -50702,
+   "worst": -3497,
+   "avg_hold": 7.5
+  },
+  "2022": {
+   "trades": 290,
+   "pnl": -41596,
+   "win%": 47.2,
+   "pf": 0.54,
+   "avg_bps": -143.4,
+   "maxdd": -50702,
+   "worst": -2363,
+   "avg_hold": 7.8
+  },
+  "2023": {
+   "trades": 337,
+   "pnl": 20294,
+   "win%": 60.5,
+   "pf": 1.36,
+   "avg_bps": 60.2,
+   "maxdd": -20528,
+   "worst": -1755,
+   "avg_hold": 7.2
+  },
+  "2024": {
+   "trades": 391,
+   "pnl": 15029,
+   "win%": 61.9,
+   "pf": 1.24,
+   "avg_bps": 38.4,
+   "maxdd": -15951,
+   "worst": -3497,
+   "avg_hold": 7.5
+  },
+  "2025": {
+   "trades": 345,
+   "pnl": 7034,
+   "win%": 62.0,
+   "pf": 1.1,
+   "avg_bps": 20.4,
+   "maxdd": -23030,
+   "worst": -2957,
+   "avg_hold": 7.5
+  },
+  "2026": {
+   "trades": 253,
+   "pnl": 17963,
+   "win%": 63.6,
+   "pf": 1.32,
+   "avg_bps": 71.0,
+   "maxdd": -14788,
+   "worst": -1974,
+   "avg_hold": 7.3
+  },
+  "spy>200": {
+   "trades": 1292,
+   "pnl": 45717,
+   "win%": 61.1,
+   "pf": 1.19,
+   "avg_bps": 35.4,
+   "maxdd": -24841,
+   "worst": -3497,
+   "avg_hold": 7.4
+  },
+  "spy<200": {
+   "trades": 324,
+   "pnl": -26994,
+   "win%": 51.9,
+   "pf": 0.7,
+   "avg_bps": -83.3,
+   "maxdd": -45457,
+   "worst": -2363,
+   "avg_hold": 7.6
+  },
+  "trades_per_year": 341.6,
+  "universe": "universe"
+ },
+ "c_bo_52w_h5_universe": {
+  "all": {
+   "trades": 821,
+   "pnl": -2046,
+   "win%": 46.5,
+   "pf": 0.98,
+   "avg_bps": -2.5,
+   "maxdd": -14321,
+   "worst": -1372,
+   "avg_hold": 4.6
+  },
+  "2022": {
+   "trades": 2,
+   "pnl": 1,
+   "win%": 50.0,
+   "pf": 1.1,
+   "avg_bps": 0.6,
+   "maxdd": -13,
+   "worst": -13,
+   "avg_hold": 5.0
+  },
+  "2023": {
+   "trades": 163,
+   "pnl": -6698,
+   "win%": 42.3,
+   "pf": 0.72,
+   "avg_bps": -41.1,
+   "maxdd": -8389,
+   "worst": -868,
+   "avg_hold": 4.8
+  },
+  "2024": {
+   "trades": 290,
+   "pnl": 13797,
+   "win%": 53.1,
+   "pf": 1.44,
+   "avg_bps": 47.6,
+   "maxdd": -4526,
+   "worst": -714,
+   "avg_hold": 4.9
+  },
+  "2025": {
+   "trades": 186,
+   "pnl": -5787,
+   "win%": 46.2,
+   "pf": 0.82,
+   "avg_bps": -31.1,
+   "maxdd": -9952,
+   "worst": -809,
+   "avg_hold": 4.5
+  },
+  "2026": {
+   "trades": 180,
+   "pnl": -3360,
+   "win%": 40.0,
+   "pf": 0.92,
+   "avg_bps": -18.7,
+   "maxdd": -14321,
+   "worst": -1372,
+   "avg_hold": 4.2
+  },
+  "spy>200": {
+   "trades": 821,
+   "pnl": -2046,
+   "win%": 46.5,
+   "pf": 0.98,
+   "avg_bps": -2.5,
+   "maxdd": -14321,
+   "worst": -1372,
+   "avg_hold": 4.6
+  },
+  "spy<200": {
+   "trades": 0
+  },
+  "trades_per_year": 173.5,
+  "universe": "universe"
+ },
+ "c_bo_52w_h5_noregime_universe": {
+  "all": {
+   "trades": 848,
+   "pnl": -2389,
+   "win%": 46.3,
+   "pf": 0.98,
+   "avg_bps": -2.8,
+   "maxdd": -14321,
+   "worst": -1372,
+   "avg_hold": 4.6
+  },
+  "2022": {
+   "trades": 19,
+   "pnl": -1409,
+   "win%": 31.6,
+   "pf": 0.54,
+   "avg_bps": -74.2,
+   "maxdd": -1574,
+   "worst": -576,
+   "avg_hold": 4.7
+  },
+  "2023": {
+   "trades": 164,
+   "pnl": -5987,
+   "win%": 42.7,
+   "pf": 0.74,
+   "avg_bps": -36.5,
+   "maxdd": -8389,
+   "worst": -868,
+   "avg_hold": 4.8
+  },
+  "2024": {
+   "trades": 290,
+   "pnl": 13797,
+   "win%": 53.1,
+   "pf": 1.44,
+   "avg_bps": 47.6,
+   "maxdd": -4526,
+   "worst": -714,
+   "avg_hold": 4.9
+  },
+  "2025": {
+   "trades": 192,
+   "pnl": -5711,
+   "win%": 46.4,
+   "pf": 0.82,
+   "avg_bps": -29.7,
+   "maxdd": -9877,
+   "worst": -809,
+   "avg_hold": 4.5
+  },
+  "2026": {
+   "trades": 183,
+   "pnl": -3080,
+   "win%": 40.4,
+   "pf": 0.92,
+   "avg_bps": -16.8,
+   "maxdd": -14321,
+   "worst": -1372,
+   "avg_hold": 4.3
+  },
+  "spy>200": {
+   "trades": 820,
+   "pnl": -2238,
+   "win%": 46.6,
+   "pf": 0.98,
+   "avg_bps": -2.7,
+   "maxdd": -14321,
+   "worst": -1372,
+   "avg_hold": 4.6
+  },
+  "spy<200": {
+   "trades": 28,
+   "pnl": -151,
+   "win%": 39.3,
+   "pf": 0.96,
+   "avg_bps": -5.4,
+   "maxdd": -1607,
+   "worst": -576,
+   "avg_hold": 4.8
+  },
+  "trades_per_year": 179.2,
+  "universe": "universe"
+ },
+ "c_bo_52w_h10_universe": {
+  "all": {
+   "trades": 642,
+   "pnl": 19682,
+   "win%": 47.2,
+   "pf": 1.15,
+   "avg_bps": 30.7,
+   "maxdd": -11661,
+   "worst": -2054,
+   "avg_hold": 8.6
+  },
+  "2022": {
+   "trades": 2,
+   "pnl": -94,
+   "win%": 50.0,
+   "pf": 0.56,
+   "avg_bps": -47.2,
+   "maxdd": -214,
+   "worst": -214,
+   "avg_hold": 10.0
+  },
+  "2023": {
+   "trades": 127,
+   "pnl": 1591,
+   "win%": 48.8,
+   "pf": 1.07,
+   "avg_bps": 12.5,
+   "maxdd": -7838,
+   "worst": -892,
+   "avg_hold": 8.6
+  },
+  "2024": {
+   "trades": 231,
+   "pnl": 11195,
+   "win%": 51.9,
+   "pf": 1.3,
+   "avg_bps": 48.5,
+   "maxdd": -10179,
+   "worst": -2054,
+   "avg_hold": 9.2
+  },
+  "2025": {
+   "trades": 148,
+   "pnl": 1888,
+   "win%": 47.3,
+   "pf": 1.06,
+   "avg_bps": 12.8,
+   "maxdd": -7410,
+   "worst": -1201,
+   "avg_hold": 8.2
+  },
+  "2026": {
+   "trades": 134,
+   "pnl": 5102,
+   "win%": 37.3,
+   "pf": 1.14,
+   "avg_bps": 38.1,
+   "maxdd": -11661,
+   "worst": -926,
+   "avg_hold": 7.6
+  },
+  "spy>200": {
+   "trades": 642,
+   "pnl": 19682,
+   "win%": 47.2,
+   "pf": 1.15,
+   "avg_bps": 30.7,
+   "maxdd": -11661,
+   "worst": -2054,
+   "avg_hold": 8.6
+  },
+  "spy<200": {
+   "trades": 0
+  },
+  "trades_per_year": 135.7,
+  "universe": "universe"
+ },
+ "c_bo_52w_h10_noregime_universe": {
+  "all": {
+   "trades": 663,
+   "pnl": 17247,
+   "win%": 46.6,
+   "pf": 1.13,
+   "avg_bps": 26.0,
+   "maxdd": -11661,
+   "worst": -2054,
+   "avg_hold": 8.6
+  },
+  "2022": {
+   "trades": 17,
+   "pnl": -1417,
+   "win%": 35.3,
+   "pf": 0.62,
+   "avg_bps": -83.4,
+   "maxdd": -1775,
+   "worst": -576,
+   "avg_hold": 8.5
+  },
+  "2023": {
+   "trades": 127,
+   "pnl": 2637,
+   "win%": 49.6,
+   "pf": 1.11,
+   "avg_bps": 20.8,
+   "maxdd": -7838,
+   "worst": -892,
+   "avg_hold": 8.8
+  },
+  "2024": {
+   "trades": 231,
+   "pnl": 11195,
+   "win%": 51.9,
+   "pf": 1.3,
+   "avg_bps": 48.5,
+   "maxdd": -10179,
+   "worst": -2054,
+   "avg_hold": 9.2
+  },
+  "2025": {
+   "trades": 151,
+   "pnl": 917,
+   "win%": 46.4,
+   "pf": 1.03,
+   "avg_bps": 6.1,
+   "maxdd": -7818,
+   "worst": -1201,
+   "avg_hold": 8.2
+  },
+  "2026": {
+   "trades": 137,
+   "pnl": 3915,
+   "win%": 36.5,
+   "pf": 1.11,
+   "avg_bps": 28.6,
+   "maxdd": -11661,
+   "worst": -926,
+   "avg_hold": 7.7
+  },
+  "spy>200": {
+   "trades": 638,
+   "pnl": 19482,
+   "win%": 47.0,
+   "pf": 1.15,
+   "avg_bps": 30.5,
+   "maxdd": -11661,
+   "worst": -2054,
+   "avg_hold": 8.6
+  },
+  "spy<200": {
+   "trades": 25,
+   "pnl": -2235,
+   "win%": 36.0,
+   "pf": 0.63,
+   "avg_bps": -89.4,
+   "maxdd": -2235,
+   "worst": -727,
+   "avg_hold": 8.6
+  },
+  "trades_per_year": 140.1,
+  "universe": "universe"
+ },
+ "c_bo_20d_h5_universe": {
+  "all": {
+   "trades": 686,
+   "pnl": 23367,
+   "win%": 50.3,
+   "pf": 1.22,
+   "avg_bps": 34.1,
+   "maxdd": -16377,
+   "worst": -1372,
+   "avg_hold": 4.6
+  },
+  "2022": {
+   "trades": 19,
+   "pnl": -4355,
+   "win%": 21.1,
+   "pf": 0.07,
+   "avg_bps": -229.2,
+   "maxdd": -4355,
+   "worst": -574,
+   "avg_hold": 4.6
+  },
+  "2023": {
+   "trades": 190,
+   "pnl": -7087,
+   "win%": 47.9,
+   "pf": 0.78,
+   "avg_bps": -37.3,
+   "maxdd": -12022,
+   "worst": -1239,
+   "avg_hold": 4.6
+  },
+  "2024": {
+   "trades": 174,
+   "pnl": 10085,
+   "win%": 52.9,
+   "pf": 1.42,
+   "avg_bps": 58.0,
+   "maxdd": -2659,
+   "worst": -743,
+   "avg_hold": 4.7
+  },
+  "2025": {
+   "trades": 172,
+   "pnl": 6791,
+   "win%": 49.4,
+   "pf": 1.27,
+   "avg_bps": 39.5,
+   "maxdd": -3884,
+   "worst": -865,
+   "avg_hold": 4.7
+  },
+  "2026": {
+   "trades": 131,
+   "pnl": 17932,
+   "win%": 55.7,
+   "pf": 1.81,
+   "avg_bps": 136.9,
+   "maxdd": -6221,
+   "worst": -1372,
+   "avg_hold": 4.5
+  },
+  "spy>200": {
+   "trades": 686,
+   "pnl": 23367,
+   "win%": 50.3,
+   "pf": 1.22,
+   "avg_bps": 34.1,
+   "maxdd": -16377,
+   "worst": -1372,
+   "avg_hold": 4.6
+  },
+  "spy<200": {
+   "trades": 0
+  },
+  "trades_per_year": 145.0,
+  "universe": "universe"
+ },
+ "c_bo_20d_h5_noregime_universe": {
+  "all": {
+   "trades": 758,
+   "pnl": 29390,
+   "win%": 50.9,
+   "pf": 1.25,
+   "avg_bps": 38.8,
+   "maxdd": -17394,
+   "worst": -1372,
+   "avg_hold": 4.6
+  },
+  "2022": {
+   "trades": 76,
+   "pnl": -1278,
+   "win%": 44.7,
+   "pf": 0.91,
+   "avg_bps": -16.8,
+   "maxdd": -6224,
+   "worst": -780,
+   "avg_hold": 4.5
+  },
+  "2023": {
+   "trades": 198,
+   "pnl": -6351,
+   "win%": 49.5,
+   "pf": 0.81,
+   "avg_bps": -32.1,
+   "maxdd": -11352,
+   "worst": -1239,
+   "avg_hold": 4.6
+  },
+  "2024": {
+   "trades": 174,
+   "pnl": 10085,
+   "win%": 52.9,
+   "pf": 1.42,
+   "avg_bps": 58.0,
+   "maxdd": -2659,
+   "worst": -743,
+   "avg_hold": 4.7
+  },
+  "2025": {
+   "trades": 178,
+   "pnl": 8803,
+   "win%": 49.4,
+   "pf": 1.34,
+   "avg_bps": 49.5,
+   "maxdd": -4716,
+   "worst": -865,
+   "avg_hold": 4.7
+  },
+  "2026": {
+   "trades": 132,
+   "pnl": 18132,
+   "win%": 56.1,
+   "pf": 1.82,
+   "avg_bps": 137.4,
+   "maxdd": -6221,
+   "worst": -1372,
+   "avg_hold": 4.5
+  },
+  "spy>200": {
+   "trades": 683,
+   "pnl": 23112,
+   "win%": 50.2,
+   "pf": 1.21,
+   "avg_bps": 33.8,
+   "maxdd": -16247,
+   "worst": -1372,
+   "avg_hold": 4.6
+  },
+  "spy<200": {
+   "trades": 75,
+   "pnl": 6279,
+   "win%": 57.3,
+   "pf": 1.54,
+   "avg_bps": 83.7,
+   "maxdd": -3066,
+   "worst": -780,
+   "avg_hold": 4.5
+  },
+  "trades_per_year": 160.2,
+  "universe": "universe"
+ },
+ "c_bo_20d_h10_universe": {
+  "all": {
+   "trades": 650,
+   "pnl": 42460,
+   "win%": 47.1,
+   "pf": 1.31,
+   "avg_bps": 65.3,
+   "maxdd": -21661,
+   "worst": -1239,
+   "avg_hold": 8.4
+  },
+  "2022": {
+   "trades": 19,
+   "pnl": -2695,
+   "win%": 42.1,
+   "pf": 0.4,
+   "avg_bps": -141.8,
+   "maxdd": -3849,
+   "worst": -574,
+   "avg_hold": 7.7
+  },
+  "2023": {
+   "trades": 180,
+   "pnl": -6774,
+   "win%": 43.3,
+   "pf": 0.84,
+   "avg_bps": -37.6,
+   "maxdd": -18966,
+   "worst": -1239,
+   "avg_hold": 8.2
+  },
+  "2024": {
+   "trades": 164,
+   "pnl": 18338,
+   "win%": 51.2,
+   "pf": 1.66,
+   "avg_bps": 111.8,
+   "maxdd": -3482,
+   "worst": -1148,
+   "avg_hold": 8.7
+  },
+  "2025": {
+   "trades": 165,
+   "pnl": 7961,
+   "win%": 46.7,
+   "pf": 1.23,
+   "avg_bps": 48.2,
+   "maxdd": -10103,
+   "worst": -865,
+   "avg_hold": 8.6
+  },
+  "2026": {
+   "trades": 122,
+   "pnl": 25631,
+   "win%": 48.4,
+   "pf": 1.96,
+   "avg_bps": 210.1,
+   "maxdd": -8709,
+   "worst": -856,
+   "avg_hold": 7.9
+  },
+  "spy>200": {
+   "trades": 650,
+   "pnl": 42460,
+   "win%": 47.1,
+   "pf": 1.31,
+   "avg_bps": 65.3,
+   "maxdd": -21661,
+   "worst": -1239,
+   "avg_hold": 8.4
+  },
+  "spy<200": {
+   "trades": 0
+  },
+  "trades_per_year": 137.4,
+  "universe": "universe"
+ },
+ "c_bo_20d_h10_noregime_universe": {
+  "all": {
+   "trades": 717,
+   "pnl": 48982,
+   "win%": 48.3,
+   "pf": 1.33,
+   "avg_bps": 68.3,
+   "maxdd": -22058,
+   "worst": -1296,
+   "avg_hold": 8.4
+  },
+  "2022": {
+   "trades": 74,
+   "pnl": 714,
+   "win%": 55.4,
+   "pf": 1.04,
+   "avg_bps": 9.6,
+   "maxdd": -5088,
+   "worst": -1157,
+   "avg_hold": 7.9
+  },
+  "2023": {
+   "trades": 187,
+   "pnl": -5656,
+   "win%": 43.3,
+   "pf": 0.87,
+   "avg_bps": -30.2,
+   "maxdd": -18188,
+   "worst": -1239,
+   "avg_hold": 8.3
+  },
+  "2024": {
+   "trades": 164,
+   "pnl": 18338,
+   "win%": 51.2,
+   "pf": 1.66,
+   "avg_bps": 111.8,
+   "maxdd": -3482,
+   "worst": -1148,
+   "avg_hold": 8.7
+  },
+  "2025": {
+   "trades": 170,
+   "pnl": 9227,
+   "win%": 47.6,
+   "pf": 1.26,
+   "avg_bps": 54.3,
+   "maxdd": -8837,
+   "worst": -1296,
+   "avg_hold": 8.6
+  },
+  "2026": {
+   "trades": 122,
+   "pnl": 26358,
+   "win%": 48.4,
+   "pf": 1.99,
+   "avg_bps": 216.1,
+   "maxdd": -8709,
+   "worst": -856,
+   "avg_hold": 7.9
+  },
+  "spy>200": {
+   "trades": 644,
+   "pnl": 42399,
+   "win%": 47.0,
+   "pf": 1.32,
+   "avg_bps": 65.8,
+   "maxdd": -21161,
+   "worst": -1239,
+   "avg_hold": 8.4
+  },
+  "spy<200": {
+   "trades": 73,
+   "pnl": 6583,
+   "win%": 58.9,
+   "pf": 1.42,
+   "avg_bps": 90.2,
+   "maxdd": -5088,
+   "worst": -1296,
+   "avg_hold": 8.2
+  },
+  "trades_per_year": 151.6,
+  "universe": "universe"
+ },
+ "d_overnight_uncond_universe": {
+  "all": {
+   "trades": 33512,
+   "pnl": -278878,
+   "win%": 44.4,
+   "pf": 0.8,
+   "avg_bps": -8.3,
+   "maxdd": -279068,
+   "worst": -1996,
+   "avg_hold": 1.0
+  },
+  "2022": {
+   "trades": 5959,
+   "pnl": -93265,
+   "win%": 42.9,
+   "pf": 0.7,
+   "avg_bps": -15.7,
+   "maxdd": -100651,
+   "worst": -1272,
+   "avg_hold": 1.0
+  },
+  "2023": {
+   "trades": 7375,
+   "pnl": -87084,
+   "win%": 41.5,
+   "pf": 0.69,
+   "avg_bps": -11.8,
+   "maxdd": -96769,
+   "worst": -1285,
+   "avg_hold": 1.0
+  },
+  "2024": {
+   "trades": 7434,
+   "pnl": -12562,
+   "win%": 47.1,
+   "pf": 0.95,
+   "avg_bps": -1.7,
+   "maxdd": -40537,
+   "worst": -1996,
+   "avg_hold": 1.0
+  },
+  "2025": {
+   "trades": 7375,
+   "pnl": -29870,
+   "win%": 45.9,
+   "pf": 0.9,
+   "avg_bps": -4.1,
+   "maxdd": -75147,
+   "worst": -1772,
+   "avg_hold": 1.0
+  },
+  "2026": {
+   "trades": 5369,
+   "pnl": -56097,
+   "win%": 44.4,
+   "pf": 0.8,
+   "avg_bps": -10.4,
+   "maxdd": -56679,
+   "worst": -1650,
+   "avg_hold": 1.0
+  },
+  "spy>200": {
+   "trades": 25665,
+   "pnl": -195902,
+   "win%": 44.1,
+   "pf": 0.8,
+   "avg_bps": -7.6,
+   "maxdd": -197673,
+   "worst": -1996,
+   "avg_hold": 1.0
+  },
+  "spy<200": {
+   "trades": 7847,
+   "pnl": -82977,
+   "win%": 45.3,
+   "pf": 0.8,
+   "avg_bps": -10.6,
+   "maxdd": -115984,
+   "worst": -1772,
+   "avg_hold": 1.0
+  },
+  "trades_per_year": 7083.5,
+  "universe": "universe"
+ },
+ "d_overnight_spy200_universe": {
+  "all": {
+   "trades": 25783,
+   "pnl": -243658,
+   "win%": 43.4,
+   "pf": 0.76,
+   "avg_bps": -9.5,
+   "maxdd": -245429,
+   "worst": -2458,
+   "avg_hold": 1.0
+  },
+  "2022": {
+   "trades": 531,
+   "pnl": -15809,
+   "win%": 36.2,
+   "pf": 0.43,
+   "avg_bps": -29.8,
+   "maxdd": -17391,
+   "worst": -803,
+   "avg_hold": 1.0
+  },
+  "2023": {
+   "trades": 6667,
+   "pnl": -99250,
+   "win%": 39.8,
+   "pf": 0.61,
+   "avg_bps": -14.9,
+   "maxdd": -99394,
+   "worst": -1285,
+   "avg_hold": 1.0
+  },
+  "2024": {
+   "trades": 7434,
+   "pnl": -34257,
+   "win%": 45.4,
+   "pf": 0.87,
+   "avg_bps": -4.6,
+   "maxdd": -35104,
+   "worst": -2458,
+   "avg_hold": 1.0
+  },
+  "2025": {
+   "trades": 6136,
+   "pnl": -41959,
+   "win%": 45.4,
+   "pf": 0.8,
+   "avg_bps": -6.8,
+   "maxdd": -51790,
+   "worst": -1289,
+   "avg_hold": 1.0
+  },
+  "2026": {
+   "trades": 5015,
+   "pnl": -52383,
+   "win%": 43.3,
+   "pf": 0.79,
+   "avg_bps": -10.4,
+   "maxdd": -57237,
+   "worst": -1615,
+   "avg_hold": 1.0
+  },
+  "spy>200": {
+   "trades": 25783,
+   "pnl": -243658,
+   "win%": 43.4,
+   "pf": 0.76,
+   "avg_bps": -9.5,
+   "maxdd": -245429,
+   "worst": -2458,
+   "avg_hold": 1.0
+  },
+  "spy<200": {
+   "trades": 0
+  },
+  "trades_per_year": 5449.8,
+  "universe": "universe"
+ },
+ "d_overnight_spy50_universe": {
+  "all": {
+   "trades": 24013,
+   "pnl": -183154,
+   "win%": 43.7,
+   "pf": 0.8,
+   "avg_bps": -7.6,
+   "maxdd": -184676,
+   "worst": -2970,
+   "avg_hold": 1.0
+  },
+  "2022": {
+   "trades": 2478,
+   "pnl": -65260,
+   "win%": 38.9,
+   "pf": 0.49,
+   "avg_bps": -26.3,
+   "maxdd": -65260,
+   "worst": -2970,
+   "avg_hold": 1.0
+  },
+  "2023": {
+   "trades": 5428,
+   "pnl": -72226,
+   "win%": 40.9,
+   "pf": 0.65,
+   "avg_bps": -13.3,
+   "maxdd": -76235,
+   "worst": -1165,
+   "avg_hold": 1.0
+  },
+  "2024": {
+   "trades": 6431,
+   "pnl": -34138,
+   "win%": 44.6,
+   "pf": 0.84,
+   "avg_bps": -5.3,
+   "maxdd": -40380,
+   "worst": -1996,
+   "avg_hold": 1.0
+  },
+  "2025": {
+   "trades": 5605,
+   "pnl": 14390,
+   "win%": 47.3,
+   "pf": 1.08,
+   "avg_bps": 2.6,
+   "maxdd": -17717,
+   "worst": -1462,
+   "avg_hold": 1.0
+  },
+  "2026": {
+   "trades": 4071,
+   "pnl": -25920,
+   "win%": 44.1,
+   "pf": 0.86,
+   "avg_bps": -6.4,
+   "maxdd": -27835,
+   "worst": -1203,
+   "avg_hold": 1.0
+  },
+  "spy>200": {
+   "trades": 21594,
+   "pnl": -154804,
+   "win%": 43.9,
+   "pf": 0.8,
+   "avg_bps": -7.2,
+   "maxdd": -157909,
+   "worst": -1996,
+   "avg_hold": 1.0
+  },
+  "spy<200": {
+   "trades": 2419,
+   "pnl": -28350,
+   "win%": 42.6,
+   "pf": 0.75,
+   "avg_bps": -11.7,
+   "maxdd": -50828,
+   "worst": -2970,
+   "avg_hold": 1.0
+  },
+  "trades_per_year": 5075.7,
+  "universe": "universe"
+ },
+ "e_bearbounce_h1_universe": {
+  "all": {
+   "trades": 3134,
+   "pnl": -12617,
+   "win%": 48.8,
+   "pf": 0.96,
+   "avg_bps": -4.0,
+   "maxdd": -60559,
+   "worst": -2616,
+   "avg_hold": 1.0
+  },
+  "2022": {
+   "trades": 1481,
+   "pnl": -32159,
+   "win%": 44.0,
+   "pf": 0.81,
+   "avg_bps": -21.7,
+   "maxdd": -54370,
+   "worst": -2466,
+   "avg_hold": 1.0
+  },
+  "2023": {
+   "trades": 426,
+   "pnl": 7445,
+   "win%": 54.0,
+   "pf": 1.26,
+   "avg_bps": 17.5,
+   "maxdd": -6109,
+   "worst": -940,
+   "avg_hold": 1.0
+  },
+  "2024": {
+   "trades": 271,
+   "pnl": 753,
+   "win%": 52.0,
+   "pf": 1.03,
+   "avg_bps": 2.8,
+   "maxdd": -12997,
+   "worst": -2616,
+   "avg_hold": 1.0
+  },
+  "2025": {
+   "trades": 538,
+   "pnl": -2209,
+   "win%": 52.0,
+   "pf": 0.97,
+   "avg_bps": -4.1,
+   "maxdd": -37038,
+   "worst": -1304,
+   "avg_hold": 1.0
+  },
+  "2026": {
+   "trades": 418,
+   "pnl": 13553,
+   "win%": 54.5,
+   "pf": 1.42,
+   "avg_bps": 32.4,
+   "maxdd": -6956,
+   "worst": -1004,
+   "avg_hold": 1.0
+  },
+  "spy>200": {
+   "trades": 1043,
+   "pnl": 9095,
+   "win%": 52.2,
+   "pf": 1.1,
+   "avg_bps": 8.7,
+   "maxdd": -12997,
+   "worst": -2616,
+   "avg_hold": 1.0
+  },
+  "spy<200": {
+   "trades": 2091,
+   "pnl": -21712,
+   "win%": 47.2,
+   "pf": 0.91,
+   "avg_bps": -10.4,
+   "maxdd": -58180,
+   "worst": -2466,
+   "avg_hold": 1.0
+  },
+  "trades_per_year": 662.4,
+  "universe": "universe"
+ },
+ "e_bearbounce_h2_universe": {
+  "all": {
+   "trades": 2746,
+   "pnl": 12139,
+   "win%": 50.7,
+   "pf": 1.03,
+   "avg_bps": 4.4,
+   "maxdd": -62836,
+   "worst": -2369,
+   "avg_hold": 2.0
+  },
+  "2022": {
+   "trades": 1281,
+   "pnl": -22746,
+   "win%": 46.5,
+   "pf": 0.89,
+   "avg_bps": -17.8,
+   "maxdd": -62836,
+   "worst": -2369,
+   "avg_hold": 2.0
+  },
+  "2023": {
+   "trades": 391,
+   "pnl": 12923,
+   "win%": 51.7,
+   "pf": 1.35,
+   "avg_bps": 33.1,
+   "maxdd": -7768,
+   "worst": -1275,
+   "avg_hold": 2.0
+  },
+  "2024": {
+   "trades": 241,
+   "pnl": 9435,
+   "win%": 59.3,
+   "pf": 1.35,
+   "avg_bps": 39.1,
+   "maxdd": -11338,
+   "worst": -1336,
+   "avg_hold": 2.0
+  },
+  "2025": {
+   "trades": 439,
+   "pnl": -19945,
+   "win%": 49.2,
+   "pf": 0.75,
+   "avg_bps": -45.4,
+   "maxdd": -47157,
+   "worst": -1282,
+   "avg_hold": 2.0
+  },
+  "2026": {
+   "trades": 394,
+   "pnl": 32471,
+   "win%": 59.4,
+   "pf": 1.85,
+   "avg_bps": 82.4,
+   "maxdd": -8124,
+   "worst": -1125,
+   "avg_hold": 2.0
+  },
+  "spy>200": {
+   "trades": 966,
+   "pnl": 30103,
+   "win%": 55.3,
+   "pf": 1.28,
+   "avg_bps": 31.2,
+   "maxdd": -15494,
+   "worst": -1336,
+   "avg_hold": 2.0
+  },
+  "spy<200": {
+   "trades": 1780,
+   "pnl": -17964,
+   "win%": 48.1,
+   "pf": 0.94,
+   "avg_bps": -10.1,
+   "maxdd": -62836,
+   "worst": -2369,
+   "avg_hold": 2.0
+  },
+  "trades_per_year": 580.4,
+  "universe": "universe"
+ },
+ "e_bearbounce_h3_universe": {
+  "all": {
+   "trades": 2517,
+   "pnl": 39330,
+   "win%": 51.6,
+   "pf": 1.09,
+   "avg_bps": 15.6,
+   "maxdd": -57557,
+   "worst": -2881,
+   "avg_hold": 3.0
+  },
+  "2022": {
+   "trades": 1159,
+   "pnl": 4138,
+   "win%": 48.0,
+   "pf": 1.02,
+   "avg_bps": 3.6,
+   "maxdd": -40957,
+   "worst": -2834,
+   "avg_hold": 3.0
+  },
+  "2023": {
+   "trades": 361,
+   "pnl": 19361,
+   "win%": 53.7,
+   "pf": 1.49,
+   "avg_bps": 53.6,
+   "maxdd": -10922,
+   "worst": -1242,
+   "avg_hold": 3.0
+  },
+  "2024": {
+   "trades": 226,
+   "pnl": 19785,
+   "win%": 63.3,
+   "pf": 1.71,
+   "avg_bps": 87.5,
+   "maxdd": -13730,
+   "worst": -2881,
+   "avg_hold": 3.0
+  },
+  "2025": {
+   "trades": 405,
+   "pnl": -26966,
+   "win%": 48.4,
+   "pf": 0.71,
+   "avg_bps": -66.6,
+   "maxdd": -57557,
+   "worst": -2275,
+   "avg_hold": 3.0
+  },
+  "2026": {
+   "trades": 366,
+   "pnl": 23013,
+   "win%": 57.4,
+   "pf": 1.48,
+   "avg_bps": 62.9,
+   "maxdd": -8592,
+   "worst": -1986,
+   "avg_hold": 3.0
+  },
+  "spy>200": {
+   "trades": 899,
+   "pnl": 28778,
+   "win%": 53.6,
+   "pf": 1.22,
+   "avg_bps": 32.0,
+   "maxdd": -17601,
+   "worst": -2881,
+   "avg_hold": 3.0
+  },
+  "spy<200": {
+   "trades": 1618,
+   "pnl": 10551,
+   "win%": 50.5,
+   "pf": 1.04,
+   "avg_bps": 6.5,
+   "maxdd": -45605,
+   "worst": -2834,
+   "avg_hold": 3.0
+  },
+  "trades_per_year": 532.0,
+  "universe": "universe"
+ },
+ "drift": {
+  "AAPL": {
+   "sharpe": 1.24,
+   "mean_bps": 11.7,
+   "by_year": {
+    "2022": 0.33,
+    "2023": 2.75,
+    "2024": 1.66,
+    "2025": 0.94,
+    "2026": 1.54
+   },
+   "spy>200": 1.51,
+   "spy<200": 0.91,
+   "pos_years": 5
+  },
+  "MSFT": {
+   "sharpe": 0.26,
+   "mean_bps": 2.3,
+   "by_year": {
+    "2022": -0.37,
+    "2023": 1.16,
+    "2024": -0.18,
+    "2025": 0.49,
+    "2026": 0.46
+   },
+   "spy>200": 0.33,
+   "spy<200": 0.15,
+   "pos_years": 3
+  },
+  "AMZN": {
+   "sharpe": 0.03,
+   "mean_bps": 0.3,
+   "by_year": {
+    "2022": -1.04,
+    "2023": 1.58,
+    "2024": 0.3,
+    "2025": -0.47,
+    "2026": 0.47
+   },
+   "spy>200": -0.1,
+   "spy<200": 0.24,
+   "pos_years": 3
+  },
+  "NVDA": {
+   "sharpe": 0.48,
+   "mean_bps": 8.0,
+   "by_year": {
+    "2022": 0.23,
+    "2023": 2.11,
+    "2024": 0.12,
+    "2025": 0.36,
+    "2026": -0.47
+   },
+   "spy>200": 0.01,
+   "spy<200": 1.37,
+   "pos_years": 4
+  },
+  "GOOGL": {
+   "sharpe": 0.83,
+   "mean_bps": 8.4,
+   "by_year": {
+    "2022": -0.59,
+    "2023": 2.61,
+    "2024": 0.73,
+    "2025": 0.71,
+    "2026": 1.37
+   },
+   "spy>200": 1.24,
+   "spy<200": 0.1,
+   "pos_years": 4
+  },
+  "META": {
+   "sharpe": 0.54,
+   "mean_bps": 6.8,
+   "by_year": {
+    "2022": 0.21,
+    "2023": 2.58,
+    "2024": 0.41,
+    "2025": -0.48,
+    "2026": 0.28
+   },
+   "spy>200": 0.58,
+   "spy<200": 0.51,
+   "pos_years": 4
+  },
+  "TSLA": {
+   "sharpe": 0.05,
+   "mean_bps": 1.0,
+   "by_year": {
+    "2022": -1.57,
+    "2023": 1.55,
+    "2024": 0.33,
+    "2025": 0.27,
+    "2026": 0.23
+   },
+   "spy>200": 0.26,
+   "spy<200": -0.35,
+   "pos_years": 4
+  },
+  "AVGO": {
+   "sharpe": -0.01,
+   "mean_bps": -0.1,
+   "by_year": {
+    "2022": -0.64,
+    "2023": 2.62,
+    "2024": -0.27,
+    "2025": -0.47,
+    "2026": -1.07
+   },
+   "spy>200": -0.25,
+   "spy<200": 0.64,
+   "pos_years": 1
+  },
+  "LLY": {
+   "sharpe": 0.33,
+   "mean_bps": 3.4,
+   "by_year": {
+    "2022": 1.68,
+    "2023": 0.08,
+    "2024": -0.86,
+    "2025": 1.57,
+    "2026": -1.4
+   },
+   "spy>200": 0.07,
+   "spy<200": 1.02,
+   "pos_years": 3
+  },
+  "JPM": {
+   "sharpe": 0.66,
+   "mean_bps": 5.4,
+   "by_year": {
+    "2022": -0.35,
+    "2023": 1.42,
+    "2024": 1.19,
+    "2025": 1.32,
+    "2026": -0.2
+   },
+   "spy>200": 0.54,
+   "spy<200": 0.93,
+   "pos_years": 3
+  },
+  "V": {
+   "sharpe": 0.92,
+   "mean_bps": 6.9,
+   "by_year": {
+    "2022": 0.8,
+    "2023": 2.05,
+    "2024": 0.27,
+    "2025": 1.19,
+    "2026": 0.42
+   },
+   "spy>200": 0.81,
+   "spy<200": 1.18,
+   "pos_years": 5
+  },
+  "MA": {
+   "sharpe": 0.98,
+   "mean_bps": 8.0,
+   "by_year": {
+    "2022": 1.34,
+    "2023": 1.8,
+    "2024": 0.41,
+    "2025": 0.69,
+    "2026": 0.28
+   },
+   "spy>200": 0.74,
+   "spy<200": 1.46,
+   "pos_years": 5
+  },
+  "UNH": {
+   "sharpe": 0.03,
+   "mean_bps": 0.3,
+   "by_year": {
+    "2022": 0.41,
+    "2023": -0.43,
+    "2024": 0.01,
+    "2025": 0.11,
+    "2026": -0.1
+   },
+   "spy>200": 0.16,
+   "spy<200": -0.3,
+   "pos_years": 3
+  },
+  "COST": {
+   "sharpe": 0.58,
+   "mean_bps": 4.6,
+   "by_year": {
+    "2022": -0.03,
+    "2023": 2.09,
+    "2024": 0.44,
+    "2025": 0.43,
+    "2026": 0.48
+   },
+   "spy>200": 0.51,
+   "spy<200": 0.74,
+   "pos_years": 4
+  },
+  "HD": {
+   "sharpe": 0.06,
+   "mean_bps": 0.6,
+   "by_year": {
+    "2022": 0.15,
+    "2023": 1.13,
+    "2024": 0.35,
+    "2025": -0.18,
+    "2026": -1.24
+   },
+   "spy>200": -0.08,
+   "spy<200": 0.34,
+   "pos_years": 3
+  },
+  "PG": {
+   "sharpe": 0.3,
+   "mean_bps": 1.9,
+   "by_year": {
+    "2022": -0.1,
+    "2023": -0.01,
+    "2024": 2.2,
+    "2025": -0.35,
+    "2026": 0.16
+   },
+   "spy>200": 0.69,
+   "spy<200": -0.48,
+   "pos_years": 2
+  },
+  "KO": {
+   "sharpe": 0.13,
+   "mean_bps": 0.7,
+   "by_year": {
+    "2022": 0.44,
+    "2023": -1.37,
+    "2024": 0.95,
+    "2025": 0.47,
+    "2026": -0.03
+   },
+   "spy>200": 0.09,
+   "spy<200": 0.2,
+   "pos_years": 3
+  },
+  "PEP": {
+   "sharpe": -0.57,
+   "mean_bps": -3.9,
+   "by_year": {
+    "2022": -0.57,
+    "2023": -1.46,
+    "2024": 0.5,
+    "2025": -0.42,
+    "2026": -1.21
+   },
+   "spy>200": -0.32,
+   "spy<200": -1.17,
+   "pos_years": 1
+  },
+  "XOM": {
+   "sharpe": 0.87,
+   "mean_bps": 7.9,
+   "by_year": {
+    "2022": 2.04,
+    "2023": 0.35,
+    "2024": -0.13,
+    "2025": 0.33,
+    "2026": 1.56
+   },
+   "spy>200": 0.46,
+   "spy<200": 1.71,
+   "pos_years": 4
+  },
+  "CVX": {
+   "sharpe": 0.08,
+   "mean_bps": 0.7,
+   "by_year": {
+    "2022": 1.56,
+    "2023": -0.95,
+    "2024": -1.54,
+    "2025": -0.01,
+    "2026": 0.76
+   },
+   "spy>200": -0.39,
+   "spy<200": 0.9,
+   "pos_years": 2
+  },
+  "MRK": {
+   "sharpe": 0.48,
+   "mean_bps": 4.0,
+   "by_year": {
+    "2022": 2.14,
+    "2023": 0.02,
+    "2024": -1.22,
+    "2025": 0.62,
+    "2026": 0.91
+   },
+   "spy>200": 0.21,
+   "spy<200": 1.18,
+   "pos_years": 4
+  },
+  "ABBV": {
+   "sharpe": 0.96,
+   "mean_bps": 7.9,
+   "by_year": {
+    "2022": 2.27,
+    "2023": 0.25,
+    "2024": 0.67,
+    "2025": 0.78,
+    "2026": 0.78
+   },
+   "spy>200": 0.82,
+   "spy<200": 1.3,
+   "pos_years": 5
+  },
+  "ADBE": {
+   "sharpe": 0.2,
+   "mean_bps": 2.3,
+   "by_year": {
+    "2022": -0.39,
+    "2023": 1.89,
+    "2024": -0.78,
+    "2025": 0.14,
+    "2026": 0.32
+   },
+   "spy>200": 0.34,
+   "spy<200": -0.1,
+   "pos_years": 3
+  },
+  "CRM": {
+   "sharpe": 0.5,
+   "mean_bps": 6.0,
+   "by_year": {
+    "2022": -0.21,
+    "2023": 2.82,
+    "2024": 0.41,
+    "2025": -0.64,
+    "2026": 0.85
+   },
+   "spy>200": 0.43,
+   "spy<200": 0.65,
+   "pos_years": 3
+  },
+  "NFLX": {
+   "sharpe": 0.36,
+   "mean_bps": 4.6,
+   "by_year": {
+    "2022": 0.25,
+    "2023": 0.7,
+    "2024": 1.14,
+    "2025": 0.12,
+    "2026": -0.31
+   },
+   "spy>200": -0.25,
+   "spy<200": 1.34,
+   "pos_years": 4
+  },
+  "AMD": {
+   "sharpe": 0.3,
+   "mean_bps": 5.5,
+   "by_year": {
+    "2022": -0.8,
+    "2023": 1.82,
+    "2024": -1.55,
+    "2025": 0.41,
+    "2026": 2.11
+   },
+   "spy>200": 0.17,
+   "spy<200": 0.59,
+   "pos_years": 3
+  },
+  "ORCL": {
+   "sharpe": -0.28,
+   "mean_bps": -3.6,
+   "by_year": {
+    "2022": 0.18,
+    "2023": 2.03,
+    "2024": -0.6,
+    "2025": -0.78,
+    "2026": -1.39
+   },
+   "spy>200": -0.66,
+   "spy<200": 0.82,
+   "pos_years": 2
+  },
+  "QCOM": {
+   "sharpe": 0.24,
+   "mean_bps": 3.2,
+   "by_year": {
+    "2022": -0.19,
+    "2023": 1.27,
+    "2024": -0.79,
+    "2025": 0.73,
+    "2026": 0.41
+   },
+   "spy>200": 0.06,
+   "spy<200": 0.63,
+   "pos_years": 3
+  },
+  "TXN": {
+   "sharpe": 0.28,
+   "mean_bps": 3.0,
+   "by_year": {
+    "2022": 0.17,
+    "2023": 0.59,
+    "2024": -0.79,
+    "2025": 0.85,
+    "2026": 0.38
+   },
+   "spy>200": 0.05,
+   "spy<200": 0.78,
+   "pos_years": 4
+  },
+  "INTC": {
+   "sharpe": 0.36,
+   "mean_bps": 5.9,
+   "by_year": {
+    "2022": -0.98,
+    "2023": 2.3,
+    "2024": -1.93,
+    "2025": 0.6,
+    "2026": 1.39
+   },
+   "spy>200": 0.17,
+   "spy<200": 0.9,
+   "pos_years": 3
+  },
+  "CSCO": {
+   "sharpe": 0.54,
+   "mean_bps": 4.3,
+   "by_year": {
+    "2022": -0.95,
+    "2023": 1.68,
+    "2024": 0.79,
+    "2025": 0.12,
+    "2026": 1.57
+   },
+   "spy>200": 0.85,
+   "spy<200": -0.14,
+   "pos_years": 4
+  },
+  "AMAT": {
+   "sharpe": 0.55,
+   "mean_bps": 8.1,
+   "by_year": {
+    "2022": 0.28,
+    "2023": 1.86,
+    "2024": -1.19,
+    "2025": 1.53,
+    "2026": 0.42
+   },
+   "spy>200": 0.16,
+   "spy<200": 1.38,
+   "pos_years": 4
+  },
+  "MU": {
+   "sharpe": 0.58,
+   "mean_bps": 9.8,
+   "by_year": {
+    "2022": 0.36,
+    "2023": 1.38,
+    "2024": -1.54,
+    "2025": 1.26,
+    "2026": 1.32
+   },
+   "spy>200": 0.37,
+   "spy<200": 1.08,
+   "pos_years": 4
+  },
+  "BAC": {
+   "sharpe": 0.19,
+   "mean_bps": 1.7,
+   "by_year": {
+    "2022": -0.96,
+    "2023": 0.17,
+    "2024": 1.67,
+    "2025": 0.72,
+    "2026": -0.3
+   },
+   "spy>200": 0.13,
+   "spy<200": 0.3,
+   "pos_years": 3
+  },
+  "WFC": {
+   "sharpe": 0.25,
+   "mean_bps": 2.4,
+   "by_year": {
+    "2022": -0.52,
+    "2023": 0.99,
+    "2024": 0.66,
+    "2025": 0.72,
+    "2026": -0.72
+   },
+   "spy>200": -0.08,
+   "spy<200": 0.97,
+   "pos_years": 3
+  },
+  "GS": {
+   "sharpe": 0.6,
+   "mean_bps": 5.7,
+   "by_year": {
+    "2022": 0.08,
+    "2023": 1.2,
+    "2024": 0.5,
+    "2025": 1.55,
+    "2026": -0.48
+   },
+   "spy>200": 0.21,
+   "spy<200": 1.48,
+   "pos_years": 4
+  },
+  "MS": {
+   "sharpe": 0.55,
+   "mean_bps": 5.2,
+   "by_year": {
+    "2022": 0.13,
+    "2023": 1.22,
+    "2024": -0.1,
+    "2025": 1.44,
+    "2026": -0.32
+   },
+   "spy>200": 0.06,
+   "spy<200": 1.57,
+   "pos_years": 3
+  },
+  "CAT": {
+   "sharpe": 0.56,
+   "mean_bps": 5.6,
+   "by_year": {
+    "2022": 0.81,
+    "2023": 0.95,
+    "2024": 0.26,
+    "2025": 0.89,
+    "2026": -0.2
+   },
+   "spy>200": 0.38,
+   "spy<200": 0.98,
+   "pos_years": 4
+  },
+  "DE": {
+   "sharpe": 0.79,
+   "mean_bps": 7.8,
+   "by_year": {
+    "2022": 1.17,
+    "2023": -0.19,
+    "2024": 0.72,
+    "2025": 1.0,
+    "2026": 1.2
+   },
+   "spy>200": 0.64,
+   "spy<200": 1.11,
+   "pos_years": 4
+  },
+  "BA": {
+   "sharpe": 0.06,
+   "mean_bps": 0.8,
+   "by_year": {
+    "2022": 0.57,
+    "2023": 1.75,
+    "2024": -0.44,
+    "2025": -0.18,
+    "2026": -1.66
+   },
+   "spy>200": -0.86,
+   "spy<200": 1.67,
+   "pos_years": 2
+  },
+  "GE": {
+   "sharpe": 0.98,
+   "mean_bps": 10.0,
+   "by_year": {
+    "2022": 0.46,
+    "2023": 2.71,
+    "2024": 0.95,
+    "2025": 1.67,
+    "2026": -0.83
+   },
+   "spy>200": 0.83,
+   "spy<200": 1.32,
+   "pos_years": 4
+  },
+  "HON": {
+   "sharpe": -0.36,
+   "mean_bps": -2.9,
+   "by_year": {
+    "2022": -0.09,
+    "2023": -0.4,
+    "2024": -0.51,
+    "2025": -0.49,
+    "2026": -0.42
+   },
+   "spy>200": -0.66,
+   "spy<200": 0.25,
+   "pos_years": 0
+  },
+  "UNP": {
+   "sharpe": -0.19,
+   "mean_bps": -1.5,
+   "by_year": {
+    "2022": -0.16,
+    "2023": -0.05,
+    "2024": -0.92,
+    "2025": 0.29,
+    "2026": -0.29
+   },
+   "spy>200": -0.39,
+   "spy<200": 0.28,
+   "pos_years": 1
+  },
+  "UPS": {
+   "sharpe": -0.05,
+   "mean_bps": -0.4,
+   "by_year": {
+    "2022": 0.32,
+    "2023": 1.7,
+    "2024": -1.41,
+    "2025": -0.68,
+    "2026": -0.31
+   },
+   "spy>200": -0.26,
+   "spy<200": 0.47,
+   "pos_years": 2
+  },
+  "LOW": {
+   "sharpe": 0.05,
+   "mean_bps": 0.4,
+   "by_year": {
+    "2022": 0.14,
+    "2023": 0.83,
+    "2024": 0.6,
+    "2025": -0.06,
+    "2026": -1.46
+   },
+   "spy>200": -0.15,
+   "spy<200": 0.46,
+   "pos_years": 3
+  },
+  "NKE": {
+   "sharpe": -0.41,
+   "mean_bps": -4.2,
+   "by_year": {
+    "2022": -0.43,
+    "2023": 1.0,
+    "2024": -0.43,
+    "2025": -0.62,
+    "2026": -1.51
+   },
+   "spy>200": -0.59,
+   "spy<200": -0.12,
+   "pos_years": 1
+  },
+  "SBUX": {
+   "sharpe": -0.01,
+   "mean_bps": -0.1,
+   "by_year": {
+    "2022": -0.34,
+    "2023": -0.21,
+    "2024": 0.05,
+    "2025": 0.55,
+    "2026": -0.27
+   },
+   "spy>200": 0.07,
+   "spy<200": -0.17,
+   "pos_years": 2
+  },
+  "MCD": {
+   "sharpe": -0.15,
+   "mean_bps": -1.0,
+   "by_year": {
+    "2022": -0.07,
+    "2023": 0.7,
+    "2024": 0.78,
+    "2025": 0.56,
+    "2026": -3.38
+   },
+   "spy>200": -0.16,
+   "spy<200": -0.13,
+   "pos_years": 3
+  },
+  "DIS": {
+   "sharpe": 0.11,
+   "mean_bps": 1.0,
+   "by_year": {
+    "2022": -1.62,
+    "2023": 0.24,
+    "2024": 2.09,
+    "2025": 0.88,
+    "2026": -0.38
+   },
+   "spy>200": 0.47,
+   "spy<200": -0.51,
+   "pos_years": 3
+  },
+  "CMCSA": {
+   "sharpe": -0.34,
+   "mean_bps": -3.4,
+   "by_year": {
+    "2022": -0.69,
+    "2023": 0.96,
+    "2024": -0.88,
+    "2025": 0.59,
+    "2026": -1.51
+   },
+   "spy>200": -0.55,
+   "spy<200": 0.21,
+   "pos_years": 2
+  },
+  "T": {
+   "sharpe": 1.0,
+   "mean_bps": 8.2,
+   "by_year": {
+    "2022": 0.69,
+    "2023": 0.1,
+    "2024": 2.47,
+    "2025": 1.58,
+    "2026": 0.18
+   },
+   "spy>200": 0.94,
+   "spy<200": 1.15,
+   "pos_years": 5
+  },
+  "VZ": {
+   "sharpe": 0.01,
+   "mean_bps": 0.0,
+   "by_year": {
+    "2022": -0.7,
+    "2023": -0.45,
+    "2024": 0.79,
+    "2025": 0.39,
+    "2026": 0.06
+   },
+   "spy>200": -0.02,
+   "spy<200": 0.08,
+   "pos_years": 3
+  },
+  "PFE": {
+   "sharpe": -0.21,
+   "mean_bps": -1.8,
+   "by_year": {
+    "2022": 1.03,
+    "2023": -1.57,
+    "2024": -0.53,
+    "2025": -0.54,
+    "2026": 0.71
+   },
+   "spy>200": -0.6,
+   "spy<200": 0.67,
+   "pos_years": 2
+  },
+  "TMO": {
+   "sharpe": 0.62,
+   "mean_bps": 5.9,
+   "by_year": {
+    "2022": 0.13,
+    "2023": 0.66,
+    "2024": -0.18,
+    "2025": 0.6,
+    "2026": 2.11
+   },
+   "spy>200": 0.96,
+   "spy<200": -0.04,
+   "pos_years": 4
+  },
+  "ABT": {
+   "sharpe": 0.12,
+   "mean_bps": 0.9,
+   "by_year": {
+    "2022": -0.14,
+    "2023": -0.31,
+    "2024": 0.64,
+    "2025": 1.65,
+    "2026": -1.59
+   },
+   "spy>200": 0.2,
+   "spy<200": -0.06,
+   "pos_years": 2
+  },
+  "DHR": {
+   "sharpe": 0.17,
+   "mean_bps": 1.6,
+   "by_year": {
+    "2022": -0.52,
+    "2023": 0.94,
+    "2024": -0.6,
+    "2025": -0.25,
+    "2026": 1.67
+   },
+   "spy>200": 0.48,
+   "spy<200": -0.44,
+   "pos_years": 2
+  },
+  "LIN": {
+   "sharpe": 1.24,
+   "mean_bps": 8.7,
+   "by_year": {
+    "2022": 1.08,
+    "2023": 2.57,
+    "2024": 0.54,
+    "2025": 0.49,
+    "2026": 1.68
+   },
+   "spy>200": 1.17,
+   "spy<200": 1.46,
+   "pos_years": 5
+  },
+  "NEE": {
+   "sharpe": -0.32,
+   "mean_bps": -3.0,
+   "by_year": {
+    "2022": -0.54,
+    "2023": -1.27,
+    "2024": 1.12,
+    "2025": 0.24,
+    "2026": -1.44
+   },
+   "spy>200": -0.16,
+   "spy<200": -0.7,
+   "pos_years": 2
+  },
+  "PLD": {
+   "sharpe": -0.15,
+   "mean_bps": -1.4,
+   "by_year": {
+    "2022": -1.35,
+    "2023": 0.63,
+    "2024": -0.9,
+    "2025": 0.45,
+    "2026": 0.92
+   },
+   "spy>200": 0.34,
+   "spy<200": -1.11,
+   "pos_years": 3
+  }
+ },
+ "earnings_source": {
+  "AAPL": "edgar",
+  "MSFT": "edgar",
+  "AMZN": "edgar",
+  "NVDA": "edgar",
+  "GOOGL": "edgar",
+  "META": "edgar",
+  "TSLA": "edgar",
+  "AVGO": "edgar",
+  "LLY": "edgar",
+  "JPM": "edgar",
+  "V": "edgar",
+  "MA": "edgar",
+  "UNH": "edgar",
+  "COST": "edgar",
+  "HD": "edgar",
+  "PG": "edgar",
+  "KO": "edgar",
+  "PEP": "edgar",
+  "XOM": "edgar",
+  "CVX": "edgar",
+  "MRK": "edgar",
+  "ABBV": "edgar",
+  "ADBE": "edgar",
+  "CRM": "edgar",
+  "NFLX": "edgar",
+  "AMD": "edgar",
+  "ORCL": "edgar",
+  "QCOM": "edgar",
+  "TXN": "edgar",
+  "INTC": "edgar",
+  "CSCO": "edgar",
+  "AMAT": "edgar",
+  "MU": "edgar",
+  "BAC": "edgar",
+  "WFC": "edgar",
+  "GS": "edgar",
+  "MS": "edgar",
+  "CAT": "edgar",
+  "DE": "edgar",
+  "BA": "edgar",
+  "GE": "edgar",
+  "HON": "edgar",
+  "UNP": "edgar",
+  "UPS": "edgar",
+  "LOW": "edgar",
+  "NKE": "edgar",
+  "SBUX": "edgar",
+  "MCD": "edgar",
+  "DIS": "edgar",
+  "CMCSA": "edgar",
+  "T": "edgar",
+  "VZ": "edgar",
+  "PFE": "edgar",
+  "TMO": "edgar",
+  "ABT": "edgar",
+  "DHR": "edgar",
+  "LIN": "edgar",
+  "NEE": "edgar",
+  "PLD": "edgar"
+ },
+ "earnings_days_per_name": {
+  "AAPL": 19,
+  "MSFT": 19,
+  "AMZN": 19,
+  "NVDA": 19,
+  "GOOGL": 19,
+  "META": 19,
+  "TSLA": 19,
+  "AVGO": 19,
+  "LLY": 19,
+  "JPM": 19,
+  "V": 19,
+  "MA": 19,
+  "UNH": 19,
+  "COST": 19,
+  "HD": 19,
+  "PG": 19,
+  "KO": 19,
+  "PEP": 19,
+  "XOM": 19,
+  "CVX": 19,
+  "MRK": 19,
+  "ABBV": 19,
+  "ADBE": 19,
+  "CRM": 19,
+  "NFLX": 19,
+  "AMD": 19,
+  "ORCL": 19,
+  "QCOM": 19,
+  "TXN": 19,
+  "INTC": 19,
+  "CSCO": 19,
+  "AMAT": 19,
+  "MU": 19,
+  "BAC": 19,
+  "WFC": 19,
+  "GS": 19,
+  "MS": 19,
+  "CAT": 19,
+  "DE": 19,
+  "BA": 19,
+  "GE": 19,
+  "HON": 19,
+  "UNP": 19,
+  "UPS": 19,
+  "LOW": 19,
+  "NKE": 19,
+  "SBUX": 19,
+  "MCD": 19,
+  "DIS": 19,
+  "CMCSA": 19,
+  "T": 19,
+  "VZ": 19,
+  "PFE": 19,
+  "TMO": 19,
+  "ABT": 19,
+  "DHR": 19,
+  "LIN": 19,
+  "NEE": 19,
+  "PLD": 19
+ }
+}
