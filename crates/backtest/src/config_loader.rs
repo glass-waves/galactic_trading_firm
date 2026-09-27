@@ -16,7 +16,7 @@ pub enum ConfigError {
 impl fmt::Display for ConfigError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
-            ConfigError::NotFound => write!(f, "no promoted config found"),
+            ConfigError::NotFound => write!(f, "config not found (no promoted row, or the requested --config-id does not exist)"),
             ConfigError::DatabaseError(e) => write!(f, "database error: {e}"),
             ConfigError::DeserializationError(e) => write!(f, "config deserialization error: {e}"),
             ConfigError::ValidationError(msg) => write!(f, "config validation error: {msg}"),
@@ -64,6 +64,28 @@ pub async fn load_promoted_config_with_id(
         ));
     }
 
+    Ok((config, id))
+}
+
+/// load a specific `config_versions` row by id (any status). used by the research pipeline so the
+/// row that is backtested is the row that is shadowed and, if it earns it, promoted.
+pub async fn load_config_by_id(
+    pool: &sqlx::PgPool,
+    id: i64,
+) -> Result<(StrategyConfig, i64), ConfigError> {
+    let row: Option<(i64, serde_json::Value)> =
+        sqlx::query_as("SELECT id, config_blob FROM config_versions WHERE id = $1")
+            .bind(id)
+            .fetch_optional(pool)
+            .await?;
+    let (id, config_blob) = row.ok_or(ConfigError::NotFound)?;
+    let config: StrategyConfig = serde_json::from_value(config_blob)?;
+    if config.indicators.is_empty() {
+        return Err(ConfigError::ValidationError("config must have at least one indicator".to_string()));
+    }
+    if config.actions.is_empty() {
+        return Err(ConfigError::ValidationError("config must have at least one action".to_string()));
+    }
     Ok((config, id))
 }
 

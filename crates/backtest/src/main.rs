@@ -5,7 +5,7 @@ use std::process;
 use tracing_subscriber::{prelude::*, EnvFilter};
 
 use backtest::alpaca_loader::{build_backtest_data, fetch_bars_range, market_hours_utc};
-use backtest::config_loader::{load_promoted_config_with_id, write_backtest_trades};
+use backtest::config_loader::{load_config_by_id, load_promoted_config_with_id, write_backtest_trades};
 use backtest::replay::{BacktestConfig, BacktestCostConfig, BacktestData};
 use backtest::{compute_metrics, load_candles_from_csv, run_backtest, to_json};
 use types::scoring::TimescaleScores;
@@ -1014,7 +1014,8 @@ async fn main() {
         if args.iter().any(|a| a == "--dump-window-only") {
             std::env::set_var("BACKTEST_DUMP_WINDOW_ONLY", "1");
         }
-        run_date_mode(&date_str, lookback_days, write_db, capital, &cost_config, verbose, output_equity, output_trades_csv, &overrides, bars_dir.as_deref(), dump_ticks.as_deref(), cross_index.as_deref()).await;
+        let config_id: Option<i64> = get_arg(&args, "--config-id").and_then(|s| s.parse().ok());
+        run_date_mode(&date_str, lookback_days, write_db, capital, &cost_config, verbose, output_equity, output_trades_csv, &overrides, bars_dir.as_deref(), dump_ticks.as_deref(), cross_index.as_deref(), config_id).await;
     } else if let Some(dir) = get_arg(&args, "--fetch-bars") {
         // build / extend the local 1-minute bar cache used by `--bars-dir`
         let start = get_arg(&args, "--start").expect("--fetch-bars needs --start YYYY-MM-DD");
@@ -1032,7 +1033,7 @@ async fn main() {
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capital: f64, cost_config: &Option<BacktestCostConfig>, verbose: bool, output_equity: bool, output_trades_csv: bool, overrides: &ConfigOverrides, bars_dir: Option<&str>, dump_ticks: Option<&str>, cross_index: Option<&str>) {
+async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capital: f64, cost_config: &Option<BacktestCostConfig>, verbose: bool, output_equity: bool, output_trades_csv: bool, overrides: &ConfigOverrides, bars_dir: Option<&str>, dump_ticks: Option<&str>, cross_index: Option<&str>, config_id: Option<i64>) {
     dotenvy::dotenv().ok();
 
     // file + console layered logging
@@ -1084,8 +1085,12 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
             process::exit(1);
         });
 
-    // load promoted config
-    let (mut config, config_version_id) = match load_promoted_config_with_id(&pool).await {
+    // load the promoted config, or a specific row when --config-id is given (research pipeline)
+    let loaded = match config_id {
+        Some(id) => load_config_by_id(&pool, id).await,
+        None => load_promoted_config_with_id(&pool).await,
+    };
+    let (mut config, config_version_id) = match loaded {
         Ok(r) => r,
         Err(e) => {
             eprintln!("error: {e}");
