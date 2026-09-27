@@ -245,3 +245,53 @@ costs, 36 % sizing, `--cross-index SPY`):
 - should the pipeline runner also own the "same-day replay per book" (parity) or should `export_day.sh` do it for every enabled book nightly (cheaper to reason about, one place)?
 - `MAX_BOOKS` = 8: enough? each book × ticker is one engine; cost is negligible but log volume and `engine_state` rows grow.
 - ticker candidates follow the promoted config; is a config candidate that also changes tickers a legitimate single candidate (yes in the schema; the gate compares against the baseline on the same tickers?) — define.
+
+## 9. review adjustments (2026-09-26 evening) — binding; where §9 conflicts with §1–§8, §9 wins
+
+source: `docs/plans/2026-09-26_pipeline_and_books.review.md` (read it; every finding there is
+accepted unless listed under "declined" below).
+
+**owner-side, done before fan-out**
+- `--config-id` is in (76e1dd4). `--patch-json` now also accepts `session` (shallow-merged; `force_exit_by` mirrored into every `session_close` action, same as the `--force-exit-by` flag) and `tickers` (replaces the list). `--fetch-bars` exits 3 when any chunk fails. `research_runner.sh` takes `logs/.research.lock` (flock, 4 h wait); the pipeline runner must take the same lock.
+- migration adds: `agent_type` value `pipeline` (use it for `created_by`; put the candidate name in `mutation_reason`, which is NOT NULL), table `book_sessions (book, session_date, first_bar_at, config_version_id)` written by the trader on a book's first bar of each eastern date, and `pipeline_candidates.name` is unique only among *active* stages (re-proposal after cooldown works).
+- rollback path (B1): the old binary's `ON CONFLICT (ticker)` upsert fails after the PK change. rollback = old binary **plus** `scripts/rollback_books.sql` (deletes non-primary rows from `engine_state`, restores `PRIMARY KEY (ticker)`), written by **A** and tested once against a scratch copy of the table. Monday's go/no-go decision happens before 06:10 PT.
+
+**A (trader)**
+- `apply_pending_to` must not remove the shared `state_builders` entry when a ticker leaves one book (other books / the cross tracker may still need it); drop a builder only when no book trades the ticker.
+- demo feed emits the union of all books' tickers (+ SPY).
+- `MAX_BOOKS` 8 and `MAX_SYMBOLS` 25: excess *shadows* are skipped with `error!` (the watchdog's "not hosted" alert makes it visible); the primary is never skipped.
+- write `book_sessions` on each book's first bar of the eastern date (`INSERT … ON CONFLICT DO NOTHING`).
+- replay harness (§3.2): no database writes at all — trades go to `--replay-out FILE` as the backtest's trade CSV format; the clock safety net, feed-staleness, config-reload and heartbeat arms are disabled; every timestamp that is `Utc::now()` today (exit stamps, `force_close`) uses the bar time in replay mode; the run ends by flattening at the last bar and exiting 0. parity command for the report: `backtest --date D --lookback-days 8 --bars-dir data/bars_iex --cross-index SPY --capital <INITIAL_CAPITAL> --slippage-bps 0 --half-spread 0` vs the harness with the simulated broker at 0 bps (compare entries/exits/sizes exactly; then rerun both with costs and expect only fill-model differences). no sizing override on either side (the blob's 0.30).
+- shadows with a *different* ticker set pass **their own** ticker list to `cross.context_for` (peers), as planned.
+
+**B (pipeline)**
+- materializer mirrors the four `--patch-json` keys exactly (`disable`, `indicators`, `actions`, `session` with the `session_close` mirror, `tickers`); test: materialize the bear-bounce patch, run one day with `--config-id` and with `--patch-json`, trade rows identical.
+- sessions for the shadow clock come from `book_sessions` (hosted days only); a book that is never hosted never times out — the watchdog reports it instead.
+- parity replays use **no** sizing override (live and shadow size at the blob's fraction); gate sweeps stay at 36 % for comparability with the research record, and gate thresholds are stated at 36 %.
+- verify bar coverage after any fetch (≥ 240 sessions per full year, ≥ 95 % of SPY's session count otherwise) before running a gate; refuse to gate on holes.
+- take `logs/.research.lock` (flock) around every sweep; commit only `docs/pipeline/status.md` and `data/cand_*.args` (never `data/*.args`).
+- gates: replace `default-config` with `volume-config` (trades ≥ baseline, PF ≥ 1.3, ≥ 4 of 5 years, P&L ≥ baseline − 10 %, no year < −300) and `quality-config` (PF ≥ baseline + 0.05, ≥ 4 of 5 years, trades ≥ 0.6 × baseline, no year < −300); `stress-mode` = `volume-config` relaxed to trades ≥ 0.9 × baseline **plus** on SPY < −1 % days: total P&L ≥ 3 × baseline's and ≥ +40 per such day on average, no single day < −300, and ordinary-day P&L within ±10 % of baseline. baseline for a candidate = the promoted row swept on the candidate's ticker set (`--tickers`). a ticker candidate's promotion-proposed row (promoted + T) is itself swept on the full set before it is proposed.
+- a failed shadow is retired with `retire_reason`; a "not hosted after 3 trading days" state is reported, not failed.
+
+**C (stress study) — exact recipe**
+- run with the session opened by flags: `--no-new-entries-after 15:30 --force-exit-by 15:55` (as `data/e_eod_1530_t2.5.args` did). the patch must `disable` both promoted short windows and re-add them as the `_am` copies from `research/eod/eod_1530_t2.5.json` (`entry_before "11:30"`, `exit_overrides {force_exit_by: "11:55"}`; their conditions equal row 12's) so the ordinary book is unchanged, then add the stress windows. `pdl_5m` is not in v18: append it. the SPY trigger can read `cross_1m.index_session_ret` (metadata, in percent) directly — no second instance needed.
+- shorts score-exit when `composite >= -threshold`: a stress window's `score_exit_threshold` must be **negative** (e.g. −0.6 = exit only when the composite has flipped to +0.6) or −10 to disable. `0.6` would exit every stress short on the next bar.
+- for the candidate hand-off, write the patch with the `session` key (`{"no_new_entries_after": "15:30", "force_exit_by": "15:55"}`) instead of flags, and verify one day with `--patch-json` equals the flag run.
+
+**D (ops/docs)** additionally owns `scripts/analysis/near_miss_replay.py` (filter `book='primary'`), `scripts/replay_book.sh <book> <date>` (replays one enabled book's config/tickers for a date on the IEX cache into `data/live/<date>/replay_<book>.csv`; `export_day.sh` calls it for every enabled book; the pipeline's parity step reads those files and calls the script for missing days), and the **repo hygiene** work in §10. cockpit queries are noted, not changed.
+
+**declined**: refusing to start when there are too many books (a shadow must never stop the primary; skipping + alert is the invariant); making the old binary schema-compatible (rollback SQL instead).
+
+## 10. repo hygiene (owner policy; D executes the first pass)
+
+the working tree is small (~10 MB tracked) but `.git` is 253 MB because `agents-ts/node_modules`
+and a `target2/` build tree were committed long ago (largest blobs 10–23 MB). that needs a history
+rewrite + force push and is the human's call (single branch, single remote; `git filter-repo
+--path agents-ts/node_modules --path target2 --invert-paths`). the rest is policy:
+
+- **caches are never tracked**: `research/**/daily/`, `research/**/cache/`, `data/bars*`, `data/*.csv`, `data/labels/`. `research/swing/daily/*.csv` (5.3 MB, regenerable by `fetch_daily.py`) is untracked in the first pass; `research/entries/data/sec_*.json` (660 KB raw EDGAR; the derived `earnings_*.txt` stay) is deleted.
+- **a closed research round keeps**: its report, its scripts, and the patch files of the *best / candidate* cells plus anything a later step consumes; every other grid patch is deleted, and the round's README lists the commit that still holds them. first pass: `research/entries/variants/` keeps `iex_*.json`, `grid_b0.4_v0.217.json`, `long_filters.json`, `long_unfiltered.json`; `research/volume/` keeps the md write-ups, `report_spec.json`, `build_report.py`, `walk_forward.*`, `smoke_*.json`, `rl_*.json` (pipeline seeds), `vp_w1950_p0.8.json`, `tier_l0.12_m0.67.json`, `rs_win_x0.3.json`, `rs_solo_x0.5.json` and the analysis scripts; the rest goes.
+- **archives go**: `scripts/archive/` and `docs/archive/` (history keeps them); the plan doc's §-history is the record.
+- **generated artifacts** (`docs/reports/*.html`, `docs/pipeline/status.md`) stay tracked because the human and the routine read them from the repo; one HTML per research round.
+- `scripts/repo_report.sh` prints tracked size by directory, the 15 largest tracked files and untracked caches; the EOD routine runs it on the first trading day of each month and proposes deletions (never deletes).
+- CLAUDE.md gets a five-line "repo hygiene" section with these rules.

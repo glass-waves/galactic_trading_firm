@@ -599,6 +599,31 @@ impl ConfigOverrides {
                     Err(e) => { eprintln!("error: --patch-json {file}: actions: {e}"); std::process::exit(2); }
                 }
             }
+            // `session`: shallow-merge into the session block. `force_exit_by` is mirrored into
+            // every session_close action (same rule as the --force-exit-by flag) so a patched
+            // config behaves identically whether it is applied here or materialized into a
+            // config_versions row by the research pipeline (scripts/pipeline/materialize.py).
+            if let Some(sess) = patch.get("session").and_then(|v| v.as_object()) {
+                let mut merged = serde_json::to_value(&config.session).unwrap_or(serde_json::json!({}));
+                if let Some(obj) = merged.as_object_mut() {
+                    for (k, v) in sess { obj.insert(k.clone(), v.clone()); }
+                }
+                match serde_json::from_value(merged) {
+                    Ok(v) => config.session = v,
+                    Err(e) => { eprintln!("error: --patch-json {file}: session: {e}"); std::process::exit(2); }
+                }
+                if let Some(fe) = sess.get("force_exit_by").and_then(|v| v.as_str()) {
+                    for action in &mut config.actions {
+                        if action.action_type == "session_close" {
+                            action.params.insert("force_exit_by".to_string(), serde_json::json!(fe));
+                        }
+                    }
+                }
+            }
+            // `tickers`: replace the ticker list (a ticker candidate = promoted config + one name)
+            if let Some(t) = patch.get("tickers").and_then(|v| v.as_array()) {
+                config.tickers = t.iter().filter_map(|x| x.as_str().map(|s| s.to_string())).collect();
+            }
         }
         for (id, path, value) in &self.set_action_params {
             let Some(action) = config.actions.iter_mut().find(|a| &a.instance_id == id) else {
@@ -1636,6 +1661,7 @@ fn load_cached_bars(dir: &str, ticker: &str, start_date: NaiveDate, end_date: Na
 /// fetch RTH 1-minute bars in ~20-day chunks and write `<dir>/<TICKER>.csv`
 /// (epoch seconds, o, h, l, c, v). existing files are merged, not clobbered.
 async fn run_fetch_bars(dir: &str, start: &str, end: &str, tickers: &str, feed: Option<apca::data::v2::Feed>) {
+    let mut fetch_failed = false;
     dotenvy::dotenv().ok();
     let api_key = std::env::var("APCA_API_KEY_ID").expect("APCA_API_KEY_ID not set");
     let api_secret = std::env::var("APCA_API_SECRET_KEY").expect("APCA_API_SECRET_KEY not set");
@@ -1667,6 +1693,7 @@ async fn run_fetch_bars(dir: &str, start: &str, end: &str, tickers: &str, feed: 
                 }
                 Err(e) => {
                     eprintln!("[fetch-bars] {ticker} {chunk_start}..{chunk_end}: ERROR {e}");
+                    fetch_failed = true;
                 }
             }
             chunk_start = chunk_end + Duration::days(1);
@@ -1678,6 +1705,10 @@ async fn run_fetch_bars(dir: &str, start: &str, end: &str, tickers: &str, feed: 
         }
         fs::write(&path, out).expect("write bars csv");
         eprintln!("[fetch-bars] {ticker}: {} -> {} bars in {path}", before, by_ts.len());
+    }
+    if fetch_failed {
+        eprintln!("[fetch-bars] at least one chunk failed; the cache may have holes — rerun before using it");
+        std::process::exit(3);
     }
 }
 

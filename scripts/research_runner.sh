@@ -9,6 +9,8 @@
 # command produced (tags are inferred from `run_cached_sweep.sh <tag>`), plus stderr tail.
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"; cd "$ROOT"
+# one research job at a time on this machine (the pipeline runner takes the same lock)
+mkdir -p "$ROOT/logs"; exec 9>"$ROOT/logs/.research.lock"; flock -w 14400 9 || { echo "[research_runner] could not get the research lock in 4 h" >&2; exit 0; }
 Q="docs/research_queue.md"
 [[ -f "$Q" ]] || exit 0
 git pull -q --ff-only 2>/dev/null || true
