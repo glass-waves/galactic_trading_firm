@@ -1077,3 +1077,22 @@ not news days; the existing event *exclusion* has the right sign), bear-bounce a
 ≈ 1.0; the four-name intraday result is NVDA), breakout momentum (2023 −6.8k), reversal (≈ beta once capped).
 a multi-day book needs persistent positions, gap-aware stops and startup reconciliation (8–12 days of engine
 work); the agent's suggested test is a hand-run PEAD script with a 40-trade accept-if before any build.
+
+## 16. backtest VWAP parity fix (2026-09-27) — the research record is restated
+
+the live-loop replay harness (built with the shadow-book work, §15.3 in the plan doc) exposed a
+replay/live gap: the backtest's session VWAP accumulated over the whole 8-day lookback while the
+live `MarketStateBuilder` resets it every eastern date. `vwap_dist_1hr` (weight 0.15 on the hourly
+timescale, which is a hard condition in both short windows) therefore disagreed with live on many
+bars. fixed in `crates/backtest/src/replay.rs` (a96baf3). every backtest number before this date
+used the old VWAP. v18 on IEX, honest costs, 36 % sizing, restated:
+
+| tag | 5y | trades | PF | 2022 | 2023 | 2024 | 2025 | 2026 |
+|---|---|---|---|---|---|---|---|---|
+| `iex_v18_prevwap` (old record) | +2,154 | 407 | 1.48 | +1,565 | −181 | −93 | +451 | +413 |
+| **`iex_v18` (live-consistent)** | **+1,728** | **436** | **1.37** | +991 | −3 | −20 | +332 | +429 |
+
+reading: still clears PF 1.3 with a flatter, more even record (2023/2024 now break-even, 2022 less
+exceptional). the 2022 outperformance in the old record was partly an artefact of a multi-day VWAP
+in a trending tape. all pipeline gates and the stress / bear-bounce candidates are re-run on the
+fixed binary before anything is judged; earlier §15 rankings are indicative until re-run.
