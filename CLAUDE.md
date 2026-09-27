@@ -28,6 +28,8 @@ galactic_trading_firm/
 │   └── data_feed/                # paper trading binary (phase 7)
 ├── deploy/systemd/               # user-level systemd units + install.sh: trader start/stop, no-LLM watchdog (5 min), pre-open + eod claude check-ins on the claude.ai login
 ├── .claude/skills/               # preopen-check, intraday-review, eod-review — the scheduled claude check-in prompts
+├── scripts/                      # ops: watchdog.sh (no-LLM alerts incl. abnormal moves), export_day.sh, replay_book.sh (one book, one day, IEX cache), repo_report.sh, research_runner.sh, psql.sh, notify.sh
+│   └── pipeline/                 # research pipeline runner: pipeline.py propose → backtest gate → shadow trial → evaluate → promotion proposal (docs/pipeline.md)
 ├── cockpit/                      # next.js monitoring dashboard
 ├── migrations/                   # sqlx migrations (from data_model.sql)
 └── docs/                         # design artifacts and reference docs
@@ -254,6 +256,7 @@ live market data ingestion, candle aggregation, simulated broker, trade recordin
 | `src/trade_writer.rs` | `TradeWriter` — async writes completed trades to postgres with `entry_reason`, `source` ('paper' \| 'demo'), broker fill prices, and the producing engine's `config_version_id` |
 | `src/config_watcher.rs` | `ConfigWatcher` — polls postgres for promoted configs with `id >` the running row id. `try_build_engine()` applies per-ticker overrides from `config.ticker_overrides`, then rebuilds with fallback to previous config |
 | `src/config_loader.rs` | `load_config(pool) -> (row_id, StrategyConfig)` from the database only. the **row id** (not the blob's `config_id`) keys trade attribution and hot-reload |
+| `src/book.rs` | `BookSpec` / `load_books(pool)` (enabled `books` rows; exactly one primary) and `Book` — one hosted engine set: config row or follow-promoted, own ticker set, own `SimulatedBroker` for every shadow regardless of `BROKER_MODE`, own trade tag (`trades.book`, `source='shadow'`), own `engine_state` rows. the main loop builds one `MarketState` per ticker and hands it to every book that trades it |
 | `src/tui.rs` | (feature-gated: `--features tui`) ratatui terminal UI: live positions, P&L, recent trades, market state |
 | `src/lib.rs` | module tree and re-exports |
 
@@ -274,9 +277,12 @@ managed via sqlx migrations in `migrations/`. reference schema in `docs/data_mod
 | table | purpose | key fields |
 |-------|---------|------------|
 | `config_versions` | immutable append-only config store | id, status (proposed/backtesting/validated/promoted/rejected), config_blob (JSONB), parent_version_id, backtest results |
-| `trades` | completed trade records | ticker, direction, entry/exit prices, PnL, exit_reason, entry/exit scores per timescale, config_version_id, `entry_reason` (which window fired), `source` ('paper' \| 'demo' \| 'backtest'), broker fill prices |
-| `engine_state` | live per-ticker state, upserted every bar and every 30s (heartbeat) | last_bar_at, scores, open position + unrealized P&L, daily_pnl, loss_breaker_active, entry_blocked_by, near_miss, feed_stale, config_version_id, pending_config_version_id |
-| `entry_block_events` | why entries were not taken (append-only, throttled) | kind ('gate' \| 'near_miss'), reason, scores at the time |
+| `trades` | completed trade records | ticker, direction, entry/exit prices, PnL, exit_reason, entry/exit scores per timescale, config_version_id, `entry_reason` (which window fired), `source` ('paper' \| 'demo' \| 'shadow' \| 'backtest'), `book` (default 'primary'), broker fill prices |
+| `engine_state` | live per-(book, ticker) state, upserted every bar and every 30s (heartbeat); PK `(book, ticker)` — filter `book='primary'` for the live book | last_bar_at, scores, open position + unrealized P&L, daily_pnl (the book's), loss_breaker_active, entry_blocked_by, near_miss, feed_stale, config_version_id, pending_config_version_id |
+| `entry_block_events` | why entries were not taken (append-only, throttled) | kind ('gate' \| 'near_miss'), reason, scores at the time, `book` |
+| `books` | engines the live trader hosts: the one enabled `primary` plus shadow books (config row or ticker set, simulated fills). changes apply at the next trader start | name, role, config_version_id (NULL = follow promoted), tickers, capital, enabled, candidate_id, retired_at |
+| `book_sessions` | one row per (book, eastern date) the trader actually hosted — the pipeline's session counter | first_bar_at, config_version_id |
+| `pipeline_candidates` / `pipeline_events` | the research lane: one row per candidate (kind ticker \| config, patch, gate, stage, backtest/shadow results, proposed_config_version_id, cooldown) and every stage transition | see `docs/pipeline.md` |
 | `trade_indicator_snapshots` | historical indicator values per trade (never written by any code) | timestamp, indicator_id, timescale, raw_value, normalized_score |
 | `agent_memos` | *(archived)* structured agent outputs | preserved for migration chain, not actively written |
 | `evolution_cycles` | *(archived)* per-cycle metadata and cost tracking | preserved for migration chain, not actively written |
@@ -314,6 +320,7 @@ managed via sqlx migrations in `migrations/`. reference schema in `docs/data_mod
 | `20260402000002` | v11 config: full kelly sizing + entry windows + candle pattern |
 | `20260912000001` | `engine_state` + `entry_block_events` tables; `trades.entry_reason/source/broker_*`; agent_type values `human`/`claude_intraday`/`claude_eod`; memo_type values for watchdog/intraday/eod |
 | `20260912000002` | v12 config: explicit morning session (entries until 11:30 ET, flat by 11:55 ET — what v11 actually backtested), `avoid_first_minutes` 0, `max_position_pct` 0.36 |
+| `20260926000001` | pipeline + books: `books`, `book_sessions`, `pipeline_candidates`, `pipeline_events`; `book` column on `trades` / `engine_state` (PK now `(book, ticker)`) / `entry_block_events`; agent_type value `pipeline` |
 
 ---
 
@@ -459,4 +466,15 @@ new tool *types* require code changes. *instances* of existing types can be adde
 - 13:35 PT cloud routine (`docs/routines/eod-report.md`) writes `docs/reports/<date>.md`, `docs/briefings/<next date>.md`, appends `docs/research_queue.md`, emails the owner. proposals only — never touches config, migrations or crates.
 - 20:00 PT `research-runner.timer` → `scripts/research_runner.sh` runs queue entries the human flipped to `status: approved` and writes results back.
 - 06:15 PT `preopen-check` pulls first and reads the day's briefing.
-- everything the two sides say to each other is a commit; the human steers by editing the queue/briefing. promotion stays human.
+- 20:30 PT `pipeline.timer` → `scripts/pipeline/pipeline.py advance --max-backtests 2 && pipeline.py report` (same lock as the research runner) moves research candidates through the lane — proposed → backtest gate → shadow book (live next day, simulated fills) → evaluation gate → promotion proposal in `docs/pipeline/status.md`. operator guide: `docs/pipeline.md`.
+- the export also writes `books.json`, `shadow_trades.json` and one `replay_<book>.csv` per enabled book (`scripts/replay_book.sh`); the EOD routine reports primary vs each shadow and may propose "promote candidate NAME (config row N)".
+- `scripts/watchdog.sh` (every 5 min in-session, no LLM) watches the primary's positions / P&L, any book's heartbeat, shadows not hosted, and abnormal moves (one Alpaca snapshot per run; name ≥ 1.5 % / SPY ≥ 1 % vs open).
+- everything the two sides say to each other is a commit; the human steers by editing the queue/briefing. promotion stays human: `UPDATE config_versions SET status='promoted', promoted_at=now() WHERE id=N` — the pipeline only proposes.
+
+## repo hygiene
+
+- caches are never tracked: `research/**/daily/`, `research/**/cache/`, `data/bars*`, `data/*.csv`, `data/labels/` (all in `.gitignore`); regenerate them, do not commit them.
+- a closed research round keeps its report, its scripts and the patch files of the best / candidate cells plus anything a later step consumes; every other grid patch is deleted and the round's `README.md` names the commit that still holds them (`git show <sha>:<path>`).
+- archives go (`scripts/archive/`, `docs/archive/` were removed 2026-09-26); git history is the archive, the plan docs' § history is the record.
+- generated artifacts that humans and routines read from the repo stay tracked: `docs/reports/*.html` (one per research round), `docs/pipeline/status.md`, `data/live/<date>/`.
+- `scripts/repo_report.sh` prints tracked size by directory, the 15 largest files and untracked caches; the EOD routine runs it on the first trading day of each month and proposes deletions — it never deletes. `.git` is ~250 MB from long-gone `agents-ts/node_modules` / `target2` blobs; shrinking that is a history rewrite and the human's call.

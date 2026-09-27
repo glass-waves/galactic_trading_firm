@@ -46,6 +46,12 @@ Commit message: `eod: <date> — <verdict>`. Reply with the verdict line only.
 - **What matters in the first weeks**: fills vs same-day replay, realized cost vs 6.5 bps
   round trip (edge ≈ 7 bps deep: PF 1.44 @ 5 bps, 1.06 @ 10), feeds populated. P&L over weeks
   is noise (~130 trades to separate the edge from zero).
+- **Books** (since 2026-09-26): the trader hosts the **primary** book (the promoted config on
+  the paper broker — everything above) plus zero or more **shadow** books: candidate configs or
+  candidate tickers from the research pipeline, run on the same bars with simulated fills
+  (`trades.source='shadow'`, `trades.book=<name>`). shadows are trials, not the strategy; their
+  problems are warnings, never critical. `docs/pipeline.md` explains the lane; the per-ticker
+  files in the export describe the primary only.
 - History and evidence: `docs/paper_trading_plan_2026-09.md` §10–§13, `docs/analysis/`,
   previous `docs/reports/`, `docs/research_queue.md`. Read the last three reports and the
   queue before writing anything — continuity matters more than novelty.
@@ -59,7 +65,13 @@ window) · `block_events.json` (every gate / near-miss with reason) · `recent_d
 of trades and P&L per day) · `config_versions.json` · `memos.json` · `notifications.log`
 (alerts sent) · `preopen-check.jsonl` (`result` = the morning verdict) · `journal_excerpt.log` ·
 `replay_trades.csv` (same day replayed with the promoted config; rows begin `trade,`) ·
-`near_miss_replay.txt` (each near-miss bar as a hypothetical short).
+`near_miss_replay.txt` (each near-miss bar as a hypothetical short) ·
+`books.json` (one row per enabled book: role, config row, tickers, today's `trades` / `pnl` /
+`open_positions` at close, `sessions_to_date` / `trades_to_date` / `pnl_to_date` since the book
+was created, `hosted_tickers` — 0 means the trader did not host it today) ·
+`shadow_trades.json` (today's `source='shadow'` trades with their `book`) ·
+`replay_<book>.csv` (the same day replayed per enabled book with its own config row / ticker set,
+no sizing override; `replay_primary.csv` equals `replay_trades.csv`) · `replay_books.log`.
 
 Timestamps are UTC; print ET (EDT = UTC−4 to early November, then UTC−5).
 
@@ -90,6 +102,32 @@ Timestamps are UTC; print ET (EDT = UTC−4 to early November, then UTC−5).
    live/replay drift, rate vs expectation, exit mix, per-ticker split, anything that
    contradicts the five-year evidence. Two paragraphs, numbers.
 
+## 3b. Books and pipeline
+
+Only when `books.json` lists a shadow book (or `docs/pipeline/status.md` has an active
+candidate); otherwise one line: "no shadow books".
+
+1. **Per book, today**: from `books.json` and `shadow_trades.json` — hosted? (`hosted_tickers`
+   > 0; 0 on the book's first day is normal — books start at the next trader start; 0 for a
+   second day is a plumbing WARNING "book NAME not hosted"), trades, P&L, anything still open
+   at close (a shadow position past `force_exit_by` is a WARNING, not critical). Match its
+   `shadow_trades.json` rows against `replay_<book>.csv` exactly as §3.3 does for the primary;
+   a mismatch on a shadow is a parity flag for the pipeline (plumbing), never a strategy verdict.
+2. **Primary vs each shadow, trial to date**: sessions, trades, P&L and P&L per trade from the
+   `*_to_date` fields, and the same for the primary **over the same sessions** (sum the
+   `books.json` rows of the days since the shadow's `created_at` from `data/live/*/books.json`).
+   State it as a table; do not rank on P&L before the pipeline's own minimums (20 sessions,
+   15 trades) are met.
+3. **Pipeline status**: summarize `docs/pipeline/status.md` in ≤ 5 lines — candidates per
+   stage, anything that moved since yesterday (the last events), any `parity` or `not hosted`
+   flag, and every open **proposal block** verbatim as "promotion proposed: NAME → config row N".
+4. **Proposals** you may make here: "promote candidate NAME (config row N)" when a proposal
+   block exists and today's data does not contradict it; "withdraw NAME" with the evidence;
+   "propose ticker:T / a patch" as a research-queue entry whose `command:` is the
+   `scripts/pipeline/pipeline.py propose …` line. You still never run the SQL, never edit
+   configs, migrations or crates, and never touch `books` yourself — the human promotes
+   (`docs/pipeline.md` §6).
+
 ## 4. Decide — default is hold
 
 You recommend; you do not act. Only these patterns justify a recommendation:
@@ -100,6 +138,9 @@ You recommend; you do not act. Only these patterns justify a recommendation:
   positive, plan doc §11.6/§13.5) as the one change with evidence.
 - Never a threshold change from one day's near-misses, a win rate, or a P&L figure. Many
   small losses and breakeven exits is the design.
+- **Pipeline**: a recommendation to promote is only ever "promote candidate NAME (config row
+  N)" quoting the pipeline's proposal block; the routine does not promote, and a shadow's day
+  is never evidence for changing the primary.
 
 ## 5. Morning briefing — `docs/briefings/<next trading date>.md`
 
@@ -147,7 +188,17 @@ line each, plus any results that came back), **Longer view** (only when §3.6 ra
 words on a normal day. No attachments; link nothing the owner cannot open on a phone. If the
 Gmail tool is unavailable, say so in the reply and still commit the files.
 
-## 8. Things that have bitten before
+## 8. Repo hygiene (first trading day of each month)
+
+Run `scripts/repo_report.sh` (works on any checkout; the cache section only means something
+on the desktop) and add a short "repo hygiene" section to that day's report: tracked size by
+directory, the largest files, and a **proposed** deletion list following the policy in
+`CLAUDE.md` → "repo hygiene" (caches never tracked; a closed research round keeps its report,
+scripts and best/candidate patches, and its README names the commit that still holds the rest;
+generated `docs/reports/*.html` and `docs/pipeline/status.md` stay). Propose only — never
+delete, never `git rm`; the human does the pass.
+
+## 9. Things that have bitten before
 
 - The replay's cost model is direction-aware since 2026-09-12; older "positive five of five
   years" claims for v15 in the docs are pre-fix and invalid.

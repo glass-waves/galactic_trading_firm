@@ -22,8 +22,8 @@ and a short with a very negative composite is healthy, not a warning. ~1 trade/d
   tz database lacks the `US/Eastern` alias — always write `America/New_York` in SQL.
 - the trader writes `engine_state` on every bar and every 30 s. `updated_at` is the heartbeat.
 - if it is a weekend, a market holiday, or outside 09:15–16:15 ET: say so in one line and stop.
-- if the ET time is past `session.force_exit_by` + 5 min AND every `engine_state` row has
-  `position_direction` null AND no row has `feed_stale = true`: the book is closed for the
+- if the ET time is past `session.force_exit_by` + 5 min AND every `engine_state` row with
+  `book='primary'` has `position_direction` null AND no row has `feed_stale = true`: the book is closed for the
   day. do the health query once (step 1, heartbeat + positions only), reply
   `hold — flat after close, heartbeat ok`, and stop. this keeps the afternoon ticks cheap.
 
@@ -39,7 +39,7 @@ SELECT ticker, now() - updated_at AS heartbeat_age, now() - last_bar_at AS bar_a
        position_direction, position_entry_price, position_unrealized_pnl_pct,
        position_hold_ms / 60000 AS hold_min, position_entry_reason,
        config_version_id, pending_config_version_id, daily_pnl
-FROM engine_state ORDER BY ticker;
+FROM engine_state WHERE book='primary' ORDER BY ticker;
 
 -- today's trades
 SELECT ticker, entry_reason, exit_reason, entry_fill_at AT TIME ZONE 'America/New_York' AS entry_et,
@@ -62,6 +62,32 @@ ORDER BY exit_fill_at;
 
 do **not** place or cancel broker orders yourself in week 1. the human is present.
 
+## 1b. shadow books (since 2026-09-26)
+
+the trader may host shadow books next to the primary (`docs/pipeline.md`): candidate configs or
+tickers on simulated fills, `trades.source='shadow'`, their own `engine_state` /
+`entry_block_events` rows keyed by `book`. **every query above is about the primary**; look at
+shadows once per tick, separately:
+
+```sql
+-- shadow books (since 2026-09-26; docs/pipeline.md): hosted? heartbeat? a shadow's problems are WARNINGS, never CRITICAL
+SELECT b.name, b.config_version_id, b.tickers,
+       (SELECT count(*) FROM engine_state e WHERE e.book=b.name) AS hosted_tickers,
+       (SELECT min(now()-updated_at) FROM engine_state e WHERE e.book=b.name) AS heartbeat_age
+FROM books b WHERE b.enabled AND b.role='shadow' ORDER BY b.name;
+SELECT book, ticker, position_direction, position_hold_ms/60000 AS hold_min, daily_pnl, feed_stale
+FROM engine_state WHERE book<>'primary' ORDER BY book, ticker;
+```
+
+| condition | level |
+|---|---|
+| an enabled shadow with `hosted_tickers` 0 after 09:40 ET | WARNING "book NAME not hosted (build failed or restart pending)" — the scheduled watchdog sends this too |
+| a shadow position open past its `force_exit_by` + 3 min, a shadow heartbeat stale while the primary's is fresh, a shadow's daily P&L below −5 % of its capital | WARNING (never critical: shadows cannot reach the broker) |
+
+a shadow is never a reason to change the primary's config, and you never tune a shadow (its
+config row belongs to a pipeline candidate; the nightly runner and the human own it). do not edit
+`books`. mention shadow warnings in the memo's `flags` as `"shadows": [...]`.
+
 ## 2. read the day so far (only if health is OK or WARNING)
 
 ```sql
@@ -69,7 +95,7 @@ do **not** place or cancel broker orders yourself in week 1. the human is presen
 SELECT ticker, kind, reason, count(*), min(ts AT TIME ZONE 'America/New_York') AS first, max(ts AT TIME ZONE 'America/New_York') AS last,
        round(avg(composite)::numeric,2) AS avg_composite
 FROM entry_block_events
-WHERE ts > now() - interval '90 minutes'
+WHERE book='primary' AND ts > now() - interval '90 minutes'
 GROUP BY ticker, kind, reason ORDER BY ticker, count(*) DESC;
 
 -- memos already written today (so you do not repeat yourself)

@@ -45,4 +45,9 @@ Thumbs.db
 data/*.log
 data/*.args
 data/bars/
+data/bars*/
 data/labels/
+
+# research caches are regenerable (fetch_daily.py etc.) — never tracked (plan 2026-09-26 §10)
+research/**/daily/
+research/**/cache/

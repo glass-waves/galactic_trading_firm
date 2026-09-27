@@ -50,7 +50,7 @@ ORDER BY entry_fill_at;
 
 -- gates and near-misses today, per ticker
 SELECT ticker, kind, reason, count(*) FROM entry_block_events
-WHERE (ts AT TIME ZONE 'America/New_York')::date = (now() AT TIME ZONE 'America/New_York')::date
+WHERE book='primary' AND (ts AT TIME ZONE 'America/New_York')::date = (now() AT TIME ZONE 'America/New_York')::date
 GROUP BY 1,2,3 ORDER BY 1, 4 DESC;
 
 -- the running config, its age, and how many paper trades it has seen
@@ -127,6 +127,20 @@ add a second section to the memo: the week's numbers vs the 20-day backtest base
 (trades/day, win %, PF, P&L) and a list of at most three candidate changes for the human
 to consider over the weekend, each with the backtest command that would test it. do not
 apply any of them.
+
+## shadow books and the pipeline (since 2026-09-26)
+
+everything above is about the primary (`trades.source='paper'`, `engine_state.book='primary'`).
+shadow books (`docs/pipeline.md`) trade candidate configs / tickers on simulated fills next to it:
+`SELECT book, ticker, entry_reason, exit_reason, round(pnl_dollars::numeric,2) FROM trades WHERE
+source='shadow' AND (exit_fill_at AT TIME ZONE 'America/New_York')::date = (now() AT TIME ZONE
+'America/New_York')::date ORDER BY book, exit_fill_at;` and `SELECT * FROM books WHERE enabled;`.
+report each shadow's day in one line; compare it with `data/live/<today>/replay_<book>.csv` if the
+export has run. a shadow's live/replay mismatch is a WARNING for the pipeline (plumbing flag),
+never a reason to tune the primary; a shadow's P&L is never evidence for a config change. you may
+recommend "promote candidate NAME (config row N)" only by quoting a proposal block in
+`docs/pipeline/status.md`; the promotion SQL is the human's (`docs/pipeline.md` §6), not yours, and
+`update_config.sh` is still the only way you change the primary.
 
 ## output
 

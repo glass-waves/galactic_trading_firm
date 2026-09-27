@@ -2,7 +2,7 @@
 """what would today's (or any day's) near-miss bars have done as shorts?
 
 usage: near_miss_replay.py [YYYY-MM-DD]   (default: today, America/New_York)
-reads entry_block_events (kind='near_miss') for the day, the bar cache (data/bars, refresh it
+reads entry_block_events (kind='near_miss', book='primary'; shadow books are excluded) for the day, the bar cache (data/bars, refresh it
 first with `backtest --fetch-bars` for that day), and simulates a short entered at the next bar's
 open with the v18 exit stack: hard stop 2.5 %, breakeven 0.5 % (close-based), losing limit 40 min /
 winning 90 min, flat at 11:55 ET, 3 bps + $0.005 charged per leg. prints one line per near-miss.
@@ -15,7 +15,7 @@ ET = ZoneInfo("America/New_York")
 day = sys.argv[1] if len(sys.argv) > 1 else datetime.now(ET).strftime("%Y-%m-%d")
 
 sql = f"""SELECT ticker, ts, reason FROM entry_block_events
-WHERE kind='near_miss' AND (ts AT TIME ZONE 'America/New_York')::date = '{day}' ORDER BY ts"""
+WHERE kind='near_miss' AND book='primary' AND (ts AT TIME ZONE 'America/New_York')::date = '{day}' ORDER BY ts"""
 out = subprocess.run(["./scripts/psql.sh", "-At", "-F", "|", "-c", sql], capture_output=True, text=True).stdout
 events = [l.split("|", 2) for l in out.strip().split("\n") if l]
 

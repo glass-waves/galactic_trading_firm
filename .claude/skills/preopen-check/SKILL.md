@@ -30,8 +30,13 @@ journalctl --user -u paper-trader.service --since "10 minutes ago" --no-pager -o
 -- via: ./scripts/psql.sh -c "<sql>"   (no native psql on this host; the wrapper uses the container)
 SELECT ticker, now() - updated_at AS heartbeat_age, config_version_id, broker_mode, feed_stale,
        position_direction, process_started_at
-FROM engine_state ORDER BY ticker;
+FROM engine_state WHERE book='primary' ORDER BY ticker;
 SELECT id, promoted_at, created_by, left(mutation_reason, 80) FROM config_versions WHERE status = 'promoted';
+-- shadow books (since 2026-09-26; docs/pipeline.md): hosted? heartbeat? a shadow's problems are WARNINGS, never CRITICAL
+SELECT b.name, b.config_version_id, b.tickers,
+       (SELECT count(*) FROM engine_state e WHERE e.book=b.name) AS hosted_tickers,
+       (SELECT min(now()-updated_at) FROM engine_state e WHERE e.book=b.name) AS heartbeat_age
+FROM books b WHERE b.enabled AND b.role='shadow' ORDER BY b.name;
 -- yesterday's memos, so you know what the EOD job decided
 SELECT created_at AT TIME ZONE 'America/New_York', agent, memo_type, left(reasoning, 300)
 FROM agent_memos WHERE created_at > now() - interval '20 hours' ORDER BY created_at;
@@ -46,12 +51,16 @@ FROM agent_memos WHERE created_at > now() - interval '20 hours' ORDER BY created
 | journal shows `config blob's config_id differs` only | ignore (expected) |
 | any `position_direction` non-null this early | CRITICAL (nothing should be open before 09:30 ET) |
 | yesterday's EOD memo proposed a config for today but the promoted row didn't change | WARNING (mention it; do not apply it yourself) |
+| an enabled shadow book with `hosted_tickers` 0, or a shadow heartbeat older than 2 min while the primary's is fresh | WARNING "book NAME not hosted (build failed or restart pending)" — the primary is unaffected; never critical, never a reason to touch anything |
+| `engine_state` has rows for a book that is not in `books` (or is retired) | WARNING (the trader should delete them at start; mention it) |
 
 ## output
 
 - CRITICAL → `./scripts/notify.sh critical "<one line>"` and a memo (`memo_type='watchdog_critical'`, `agent='claude_intraday'`).
 - WARNING → memo (`watchdog_warning`) and `./scripts/notify.sh warning "<one line>"`.
-- all clear → no memo, no notification. reply with exactly one line: `preopen ok — <config row> · <n tickers warm> · <broker_mode>`.
+- all clear → no memo, no notification. reply with exactly one line: `preopen ok — <config row> · <n tickers warm> · <broker_mode> · <k shadows hosted>` (omit the last part when there are no enabled shadow books).
+- shadows: everything about a shadow book is at most a WARNING. do not restart the service for
+  a shadow, do not edit `books`, do not retire anything — note it for the EOD routine / the human.
 
 ## v16 notes (promoted 2026-09-12 ~11:00 PT, config_versions row 10)
 
