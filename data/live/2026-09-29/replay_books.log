@@ -1,0 +1,3 @@
+replay_book: primary 2026-09-29 config=promoted:12 tickers=config capital=10000 -> data/live/2026-09-29/replay_primary.csv
+replay_book: ./target/release/backtest --date 2026-09-29 --lookback-days 8 --capital 10000 --slippage-bps 3.0 --half-spread 0.005 --output-trades-csv --bars-dir data/bars_iex --cross-index SPY
+replay_book: primary 2026-09-29: 1 trades
