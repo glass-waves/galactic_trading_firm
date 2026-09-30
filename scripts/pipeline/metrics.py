@@ -210,9 +210,51 @@ def coverage(ticker: str, bars_dir: Path = BARS_DIR, spy_csv: Path | None = None
     return res
 
 
+def trade_key(r: dict) -> tuple:
+    """identity of a trade for base/added matching: (date, ticker, entry_time, direction)."""
+    return (r.get("date"), r.get("ticker"), r.get("entry_time"), r.get("direction"))
+
+
+def split_marginal(rows: list[dict], baseline_rows: list[dict]) -> tuple[list[dict], list[dict]]:
+    """split a candidate's trade rows into (base, added) against a baseline's trade set, matched
+    on trade_key(). 'base' is every row whose key also appears in the baseline (unchanged for a
+    purely additive candidate); 'added' is everything else — the new window(s)."""
+    base_keys = {trade_key(r) for r in baseline_rows}
+    base = [r for r in rows if trade_key(r) in base_keys]
+    added = [r for r in rows if trade_key(r) not in base_keys]
+    return base, added
+
+
+def worst_trade(rows: list[dict]) -> float:
+    return round(min((r["pnl"] for r in rows), default=0.0), 2)
+
+
+def worst_day(rows: list[dict]) -> float:
+    d = daily_pnl(rows)
+    return round(min(d.values()), 2) if d else 0.0
+
+
+def marginal_metrics(tag: str, baseline_tag: str, data_dir: Path = DATA) -> dict:
+    """split <tag>'s trades against <baseline_tag>'s trade set (see split_marginal()) and compute
+    5y + per-year stats for both halves, plus the added half's worst single trade and worst day —
+    what the additive-config gate checks over."""
+    rows = load_trades(tag, data_dir)
+    baseline_rows = load_trades(baseline_tag, data_dir)
+    base_rows, added_rows = split_marginal(rows, baseline_rows)
+    base = stats(base_rows)
+    base["years"] = {y: stats([r for r in base_rows if r["year"] == y]) for y in YEARS}
+    added = stats(added_rows)
+    added["years"] = {y: stats([r for r in added_rows if r["year"] == y]) for y in YEARS}
+    added["worst_year_pnl"] = min(added["years"][y]["pnl"] for y in YEARS)
+    added["worst_trade"] = worst_trade(added_rows)
+    added["worst_day"] = worst_day(added_rows)
+    return {"baseline_tag": baseline_tag, "base": base, "added": added}
+
+
 def full_metrics(tag: str, tickers: list[str] | None = None, data_dir: Path = DATA,
-                 spy_ret: dict[str, float] | None = None) -> dict:
-    """everything a gate may look at for one sweep tag."""
+                 spy_ret: dict[str, float] | None = None, baseline_tag: str | None = None) -> dict:
+    """everything a gate may look at for one sweep tag. baseline_tag, when given, adds the
+    base/added marginal split against that tag's trades (metrics['marginal'])."""
     m = summarize(tag, data_dir)
     rows = load_trades(tag, data_dir)
     spy_ret = spy_ret if spy_ret is not None else (spy_day_returns() if (BARS_DIR / "SPY.csv").exists() else {})
@@ -220,6 +262,8 @@ def full_metrics(tag: str, tickers: list[str] | None = None, data_dir: Path = DA
     m["stress_2pct"] = spy_buckets(rows, spy_ret, -0.02) if spy_ret else None
     if tickers:
         m["tickers"] = list(tickers)
+    if baseline_tag:
+        m["marginal"] = marginal_metrics(tag, baseline_tag, data_dir)
     return m
 
 

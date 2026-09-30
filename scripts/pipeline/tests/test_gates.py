@@ -103,12 +103,115 @@ class StressMode(unittest.TestCase):
         self.assertIn("stress_buckets", names(r))
 
 
+def mk_marginal(base_pnl, base_n, added_pnl, added_n, added_pf, added_worst_year=-50.0, added_worst_day=-100.0, baseline_tag="base"):
+    return {"baseline_tag": baseline_tag, "base": {"pnl": base_pnl, "n": base_n},
+            "added": {"pnl": added_pnl, "n": added_n, "pf": added_pf, "worst_year_pnl": added_worst_year, "worst_day": added_worst_day}}
+
+
+class AdditiveConfig(unittest.TestCase):
+    """baseline modeled on iex_v18: +1,728 / 436 / PF 1.37, years +991 -3 -20 +332 +429 (only 3 of 5
+    positive) — an additive candidate can never clear quality-config's years_positive on this baseline,
+    which is exactly the gate additive-config exists to replace for a purely-additive candidate."""
+
+    def setUp(self):
+        self.b = mk(pnl=1728, n=436, pf=1.37, years=(991, -3, -20, 332, 429))
+
+    def test_needs_baseline(self):
+        r = gates.additive_config(BASE, None)
+        self.assertFalse(r["pass"])
+        self.assertEqual(names(r), ["baseline"])
+
+    def test_needs_marginal_split(self):
+        m = mk(pnl=2003, n=459, pf=1.414, years=(1226, -3, -24, 375, 429))
+        r = gates.additive_config(m, self.b)
+        self.assertFalse(r["pass"])
+        self.assertEqual(names(r), ["marginal"])
+
+    def test_stress_s15_core_like_candidate_passes(self):
+        # modeled on candidate #6 stress-s15-core: base subset untouched, added window +274 on 23
+        # trades (PF 3.3): 2022 +235/18, 2024 -4/2, 2025 +43/3, none in 2023/2026
+        years = (991 + 235, -3, -20 - 4, 332 + 43, 429)
+        m = mk(pnl=1728 + 274, n=436 + 23, pf=1.414, years=years)
+        m["marginal"] = mk_marginal(base_pnl=1728, base_n=436, added_pnl=274, added_n=23, added_pf=3.3, added_worst_year=-4.0, added_worst_day=-4.0)
+        r = gates.additive_config(m, self.b)
+        self.assertTrue(r["pass"], names(r))
+        self.assertEqual(r["gate"], "additive-config")
+
+    def test_base_unchanged_pnl_boundary(self):
+        m = mk(pnl=1728 * 0.98 + 100, n=456, pf=1.4, years=(1, 1, 1, 1, 1))
+        m["marginal"] = mk_marginal(base_pnl=1728 * 0.98, base_n=436, added_pnl=100, added_n=20, added_pf=2.0)
+        self.assertNotIn("base_unchanged_pnl", names(gates.additive_config(m, self.b)))
+        m["marginal"] = mk_marginal(base_pnl=1728 * 0.98 - 1, base_n=436, added_pnl=100, added_n=20, added_pf=2.0)
+        self.assertIn("base_unchanged_pnl", names(gates.additive_config(m, self.b)))
+
+    def test_base_unchanged_trades_boundary(self):
+        lo = 0.99 * 436
+        m = mk(pnl=1728 + 100, n=456, pf=1.4, years=(1, 1, 1, 1, 1))
+        m["marginal"] = mk_marginal(base_pnl=1728, base_n=lo, added_pnl=100, added_n=20, added_pf=2.0)
+        self.assertNotIn("base_unchanged_trades", names(gates.additive_config(m, self.b)))
+        m["marginal"] = mk_marginal(base_pnl=1728, base_n=lo - 1, added_pnl=100, added_n=20, added_pf=2.0)
+        self.assertIn("base_unchanged_trades", names(gates.additive_config(m, self.b)))
+
+    def test_added_pnl_must_be_positive(self):
+        m = mk(pnl=1728, n=456, pf=1.3, years=(1, 1, 1, 1, 1))
+        m["marginal"] = mk_marginal(base_pnl=1728, base_n=436, added_pnl=0, added_n=20, added_pf=2.0)
+        self.assertIn("added_pnl", names(gates.additive_config(m, self.b)))
+
+    def test_added_pf_threshold(self):
+        m = mk(pnl=1728 + 50, n=456, pf=1.3, years=(1, 1, 1, 1, 1))
+        m["marginal"] = mk_marginal(base_pnl=1728, base_n=436, added_pnl=50, added_n=20, added_pf=1.299)
+        self.assertIn("added_pf", names(gates.additive_config(m, self.b)))
+        m["marginal"] = mk_marginal(base_pnl=1728, base_n=436, added_pnl=50, added_n=20, added_pf=1.3)
+        self.assertNotIn("added_pf", names(gates.additive_config(m, self.b)))
+
+    def test_added_trades_threshold(self):
+        m = mk(pnl=1728 + 50, n=450, pf=1.4, years=(1, 1, 1, 1, 1))
+        m["marginal"] = mk_marginal(base_pnl=1728, base_n=436, added_pnl=50, added_n=14, added_pf=2.0)
+        self.assertIn("added_trades", names(gates.additive_config(m, self.b)))
+        m["marginal"] = mk_marginal(base_pnl=1728, base_n=436, added_pnl=50, added_n=15, added_pf=2.0)
+        self.assertNotIn("added_trades", names(gates.additive_config(m, self.b)))
+
+    def test_added_worst_year_threshold(self):
+        m = mk(pnl=1728 + 50, n=450, pf=1.4, years=(1, 1, 1, 1, 1))
+        m["marginal"] = mk_marginal(base_pnl=1728, base_n=436, added_pnl=50, added_n=20, added_pf=2.0, added_worst_year=-101.0)
+        self.assertIn("added_worst_year", names(gates.additive_config(m, self.b)))
+        m["marginal"] = mk_marginal(base_pnl=1728, base_n=436, added_pnl=50, added_n=20, added_pf=2.0, added_worst_year=-100.0)
+        self.assertNotIn("added_worst_year", names(gates.additive_config(m, self.b)))
+
+    def test_added_worst_day_threshold(self):
+        m = mk(pnl=1728 + 50, n=450, pf=1.4, years=(1, 1, 1, 1, 1))
+        m["marginal"] = mk_marginal(base_pnl=1728, base_n=436, added_pnl=50, added_n=20, added_pf=2.0, added_worst_day=-301.0)
+        self.assertIn("added_worst_day", names(gates.additive_config(m, self.b)))
+        m["marginal"] = mk_marginal(base_pnl=1728, base_n=436, added_pnl=50, added_n=20, added_pf=2.0, added_worst_day=-300.0)
+        self.assertNotIn("added_worst_day", names(gates.additive_config(m, self.b)))
+
+    def test_combined_years_not_worse_is_relative_to_baseline_year(self):
+        # baseline 2023 = -3; combined candidate 2023 = -54 -> margin -51, just past the -50 floor
+        m = mk(pnl=1728 + 50, n=450, pf=1.4, years=(991, -54, -20, 332, 429))
+        m["marginal"] = mk_marginal(base_pnl=1728, base_n=436, added_pnl=50, added_n=20, added_pf=2.0)
+        self.assertIn("combined_years_not_worse", names(gates.additive_config(m, self.b)))
+        # -53 -> margin exactly -50: passes
+        m2 = mk(pnl=1728 + 50, n=450, pf=1.4, years=(991, -53, -20, 332, 429))
+        m2["marginal"] = mk_marginal(base_pnl=1728, base_n=436, added_pnl=50, added_n=20, added_pf=2.0)
+        self.assertNotIn("combined_years_not_worse", names(gates.additive_config(m2, self.b)))
+
+    def test_trend_day_ride_like_candidate_fails(self):
+        # modeled on candidate #7 trend-day-ride: the added window loses money overall (2023/2024 drag)
+        m = mk(pnl=1728 - 40, n=436 + 30, pf=1.2, years=(991 + 50, -3 - 30, -20 - 10, 332 + 10, 429 + 10))
+        m["marginal"] = mk_marginal(base_pnl=1728, base_n=436, added_pnl=-40, added_n=30, added_pf=0.7, added_worst_year=-30.0, added_worst_day=-25.0)
+        r = gates.additive_config(m, self.b)
+        self.assertFalse(r["pass"])
+        self.assertIn("added_pnl", names(r))
+        self.assertIn("added_pf", names(r))
+
+
 class Resolve(unittest.TestCase):
     def test_names(self):
         self.assertEqual(gates.resolve("default", "ticker"), "default-ticker")
         self.assertEqual(gates.resolve("default", "config"), "volume-config")
         self.assertEqual(gates.resolve("default-config", "config"), "volume-config")
         self.assertEqual(gates.resolve("stress-mode", "config"), "stress-mode")
+        self.assertEqual(gates.resolve("additive-config", "config"), "additive-config")
         with self.assertRaises(KeyError):
             gates.resolve("bogus", "config")
 

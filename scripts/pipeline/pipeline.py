@@ -9,6 +9,8 @@ evaluation gate → promotion proposal → human promotes (docs/plans/2026-09-26
   pipeline.py show NAME
   pipeline.py advance [--max-backtests N] [--dry-run]      # the nightly entry point
   pipeline.py backtest NAME | evaluate NAME [--force] | withdraw NAME [--reason R] | retire-shadow NAME [--reason R]
+  pipeline.py regate NAME --gate GATE                       # re-gate an existing backtest_passed/failed candidate,
+                                                             # reusing its sweep + materialized row; no new sweep
   pipeline.py report [--markdown]                           # regenerates docs/pipeline/status.md
 
 python3 stdlib only; the database is reached through scripts/psql.sh. never prints API keys.
@@ -539,7 +541,7 @@ def run_backtest(cand: dict, actor: str = "pipeline", budget: list[int] | None =
         if bargs:
             ensure_sweep(baseline_tag, bargs)
         baseline = metrics.full_metrics(baseline_tag)
-    m = metrics.full_metrics(tag, tickers)
+    m = metrics.full_metrics(tag, tickers, baseline_tag=baseline_tag if gate_name in gates.NEEDS_MARGINAL else None)
     g = gates.run_gate(gate_name, m, baseline)
     if mcheck and not mcheck["ok"]:
         g["checks"].append(gates.check("materialize_equals_patch", False, "identical trade rows on the verify days", False))
@@ -846,6 +848,75 @@ def rerun_backtest(cand: dict, actor: str, reason: str) -> None:
                sets={"backtest_tag": None, "backtest_result": None, "backtest_at": None, "cooldown_until": None}, extra_sql=extra)
 
 
+def run_regate(cand: dict, new_gate_raw: str, actor: str = "pipeline") -> str:
+    """backtest_passed|backtest_failed -> backtest_passed|backtest_failed under a different gate,
+    reusing the existing sweep tag and materialized row (no new sweep, no new materialization).
+    records a 'regate' event with the old and new gate names."""
+    cid = cand["id"]
+    if cand["stage"] not in ("backtest_passed", "backtest_failed"):
+        raise PipelineError(f"#{cid} is in stage '{cand['stage']}'; regate applies to backtest_passed/backtest_failed only")
+    old_gate = cand["gate"]
+    new_gate = gates.resolve(new_gate_raw, cand["kind"])
+    tag = cand.get("backtest_tag")
+    if not tag or not metrics.sweep_files_present(tag):
+        raise PipelineError(f"#{cid} {cand['name']}: no sweep on disk for tag '{tag}'; regate reuses the existing backtest, run `backtest {cand['name']}` first")
+    prom = promoted_row()
+    base_id = int(cand.get("base_config_version_id") or prom["id"])
+    tickers = candidate_tickers(cand, prom)
+    mid = cand.get("materialized_config_id")
+
+    baseline_tag, baseline = None, None
+    if new_gate in gates.NEEDS_BASELINE:
+        baseline_tag, bargs = baseline_for(base_id, tickers, prom)
+        if bargs:
+            ensure_sweep(baseline_tag, bargs)
+        baseline = metrics.full_metrics(baseline_tag)
+    m = metrics.full_metrics(tag, tickers, baseline_tag=baseline_tag if new_gate in gates.NEEDS_MARGINAL else None)
+    g = gates.run_gate(new_gate, m, baseline)
+    prev = cand.get("backtest_result") or {}
+    mcheck = prev.get("materialize_check")
+    if mcheck and not mcheck.get("ok"):
+        g["checks"].append(gates.check("materialize_equals_patch", False, "identical trade rows on the verify days", False))
+        g["pass"] = False
+    passed = g["pass"]
+    result = {
+        "gate": new_gate, "pass": passed, "gate_result": g, "metrics": m,
+        "baseline": {"tag": baseline_tag, "metrics": baseline} if baseline_tag else None,
+        "sweep": prev.get("sweep") or {"tag": tag},
+        "sizing_note": prev.get("sizing_note") or "gate sweep at --sizing-fraction 0.36 --max-position-pct 0.36; live/shadow size at the blob's fraction",
+        "coverage": prev.get("coverage"), "materialize_check": mcheck,
+        "regated_from": old_gate,
+        "computed_at": dt.datetime.now(dt.timezone.utc).isoformat(),
+    }
+    to = "backtest_passed" if passed else "backtest_failed"
+    sets = {"gate": new_gate, "backtest_result": result, "backtest_at": db.Raw("now()")}
+    if passed:
+        sets["cooldown_until"] = None
+    extra_sql = ""
+    if mid:
+        extra_sql = f"UPDATE config_versions SET status = {db.lit('validated' if passed else 'rejected')} WHERE id = {int(mid)};"
+    failed = gates.failed_names(g)
+    transition(cand, to, actor, {"event": "regate", "from_gate": old_gate, "to_gate": new_gate, "pass": passed, "failed": failed,
+                                 "pnl": m["pnl"], "n": m["n"], "pf": m["pf"]}, sets=sets, extra_sql=extra_sql)
+    summary = f"{m['pnl']:+.0f} / {m['n']} trades / PF {m['pf']:.2f}"
+    mg = m.get("marginal")
+    if mg:
+        summary += f", added {mg['added']['pnl']:+.0f} / {mg['added']['n']} / PF {mg['added']['pf']:.2f}"
+    log(f"#{cid} {cand['name']}: regate {old_gate} → {new_gate}: {'PASS' if passed else 'FAIL ' + ','.join(failed)} — {summary}")
+    notify("info", f"pipeline: {cand['name']} regated {old_gate} -> {new_gate}: {'passed' if passed else 'failed (' + ', '.join(failed) + ')'}")
+    return to
+
+
+def cmd_regate(a) -> int:
+    with Lock(PIPELINE_LOCK, 0, "pipeline"):
+        # active_only=False: backtest_failed is a terminal stage, and regate must reach it too
+        cand = get_candidate(a.name, active_only=False)
+        out = run_regate(cand, a.gate, actor_for("pipeline"))
+    log(f"outcome: {out}")
+    write_status()
+    return 0
+
+
 def cmd_backtest(a) -> int:
     with Lock(PIPELINE_LOCK, 0, "pipeline"):
         cand = get_candidate(a.name, active_only=True)
@@ -991,6 +1062,14 @@ def cmd_show(a) -> int:
     if cand["stage"] in ("shadow", "shadow_passed", "promotion_proposed"):
         st = shadow_status(cand)
         out["shadow_status_now"] = {k: st[k] for k in ("book", "sessions", "n_trades", "pnl")}
+    mg = ((cand.get("backtest_result") or {}).get("metrics") or {}).get("marginal")
+    if mg:
+        base, added = mg["base"], mg["added"]
+        out["marginal_summary"] = {
+            "base_vs_baseline": f"base {metrics.fmt_stats(base)} vs baseline {mg['baseline_tag']} {metrics.fmt_stats((cand.get('backtest_result') or {}).get('baseline', {}).get('metrics') or {})}",
+            "added": f"{metrics.fmt_stats(added)}, worst year {added['worst_year_pnl']:+.0f}, worst trade {added['worst_trade']:+.0f}, worst day {added['worst_day']:+.0f}",
+            "added_by_year": {y: metrics.fmt_stats(added["years"][y]) for y in metrics.YEARS},
+        }
     print(json.dumps(out, indent=1, default=str))
     return 0
 
@@ -1053,6 +1132,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--rerun", action="store_true", help="re-sweep and re-gate a backtest_passed/failed candidate (same materialized row)")
     p.add_argument("--reason", help="why (recorded in pipeline_events with --rerun)")
     p.set_defaults(fn=cmd_backtest)
+    p = sp.add_parser("regate", help="re-evaluate an existing backtest under a different gate (no new sweep)")
+    p.add_argument("name")
+    p.add_argument("--gate", required=True, help="volume-config | quality-config | stress-mode | additive-config | default-ticker")
+    p.set_defaults(fn=cmd_regate)
     p = sp.add_parser("evaluate", help="evaluate a shadow trial now")
     p.add_argument("name")
     p.add_argument("--force", action="store_true", help="evaluate even if not due; clears a parity flag on success")

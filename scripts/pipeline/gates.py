@@ -11,6 +11,14 @@ what pipeline_candidates.backtest_result stores. thresholds are stated at the re
   stress-mode    : volume-config with trades >= 0.9 x baseline, plus on SPY < -1 % days: total P&L >= 3 x
                    baseline's, >= +40 per such day on average, no single day < -300; ordinary-day P&L
                    within +-10 % of baseline
+  additive-config: for a candidate that leaves every baseline trade untouched and only adds a new window
+                   (metrics['marginal'], from metrics.marginal_metrics()): the base subset must match the
+                   baseline's P&L within +-2 % and trade count within +-1 % (base_unchanged); the added
+                   subset must be net positive with PF >= 1.3, >= 15 trades over 5y, no year worse than
+                   -100 and no single day worse than -300; and no year of the *combined* book may be more
+                   than 50 worse than the baseline's same year (combined_years_not_worse) — this is the
+                   quality-config years_positive requirement's replacement for a candidate whose baseline
+                   itself has flat/negative years an additive edge can never repair
 """
 from __future__ import annotations
 
@@ -109,14 +117,45 @@ def stress_mode(m: dict, baseline: dict | None = None) -> dict:
     return _result("stress-mode", checks)
 
 
+def additive_config(m: dict, baseline: dict | None = None) -> dict:
+    """for a candidate that only adds a new window on top of an unchanged baseline (plan: see module
+    docstring). needs metrics['marginal'] (metrics.marginal_metrics()'s output: base vs added trades)."""
+    err = _need_baseline("additive-config", baseline)
+    if err:
+        return err
+    b = baseline
+    mg = m.get("marginal")
+    if not mg:
+        return _result("additive-config", [check("marginal", None, "marginal split required (metrics.marginal_metrics against the baseline tag)", False)])
+    base, added = mg["base"], mg["added"]
+    base_pnl_lo, base_pnl_hi = _minus_pct(b["pnl"], 0.02), b["pnl"] + 0.02 * abs(b["pnl"])
+    n_lo, n_hi = 0.99 * b["n"], 1.01 * b["n"]
+    year_margins = {y: round(m["years"][y]["pnl"] - b["years"][y]["pnl"], 2) for y in b["years"]}
+    worst_margin_year = min(year_margins, key=lambda y: year_margins[y])
+    checks = [
+        check("base_unchanged_pnl", base["pnl"], f"within [{base_pnl_lo:+.0f}, {base_pnl_hi:+.0f}] (baseline {b['pnl']:+.0f} +-2 %)", base_pnl_lo <= base["pnl"] <= base_pnl_hi),
+        check("base_unchanged_trades", base["n"], f"within [{n_lo:.1f}, {n_hi:.1f}] (baseline {b['n']} +-1 %)", n_lo <= base["n"] <= n_hi),
+        check("added_pnl", added["pnl"], "> 0", added["pnl"] > 0),
+        check("added_pf", added["pf"], f">= {MIN_PF}", added["pf"] >= MIN_PF),
+        check("added_trades", added["n"], ">= 15 (5y)", added["n"] >= 15),
+        check("added_worst_year", added["worst_year_pnl"], ">= -100 (36 % sizing)", added["worst_year_pnl"] >= -100.0),
+        check("added_worst_day", added["worst_day"], ">= -300", added["worst_day"] >= -300.0),
+        check("combined_years_not_worse", year_margins[worst_margin_year],
+              f">= -50 vs baseline per year (worst: {worst_margin_year})", year_margins[worst_margin_year] >= -50.0),
+    ]
+    return _result("additive-config", checks)
+
+
 GATES = {
     "default-ticker": default_ticker,
     "volume-config": volume_config,
     "quality-config": quality_config,
     "stress-mode": stress_mode,
+    "additive-config": additive_config,
 }
 ALIASES = {"default-config": "volume-config", "default": None}
-NEEDS_BASELINE = {"volume-config", "quality-config", "stress-mode"}
+NEEDS_BASELINE = {"volume-config", "quality-config", "stress-mode", "additive-config"}
+NEEDS_MARGINAL = {"additive-config"}
 
 
 def resolve(name: str, kind: str) -> str:

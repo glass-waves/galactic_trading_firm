@@ -43,7 +43,12 @@ def _bt_cell(c: dict) -> str:
     base = r.get("baseline") or {}
     bm = base.get("metrics")
     bcell = f" · base {base.get('tag')}: {bm['pnl']:+.0f} / {bm['n']} / PF {bm['pf']:.2f}" if bm else ""
-    return f"{m['pnl']:+.0f} / {m['n']} / PF {m['pf']:.2f} · {years} · {verdict}{bcell}"
+    mg = m.get("marginal")
+    addcell = ""
+    if mg:
+        a = mg["added"]
+        addcell = f" · added {a['pnl']:+.0f} / {a['n']} / PF {a['pf']:.2f} (worst yr {a['worst_year_pnl']:+.0f}, worst day {a['worst_day']:+.0f})"
+    return f"{m['pnl']:+.0f} / {m['n']} / PF {m['pf']:.2f} · {years} · {verdict}{bcell}{addcell}"
 
 
 def _shadow_cell(c: dict) -> str:

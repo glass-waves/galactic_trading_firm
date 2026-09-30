@@ -32,6 +32,7 @@ pipeline.py list [--stage S]              # table: id, name, kind, stage, gate, 
 pipeline.py show NAME                     # everything incl. events and results json
 pipeline.py advance [--max-backtests N] [--dry-run]   # run every due transition (the nightly entry point)
 pipeline.py backtest NAME | evaluate NAME | withdraw NAME [--reason] | retire-shadow NAME [--reason]
+pipeline.py regate NAME --gate GATE       # re-evaluate an existing backtest under a different gate (no new sweep)
 pipeline.py report [--markdown]           # regenerates docs/pipeline/status.md and prints it
 ```
 
@@ -41,7 +42,30 @@ baseline, PF ≥ 1.3, ≥ 4 of 5 years positive, P&L ≥ baseline − 10 %, no y
 `stress-mode` = `volume-config` relaxed to trades ≥ 0.9 × baseline plus the SPY < −1 % day tests;
 `default-ticker` = 5y PF ≥ 1.3, ≥ 4 of 5 years positive, ≥ 100 trades, no year < −300, 2026 ≥ 0.
 the baseline for a candidate is the promoted row swept on the **candidate's** ticker set.
-`advance --dry-run` prints what it would do and writes nothing. run everything from the repo root.
+
+`additive-config` is for a candidate that leaves every one of the baseline's trades untouched and
+only *adds* a new window on top (a purely additive edge, e.g. a new entry window gated so it can
+never overlap or crowd out an existing one). "additive" is decided empirically, not declared: the
+candidate's trades are split by matching each one's `(date, ticker, entry_time, direction)` against
+the baseline's trade set (`metrics.marginal_metrics()`) into `base` (present in the baseline) and
+`added` (not). the gate requires `base` to reproduce the baseline's P&L and trade count almost
+exactly (±2 % / ±1 %) and `added` to be a real, self-sufficient edge on its own (net positive,
+PF ≥ 1.3, ≥ 15 trades over 5y, no year worse than −100, no day worse than −300). the years_positive
+/ min_year_pnl checks the other config gates use are replaced by `combined_years_not_worse`, checked
+*relative to the baseline's own year*, not an absolute floor: no year of the combined book may fall
+more than 50 below what that year already was for the baseline. this matters because a baseline can
+itself have flat or negative years (e.g. `iex_v18`: only 3 of 5 positive) that a strictly additive
+candidate — one that cannot touch existing trades — has no way to repair; requiring `years_positive`
+of the combined book would make such a candidate ungateable no matter how good its new window is.
+`combined_years_not_worse` asks only that the new window not make a bad year worse, which is what an
+additive candidate can actually promise.
+
+`advance --dry-run` prints what it would do and writes nothing. `regate` reuses the tag's sweep CSVs
+and, for a config candidate, the already-materialized `config_versions` row — no new sweep and no
+re-materialization — so it is cheap to try a different gate against a backtest already on disk; it
+records a `regate` event with the old and new gate names and is only allowed from `backtest_passed`
+or `backtest_failed` (a pass clears any cooldown and moves the materialized row to `validated`; a
+fail leaves cooldown as it was). run everything from the repo root.
 
 ## 3. proposing
 
