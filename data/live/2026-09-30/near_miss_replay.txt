@@ -1,0 +1,2 @@
+near-miss bars on 2026-09-30: 0
+sum of hypothetical short returns: +0.00%  (positive = the filters cost us; negative = they saved us)
