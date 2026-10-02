@@ -10,7 +10,7 @@
 # is a warning ("not hosted"). abnormal-move alert: one snapshot request per run for the
 # primary's tickers + SPY (docs/plans/2026-09-26_pipeline_and_books.md §6).
 #
-# env: MOVE_ALERT_NAME_PCT (1.5) / MOVE_ALERT_SPY_PCT (1.0) — % vs today's open;
+# env: MOVE_ALERT_NAME_PCT (2.0) / MOVE_ALERT_SPY_PCT (1.0) — % vs today's open;
 #      MOVE_ALERT_NAME_HIGH_PCT (2.0) / MOVE_ALERT_SPY_HIGH_PCT (1.5) — % off the intraday high;
 #      DRY_RUN=1 — ignore the session clock and the service check, print alerts instead of
 #      sending them, use a throw-away state file, accept a stale snapshot (weekend testing).
@@ -136,7 +136,7 @@ if [[ -n "${APCA_API_KEY_ID:-}" && -n "${APCA_API_SECRET_KEY:-}" && -n "$PRIMARY
     SNAP="$(curl -s -m 10 "https://data.alpaca.markets/v2/stocks/snapshots?symbols=$SYMS&feed=iex" \
         -H "APCA-API-KEY-ID: $APCA_API_KEY_ID" -H "APCA-API-SECRET-KEY: $APCA_API_SECRET_KEY" 2>/dev/null)"
     # the script comes in on stdin, so the JSON travels in the environment
-    MOVES="$(SNAP="$SNAP" python3 - "$TODAY" "${MOVE_ALERT_NAME_PCT:-1.5}" "${MOVE_ALERT_SPY_PCT:-1.0}" \
+    MOVES="$(SNAP="$SNAP" python3 - "$TODAY" "${MOVE_ALERT_NAME_PCT:-2.0}" "${MOVE_ALERT_SPY_PCT:-1.0}" \
             "${MOVE_ALERT_NAME_HIGH_PCT:-2.0}" "${MOVE_ALERT_SPY_HIGH_PCT:-1.5}" "$DRY_RUN" <<'PY'
 import sys, json, os
 today, npct, spct, nhigh, shigh, dry = sys.argv[1:7]
@@ -159,11 +159,11 @@ for sym in sorted(d):
     if dry == "1": print(f"# {sym}: open {o} high {h} last {last} -> {po:+.2f}% vs open, {ph:+.2f}% off high", file=sys.stderr)
     if sym == "SPY":
         if po <= -spct: print(f"critical|move_SPY_open_down|SPY|SPY {po:+.2f}% vs today's open ({last} vs {o})")
-        elif po >= spct: print(f"warning|move_SPY_open_up|SPY|SPY {po:+.2f}% vs today's open ({last} vs {o})")
+        elif po >= spct: print(f"info|move_SPY_open_up|SPY|SPY {po:+.2f}% vs today's open ({last} vs {o})")
         if ph <= -shigh: print(f"critical|move_SPY_high_down|SPY|SPY {ph:+.2f}% off its intraday high ({last} vs {h})")
     else:
         if po <= -npct: print(f"warning|move_{sym}_open_down|{sym}|{sym} {po:+.2f}% vs today's open ({last} vs {o})")
-        elif po >= npct: print(f"warning|move_{sym}_open_up|{sym}|{sym} {po:+.2f}% vs today's open ({last} vs {o})")
+        elif po >= npct: print(f"info|move_{sym}_open_up|{sym}|{sym} {po:+.2f}% vs today's open ({last} vs {o})")
         if ph <= -nhigh: print(f"warning|move_{sym}_high_down|{sym}|{sym} {ph:+.2f}% off its intraday high ({last} vs {h})")
 PY
 )"
