@@ -1,0 +1,7 @@
+near-miss bars on 2026-10-02: 5
+  AAPL  11:12 ET  short would have made -0.19% (max_hold at 11:53)   filtered by: 5m thrust short: FiveMinute -0.47 not lagging by 0.10, FiveMinute -0.47>-0.50, cross_1m -0
+  MSFT  11:12 ET  short would have made +0.09% (session_close at 11:55)   filtered by: 5m thrust short: FiveMinute -0.45 not lagging by 0.10, FiveMinute -0.45>-0.50, cross_1m -0
+  AAPL  11:17 ET  short would have made -0.41% (session_close at 11:55)   filtered by: 5m thrust short: FiveMinute -0.48 not lagging by 0.10, FiveMinute -0.48>-0.50, cross_1m -0
+  MSFT  11:17 ET  short would have made -0.04% (session_close at 11:55)   filtered by: 5m thrust short: FiveMinute -0.48 not lagging by 0.10, FiveMinute -0.48>-0.50, cross_1m -0
+  NVDA  11:24 ET  short would have made -0.56% (session_close at 11:55)   filtered by: 5m thrust short: FiveMinute -0.56 not lagging by 0.10, OneHour 0.12>0.00, cross_1m -0.86<-
+sum of hypothetical short returns: -1.11%  (positive = the filters cost us; negative = they saved us)
