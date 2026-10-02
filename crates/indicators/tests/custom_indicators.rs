@@ -1047,3 +1047,142 @@ fn candle_factory_new_params() {
     let out = indicator.compute(&ms);
     assert!(out.is_some(), "factory-created indicator should compute");
 }
+
+// ── trigger_context (entry-trigger study 2026-10-02) ────────────────────────────
+
+mod trigger_context_tests {
+    use chrono::{TimeZone, Utc};
+    use indicators::custom::trigger_context::TriggerContextIndicator;
+    use indicators::custom::vpin::VpinIndicator;
+    use indicators::default_indicator_registry;
+    use types::indicator::Indicator;
+    use types::market::Timescale;
+    use types::test_fixtures::{make_indicator_config, make_market_state_ohlcv};
+
+    /// `prior` bars of the previous session (14:00 ET on), then `today` bars from 09:30 ET.
+    /// 2024-03-05 / 2024-03-06 (EST, UTC−5).
+    fn two_sessions(
+        prior: &[(f64, f64, f64, f64, f64)],
+        today: &[(f64, f64, f64, f64, f64)],
+    ) -> types::market::MarketState {
+        let all: Vec<_> = prior.iter().chain(today.iter()).copied().collect();
+        let mut ms = make_market_state_ohlcv(Timescale::OneMinute, &all);
+        let p0 = Utc.with_ymd_and_hms(2024, 3, 5, 19, 0, 0).unwrap().timestamp();
+        let t0 = Utc.with_ymd_and_hms(2024, 3, 6, 14, 30, 0).unwrap().timestamp();
+        let candles = ms.candles.get_mut(&Timescale::OneMinute).unwrap();
+        for (i, c) in candles.iter_mut().enumerate() {
+            let ts = if i < prior.len() { p0 + i as i64 * 60 } else { t0 + (i - prior.len()) as i64 * 60 };
+            c.timestamp = Utc.timestamp_opt(ts, 0).unwrap();
+        }
+        ms.timestamp = candles.last().unwrap().timestamp;
+        ms
+    }
+
+    fn wiggle(n: usize, base: f64) -> Vec<(f64, f64, f64, f64, f64)> {
+        (0..n)
+            .map(|i| {
+                let o = base + if i % 2 == 0 { 0.1 } else { -0.1 };
+                let c = base + if i % 3 == 0 { 0.15 } else { -0.05 };
+                (o, o.max(c) + 0.05, o.min(c) - 0.05, c, 10_000.0 + (i % 7) as f64 * 500.0)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn pullback_geometry_ignores_the_prior_session() {
+        // prior session has a much lower low (90) that must not count
+        let mut prior = wiggle(50, 95.0);
+        prior[40] = (95.0, 95.0, 90.0, 94.0, 20_000.0);
+        // today: flat at 100, thrust down to 98 (bar 4), bounce back to 99
+        let today = vec![
+            (100.0, 100.2, 99.9, 100.0, 10_000.0),
+            (100.0, 100.1, 99.5, 99.6, 12_000.0),
+            (99.6, 99.6, 98.8, 98.9, 15_000.0),
+            (98.9, 99.0, 98.2, 98.3, 18_000.0),
+            (98.3, 98.4, 98.0, 98.2, 16_000.0), // the low, index 4
+            (98.2, 98.7, 98.1, 98.6, 11_000.0),
+            (98.6, 99.1, 98.5, 99.0, 9_000.0),  // close 99.0
+        ];
+        let ms = two_sessions(&prior, &today);
+        let ind = TriggerContextIndicator::new(15, Timescale::OneMinute, "trig_1m".into());
+        let out = ind.compute(&ms).expect("output");
+        let m = &out.metadata;
+        // high before the low = 100.2, low = 98.0
+        assert!((m["drop_pct"] - (100.2 / 98.0 - 1.0) * 100.0).abs() < 1e-9);
+        assert_eq!(m["bars_since_low"], 2.0);
+        assert!((m["retrace"] - (99.0 - 98.0) / (100.2 - 98.0)).abs() < 1e-9);
+        assert!((m["bounce_pct"] - (99.0 / 98.0 - 1.0) * 100.0).abs() < 1e-9);
+        assert!((m["last_ret_pct"] - (99.0 / 98.6 - 1.0) * 100.0).abs() < 1e-9);
+        assert!((out.score - (2.0 * m["retrace"] - 1.0)).abs() < 1e-9);
+        assert!(out.score >= -1.0 && out.score <= 1.0);
+    }
+
+    #[test]
+    fn lookback_limits_the_window() {
+        let prior = wiggle(50, 95.0);
+        // today: an early low at bar 1 (97), then 20 bars drifting around 100
+        let mut today = vec![(100.0, 100.0, 99.0, 99.5, 10_000.0), (99.5, 99.6, 97.0, 97.5, 20_000.0)];
+        today.extend(wiggle(20, 100.0));
+        let ms = two_sessions(&prior, &today);
+        let short = TriggerContextIndicator::new(5, Timescale::OneMinute, "t".into()).compute(&ms).unwrap();
+        let long = TriggerContextIndicator::new(30, Timescale::OneMinute, "t".into()).compute(&ms).unwrap();
+        assert!(short.metadata["drop_pct"] < 1.0, "the early low is outside a 5-bar window");
+        assert!(long.metadata["drop_pct"] > 2.0, "a 30-bar window reaches the early low");
+        assert_eq!(long.metadata["bars_since_low"], 20.0);
+    }
+
+    #[test]
+    fn vpin_now_and_slope_match_the_vpin_indicator() {
+        let prior = wiggle(60, 100.0);
+        let today: Vec<_> = (0..12)
+            .map(|i| {
+                let o = 100.0 - i as f64 * 0.2;
+                (o, o + 0.02, o - 0.25, o - 0.22, 30_000.0)
+            })
+            .collect();
+        let ms = two_sessions(&prior, &today);
+        let ind = TriggerContextIndicator::new(15, Timescale::OneMinute, "t".into());
+        let out = ind.compute(&ms).unwrap();
+        let vpin = VpinIndicator::new(20, 0.2, 20, Timescale::OneMinute, "v".into());
+        let now = vpin.compute(&ms).unwrap().raw_value;
+        assert!((out.metadata["vpin_now"] - now).abs() < 1e-12);
+        for k in [3usize, 5] {
+            let mut lagged = ms.clone();
+            let c = lagged.candles.get_mut(&Timescale::OneMinute).unwrap();
+            c.truncate(c.len() - k);
+            let then = vpin.compute(&lagged).unwrap().raw_value;
+            let key = format!("vpin_slope_{k}");
+            assert!((out.metadata[&key] - (now - then)).abs() < 1e-12);
+        }
+        // a one-sided sell-off raises VPIN
+        assert!(out.metadata["vpin_slope_5"] > 0.0);
+    }
+
+    #[test]
+    fn short_history_omits_what_it_cannot_compute() {
+        // 1 bar today, 10 bars total: no pullback (needs 2 today), no VPIN (needs 41)
+        let ms = two_sessions(&wiggle(9, 100.0), &[(100.0, 100.1, 99.9, 100.0, 1_000.0)]);
+        let ind = TriggerContextIndicator::new(15, Timescale::OneMinute, "t".into());
+        assert!(ind.compute(&ms).is_none());
+        // 2 bars today: pullback keys present, VPIN keys absent
+        let ms = two_sessions(&wiggle(9, 100.0), &[(100.0, 100.1, 99.9, 100.0, 1_000.0), (100.0, 100.0, 99.5, 99.6, 1_000.0)]);
+        let out = ind.compute(&ms).unwrap();
+        assert!(out.metadata.contains_key("retrace"));
+        assert!(!out.metadata.contains_key("vpin_now"));
+    }
+
+    #[test]
+    fn registry_builds_trigger_context() {
+        let reg = default_indicator_registry();
+        let cfg = make_indicator_config(
+            "trigger_context",
+            "trig_1m",
+            Timescale::OneMinute,
+            0.0,
+            vec![("lookback", serde_json::json!(10))],
+        );
+        let ind = (reg.factories.get("trigger_context").expect("registered"))(&cfg);
+        assert_eq!(ind.name(), "trigger_context");
+        assert_eq!(ind.timescale(), Timescale::OneMinute);
+    }
+}

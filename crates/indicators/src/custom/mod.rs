@@ -10,3 +10,4 @@ pub mod candle_sequence;
 pub mod level_signals;
 pub mod cross_context;
 pub mod event_calendar;
+pub mod trigger_context;
