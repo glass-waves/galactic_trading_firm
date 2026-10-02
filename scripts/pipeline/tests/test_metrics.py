@@ -103,5 +103,33 @@ class MarginalMetrics(unittest.TestCase):
         self.assertEqual(m["marginal"]["added"]["pnl"], 35.0)
 
 
+class MaxPositionFraction(unittest.TestCase):
+    def test_largest_wins(self):
+        rows = [{"size": "30", "entry_price": "98.0"}, {"size": "37", "entry_price": "98.0"}, {"size": "10", "entry_price": "50.0"}]
+        # 30*98/10000 = 0.294, 37*98/10000 = 0.3626, 10*50/10000 = 0.05
+        self.assertAlmostEqual(metrics.max_position_fraction(rows), 0.3626)
+
+    def test_empty_rows_is_zero(self):
+        self.assertEqual(metrics.max_position_fraction([]), 0.0)
+
+    def test_unparseable_rows_are_skipped_not_fatal(self):
+        rows = [{"size": "", "entry_price": ""}, {"size": "35", "entry_price": "105.1135"}]
+        self.assertAlmostEqual(metrics.max_position_fraction(rows), 35 * 105.1135 / 10000, places=4)
+
+    def test_custom_capital(self):
+        rows = [{"size": "100", "entry_price": "50.0"}]
+        self.assertAlmostEqual(metrics.max_position_fraction(rows, capital=5000.0), 1.0)
+
+    def test_summarize_folds_it_in(self):
+        with tempfile.TemporaryDirectory() as d:
+            d = Path(d)
+            write_trades(d / "sz_2025_trades.csv", [
+                {"date": "2025-01-02", "ticker": "AMZN", "direction": "Short", "entry_time": "t1", "pnl": 10.0, "size": "28", "entry_price": "105.1135"},
+                {"date": "2025-01-03", "ticker": "NVDA", "direction": "Short", "entry_time": "t2", "pnl": -5.0, "size": "37", "entry_price": "98.1555"},
+            ])
+            m = metrics.summarize("sz", d)
+            self.assertAlmostEqual(m["max_position_fraction"], 37 * 98.1555 / 10000, places=4)
+
+
 if __name__ == "__main__":
     unittest.main()

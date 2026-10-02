@@ -1,6 +1,6 @@
 # research pipeline — status
 
-generated 2026-10-02 21:21 UTC by `scripts/pipeline/pipeline.py report`. do not edit: regenerated nightly. lane: proposed → backtesting → backtest_passed → shadow → shadow_passed → promotion_proposed → promoted (human). failures: backtest_failed / shadow_failed (180 d cooldown), withdrawn (human).
+generated 2026-10-02 21:38 UTC by `scripts/pipeline/pipeline.py report`. do not edit: regenerated nightly. lane: proposed → backtesting → backtest_passed → shadow → shadow_passed → promotion_proposed → promoted (human). failures: backtest_failed / shadow_failed (180 d cooldown), withdrawn (human).
 
 - gate sweeps run at the research sizing (`--sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY`, IEX cache, 3 bps + $0.005); the per-year floor (no year < −300) is stated at 36 %. live and shadow books size at the blob's fraction; parity replays use no sizing override.
 - shadow-book creation: **disabled** (`PIPELINE_SHADOW_BOOKS=0`; while disabled `advance` only prints the books it would create).
@@ -16,30 +16,31 @@ none.
 
 ## candidates by stage
 
-### proposed (20)
+### proposed (21)
 
 | id | name | kind | gate | tickers | since | backtest (5y P&L / trades / PF · per year · gate) |
 |---:|---|---|---|---|---|---|
-| 8 | `ticker:JPM` | ticker | default-ticker | JPM | 0 m | — |
-| 9 | `ticker:V` | ticker | default-ticker | V | 0 m | — |
-| 10 | `ticker:MA` | ticker | default-ticker | MA | 0 m | — |
-| 11 | `ticker:UNH` | ticker | default-ticker | UNH | 0 m | — |
-| 12 | `ticker:LLY` | ticker | default-ticker | LLY | 0 m | — |
-| 13 | `ticker:COST` | ticker | default-ticker | COST | 0 m | — |
-| 14 | `ticker:HD` | ticker | default-ticker | HD | 0 m | — |
-| 15 | `ticker:XOM` | ticker | default-ticker | XOM | 0 m | — |
-| 16 | `ticker:CVX` | ticker | default-ticker | CVX | 0 m | — |
-| 17 | `ticker:ADBE` | ticker | default-ticker | ADBE | 0 m | — |
-| 18 | `ticker:CRM` | ticker | default-ticker | CRM | 0 m | — |
-| 19 | `ticker:ORCL` | ticker | default-ticker | ORCL | 0 m | — |
-| 20 | `ticker:QCOM` | ticker | default-ticker | QCOM | 0 m | — |
-| 21 | `ticker:CAT` | ticker | default-ticker | CAT | 0 m | — |
-| 22 | `ticker:GS` | ticker | default-ticker | GS | 0 m | — |
-| 23 | `ticker:PG` | ticker | default-ticker | PG | 0 m | — |
-| 24 | `ticker:ABBV` | ticker | default-ticker | ABBV | 0 m | — |
-| 25 | `ticker:MRK` | ticker | default-ticker | MRK | 0 m | — |
-| 26 | `ticker:TXN` | ticker | default-ticker | TXN | 0 m | — |
-| 27 | `ticker:AMAT` | ticker | default-ticker | AMAT | 0 m | — |
+| 8 | `ticker:JPM` | ticker | default-ticker | JPM | 17 m | — |
+| 9 | `ticker:V` | ticker | default-ticker | V | 17 m | — |
+| 10 | `ticker:MA` | ticker | default-ticker | MA | 17 m | — |
+| 11 | `ticker:UNH` | ticker | default-ticker | UNH | 17 m | — |
+| 12 | `ticker:LLY` | ticker | default-ticker | LLY | 17 m | — |
+| 13 | `ticker:COST` | ticker | default-ticker | COST | 17 m | — |
+| 14 | `ticker:HD` | ticker | default-ticker | HD | 17 m | — |
+| 15 | `ticker:XOM` | ticker | default-ticker | XOM | 17 m | — |
+| 16 | `ticker:CVX` | ticker | default-ticker | CVX | 17 m | — |
+| 17 | `ticker:ADBE` | ticker | default-ticker | ADBE | 17 m | — |
+| 18 | `ticker:CRM` | ticker | default-ticker | CRM | 17 m | — |
+| 19 | `ticker:ORCL` | ticker | default-ticker | ORCL | 17 m | — |
+| 20 | `ticker:QCOM` | ticker | default-ticker | QCOM | 17 m | — |
+| 21 | `ticker:CAT` | ticker | default-ticker | CAT | 17 m | — |
+| 22 | `ticker:GS` | ticker | default-ticker | GS | 17 m | — |
+| 23 | `ticker:PG` | ticker | default-ticker | PG | 17 m | — |
+| 24 | `ticker:ABBV` | ticker | default-ticker | ABBV | 17 m | — |
+| 25 | `ticker:MRK` | ticker | default-ticker | MRK | 17 m | — |
+| 26 | `ticker:TXN` | ticker | default-ticker | TXN | 17 m | — |
+| 27 | `ticker:AMAT` | ticker | default-ticker | AMAT | 17 m | — |
+| 28 | `size-vpin26-x1.25` | config | sizing-config | base | 1 m | — |
 
 ### backtesting (0)
 
@@ -78,6 +79,7 @@ none.
 
 | when (UTC) | candidate | transition | actor | detail |
 |---|---|---|---|---|
+| 2026-10-02 21:37 | `size-vpin26-x1.25` | ∅ → proposed | human | proposed |
 | 2026-10-02 21:20 | `ticker:AMAT` | ∅ → proposed | human | proposed |
 | 2026-10-02 21:20 | `ticker:TXN` | ∅ → proposed | human | proposed |
 | 2026-10-02 21:20 | `ticker:MRK` | ∅ → proposed | human | proposed |
@@ -97,4 +99,3 @@ none.
 | 2026-10-02 21:20 | `ticker:UNH` | ∅ → proposed | human | proposed |
 | 2026-10-02 21:20 | `ticker:MA` | ∅ → proposed | human | proposed |
 | 2026-10-02 21:20 | `ticker:V` | ∅ → proposed | human | proposed |
-| 2026-10-02 21:20 | `ticker:JPM` | ∅ → proposed | human | proposed |

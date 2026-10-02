@@ -1,0 +1,5 @@
+{"disable": ["sizing_fixed"],
+ "actions": [{"instance_id": "sizing_tiered_vpin", "action_type": "indicator_tiered", "phase": "Sizing", "priority": 0, "enabled": true,
+   "params": {"instance_id": "vpin_1m.raw_vpin", "base_fraction": 0.30, "tiers": [{"min": 0.26, "mult": 1.25}, {"min": 0.217, "mult": 1.0}], "fallback_mult": 1.0}}],
+ "session": {"max_position_pct": 0.40},
+ "_sweep_args": "--max-position-pct 0.45"}

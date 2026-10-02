@@ -82,6 +82,20 @@ class ApplyPatch(unittest.TestCase):
         self.assertTrue(materialize.validate_patch({"actions": [{"instance_id": "a"}]}))
         self.assertEqual(materialize.validate_patch({"disable": [], "indicators": [], "actions": [], "session": {}, "tickers": []}), [])
 
+    def test_sweep_args_meta_key_accepted_but_never_applied(self):
+        # _sweep_args is a meta key: valid on a patch, read separately by pipeline.py, but apply_patch
+        # (and the backtest CLI's --patch-json, which only reads the same known keys) never touch it.
+        self.assertEqual(materialize.validate_patch({"_sweep_args": "--max-position-pct 0.45"}), [])
+        self.assertTrue(materialize.validate_patch({"_sweep_args": 123}))  # must be a string
+        out = materialize.apply_patch(BASE, {"disable": ["window_5m_thrust"], "_sweep_args": "--max-position-pct 0.45"})
+        self.assertNotIn("_sweep_args", out)
+        self.assertEqual(out["session"], BASE["session"])  # untouched: _sweep_args never reaches session or anywhere else
+
+    def test_sweep_args_rejected_alongside_other_bad_keys(self):
+        problems = materialize.validate_patch({"bogus": 1, "_sweep_args": "ok"})
+        self.assertEqual(len(problems), 1)
+        self.assertIn("bogus", problems[0])
+
 
 class MergePatches(unittest.TestCase):
     def test_merge_equals_sequential_application(self):
@@ -94,6 +108,12 @@ class MergePatches(unittest.TestCase):
         self.assertEqual(materialize.apply_patch(BASE, merged), seq)
         self.assertEqual(merged["session"], {"force_exit_by": "15:55", "no_new_entries_after": "15:30"})
         self.assertNotIn("disable", materialize.merge_patches(p1))
+
+    def test_merge_sweep_args_last_wins(self):
+        p1 = {"_sweep_args": "--max-position-pct 0.40"}
+        p2 = {"_sweep_args": "--max-position-pct 0.45"}
+        self.assertEqual(materialize.merge_patches(p1, p2)["_sweep_args"], "--max-position-pct 0.45")
+        self.assertNotIn("_sweep_args", materialize.merge_patches({"tickers": ["A"]}))
 
     def test_stamp_blob(self):
         out = materialize.stamp_blob(materialize.apply_patch(BASE, {}), BASE, "x")

@@ -28,6 +28,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import db  # noqa: E402
 
 PATCH_KEYS = ("disable", "indicators", "actions", "session", "tickers")
+# meta keys: carried on the candidate's patch dict but never applied to the config blob (the
+# backtest CLI's --patch-json and this module's apply_patch() both only read PATCH_KEYS, so a meta
+# key is silently inert there; pipeline.py reads it separately to extend the sweep command).
+# _sweep_args: str - extra argv tokens appended AFTER the gate sweep's standard args (so a later
+#   occurrence of a flag such as --max-position-pct wins; see backtest/src/main.rs get_arg(), which
+#   resolves a repeated flag to its LAST occurrence) - lets a candidate's sweep run at a cap the
+#   standard --max-position-pct 0.36 would otherwise clamp. documented in docs/pipeline.md.
+META_KEYS = ("_sweep_args",)
 
 
 class PatchError(ValueError):
@@ -40,8 +48,8 @@ def validate_patch(patch: dict) -> list[str]:
     if not isinstance(patch, dict):
         return ["patch must be a json object"]
     for k in patch:
-        if k not in PATCH_KEYS:
-            problems.append(f"unknown patch key '{k}' (allowed: {', '.join(PATCH_KEYS)})")
+        if k not in PATCH_KEYS and k not in META_KEYS:
+            problems.append(f"unknown patch key '{k}' (allowed: {', '.join(PATCH_KEYS)}, {', '.join(META_KEYS)})")
     if "disable" in patch and not (isinstance(patch["disable"], list) and all(isinstance(x, str) for x in patch["disable"])):
         problems.append("'disable' must be a list of instance ids")
     for k in ("indicators", "actions"):
@@ -58,12 +66,14 @@ def validate_patch(patch: dict) -> list[str]:
         problems.append("'session' must be an object")
     if "tickers" in patch and not (isinstance(patch["tickers"], list) and all(isinstance(x, str) for x in patch["tickers"])):
         problems.append("'tickers' must be a list of strings")
+    if "_sweep_args" in patch and not isinstance(patch["_sweep_args"], str):
+        problems.append("'_sweep_args' must be a string")
     return problems
 
 
 def merge_patches(*patches: dict) -> dict:
     """sequential application of several patch files == one merged patch (lists concatenate,
-    session keys shallow-merge in order, the last `tickers` wins)."""
+    session keys shallow-merge in order, the last `tickers` / `_sweep_args` wins)."""
     out: dict = {}
     for p in patches:
         if p.get("disable"):
@@ -76,6 +86,8 @@ def merge_patches(*patches: dict) -> dict:
             out.setdefault("session", {}).update(copy.deepcopy(p["session"]))
         if isinstance(p.get("tickers"), list):
             out["tickers"] = list(p["tickers"])
+        if isinstance(p.get("_sweep_args"), str):
+            out["_sweep_args"] = p["_sweep_args"]
     return out
 
 

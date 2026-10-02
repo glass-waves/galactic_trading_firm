@@ -80,10 +80,27 @@ def stats(rows: list[dict]) -> dict:
     }
 
 
+def max_position_fraction(rows: list[dict], capital: float = 10000.0) -> float:
+    """largest observed position size x entry_price / capital (the sizing-config gate's cap check).
+    rows missing or unparseable size/entry_price are skipped rather than failing the whole metric."""
+    if not capital:
+        return 0.0
+    fracs = []
+    for r in rows:
+        try:
+            size = float(r.get("size"))
+            price = float(r.get("entry_price"))
+        except (TypeError, ValueError):
+            continue
+        fracs.append(size * price / capital)
+    return round(max(fracs), 4) if fracs else 0.0
+
+
 def summarize(tag: str, data_dir: Path = DATA) -> dict:
     rows = load_trades(tag, data_dir)
     out = stats(rows)
     out["tag"] = tag
+    out["max_position_fraction"] = max_position_fraction(rows)
     out["years"] = {y: stats([r for r in rows if r["year"] == y]) for y in YEARS}
     out["years_positive"] = sum(1 for y in YEARS if out["years"][y]["pnl"] > 0)
     out["min_year_pnl"] = min(out["years"][y]["pnl"] for y in YEARS)

@@ -30,6 +30,7 @@ import io
 import json
 import os
 import re
+import shlex
 import subprocess
 import sys
 import time
@@ -489,7 +490,11 @@ def run_backtest(cand: dict, actor: str = "pipeline", budget: list[int] | None =
                 cand["materialized_config_id"] = mid
                 log(f"#{cid} {cand['name']}: materialized config_versions row {mid} (base {base_id})")
         sweep_extra = ["--config-id", str(mid)] if mid else ["--config-id", "<materialized>"]
+        sweep_args_override = (cand.get("patch") or {}).get("_sweep_args")
+        if sweep_args_override:
+            sweep_extra = sweep_extra + shlex.split(sweep_args_override)
     else:
+        sweep_args_override = None
         sweep_extra = ["--tickers", ",".join(tickers)]
 
     # bar coverage for every ticker the candidate trades (SPY is the cross index and is always present)
@@ -551,7 +556,9 @@ def run_backtest(cand: dict, actor: str = "pipeline", budget: list[int] | None =
         "gate": gate_name, "pass": passed, "gate_result": g, "metrics": m,
         "baseline": {"tag": baseline_tag, "metrics": baseline} if baseline_tag else None,
         "sweep": {"tag": tag, "args": GATE_SWEEP_ARGS + sweep_extra, "bars_dir": str(BARS_DIR.relative_to(ROOT)), "sweep_end": metrics.sweep_end().isoformat()},
-        "sizing_note": "gate sweep at --sizing-fraction 0.36 --max-position-pct 0.36; live/shadow size at the blob's fraction",
+        "sweep_args_override": sweep_args_override,
+        "sizing_note": "gate sweep at --sizing-fraction 0.36 --max-position-pct 0.36; live/shadow size at the blob's fraction"
+                       + (f"; patch's _sweep_args applied on top: {sweep_args_override}" if sweep_args_override else ""),
         "coverage": coverage, "materialize_check": mcheck,
         "computed_at": dt.datetime.now(dt.timezone.utc).isoformat(),
     }
@@ -883,6 +890,7 @@ def run_regate(cand: dict, new_gate_raw: str, actor: str = "pipeline") -> str:
         "gate": new_gate, "pass": passed, "gate_result": g, "metrics": m,
         "baseline": {"tag": baseline_tag, "metrics": baseline} if baseline_tag else None,
         "sweep": prev.get("sweep") or {"tag": tag},
+        "sweep_args_override": prev.get("sweep_args_override"),
         "sizing_note": prev.get("sizing_note") or "gate sweep at --sizing-fraction 0.36 --max-position-pct 0.36; live/shadow size at the blob's fraction",
         "coverage": prev.get("coverage"), "materialize_check": mcheck,
         "regated_from": old_gate,
@@ -977,7 +985,12 @@ def cmd_advance(a) -> int:
             except STEP_ERRORS as e:
                 log(f"#{c['id']} {c['name']}: shadow creation failed: {e}")
         budget, n = [MAX_NEW_TICKER_FETCHES], 0
-        queue = [c for c in cands if c["stage"] == "backtesting"] + [c for c in cands if c["stage"] == "proposed"]
+        # candidates already in flight (backtesting) go first so a resumed sweep is never starved;
+        # within each stage, config candidates sort ahead of ticker candidates (no priority column —
+        # kind is the ordering key; see docs/pipeline.md §2/§4) and ties keep id order (first proposed first).
+        queue_order = lambda c: (0 if c["kind"] == "config" else 1, c["id"])
+        queue = sorted((c for c in cands if c["stage"] == "backtesting"), key=queue_order) \
+            + sorted((c for c in cands if c["stage"] == "proposed"), key=queue_order)
         for c in queue:
             if n >= a.max_backtests:
                 log(f"--max-backtests {a.max_backtests} reached; {len(queue) - n} candidate(s) wait for the next run")

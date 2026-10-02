@@ -8,9 +8,9 @@ import gates  # noqa: E402
 YEARS = ["2022", "2023", "2024", "2025", "2026"]
 
 
-def mk(pnl=2154, n=407, pf=1.48, years=(1565, -181, -93, 451, 413), stress=None, ordinary=None):
+def mk(pnl=2154, n=407, pf=1.48, years=(1565, -181, -93, 451, 413), stress=None, ordinary=None, dd=0.0, max_position_fraction=0.0):
     ys = {y: {"pnl": float(p), "n": 10, "pf": 1.0, "dd": 0.0} for y, p in zip(YEARS, years)}
-    m = {"pnl": float(pnl), "n": n, "pf": pf, "years": ys,
+    m = {"pnl": float(pnl), "n": n, "pf": pf, "dd": float(dd), "max_position_fraction": float(max_position_fraction), "years": ys,
          "years_positive": sum(1 for p in years if p > 0), "min_year_pnl": float(min(years)), "pnl_2026": float(years[-1])}
     if stress is not None:
         m["stress"] = {"stress_days": 60, "stress_pnl": stress[0], "stress_pnl_per_day": stress[0] / 60, "stress_worst_day": stress[1],
@@ -205,6 +205,99 @@ class AdditiveConfig(unittest.TestCase):
         self.assertIn("added_pf", names(r))
 
 
+class SizingConfig(unittest.TestCase):
+    """baseline modeled on iex_v18 at 36 % research sizing: +2,785 / 500 / PF 1.64, dd -600, own max
+    position fraction 0.36 (fixed_fractional, no tiering) — a sizing-only candidate (e.g. size up
+    the top VPIN tier) must keep the same trades and not get materially worse on any other axis."""
+
+    def setUp(self):
+        self.b = mk(pnl=2785, n=500, pf=1.64, years=(500, 500, 500, 785, 500), dd=-600, max_position_fraction=0.36)
+
+    def test_needs_baseline(self):
+        r = gates.sizing_config(BASE, None)
+        self.assertFalse(r["pass"])
+        self.assertEqual(names(r), ["baseline"])
+
+    def test_needs_marginal_split(self):
+        m = mk(pnl=3200, n=500, pf=1.64, years=(1, 1, 1, 1, 1), dd=-600, max_position_fraction=0.4)
+        r = gates.sizing_config(m, self.b)
+        self.assertFalse(r["pass"])
+        self.assertEqual(names(r), ["marginal"])
+
+    def test_passes_at_boundaries(self):
+        # trades exactly +2 %, 95 % of baseline's keys matched, P&L exactly x1.10, PF exactly -0.02,
+        # dd exactly x1.3, every year exactly -50 vs baseline, fraction exactly the 0.45 cap
+        m = mk(pnl=2785 * 1.10, n=510, pf=1.62, years=(450, 450, 450, 735, 450), dd=-780, max_position_fraction=0.45)
+        m["marginal"] = mk_marginal(base_pnl=2785 * 1.10, base_n=475, added_pnl=0, added_n=35, added_pf=1.0)
+        r = gates.sizing_config(m, self.b)
+        self.assertTrue(r["pass"], names(r))
+        self.assertEqual(r["gate"], "sizing-config")
+
+    def test_same_trade_count_boundary(self):
+        common = dict(pnl=3500, pf=1.7, years=(1, 1, 1, 1, 1), dd=-600, max_position_fraction=0.4)
+        m = mk(n=510, **common)
+        m["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=10, added_pf=1.0)
+        self.assertNotIn("same_trade_count", names(gates.sizing_config(m, self.b)))
+        m2 = mk(n=511, **common)
+        m2["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=11, added_pf=1.0)
+        self.assertIn("same_trade_count", names(gates.sizing_config(m2, self.b)))
+
+    def test_same_trade_set_boundary(self):
+        common = dict(pnl=3500, n=500, pf=1.7, years=(1, 1, 1, 1, 1), dd=-600, max_position_fraction=0.4)
+        m = mk(**common)
+        m["marginal"] = mk_marginal(base_pnl=3500, base_n=475, added_pnl=0, added_n=25, added_pf=1.0)
+        self.assertNotIn("same_trade_set", names(gates.sizing_config(m, self.b)))
+        m2 = mk(**common)
+        m2["marginal"] = mk_marginal(base_pnl=3500, base_n=474, added_pnl=0, added_n=26, added_pf=1.0)
+        self.assertIn("same_trade_set", names(gates.sizing_config(m2, self.b)))
+
+    def test_pnl_threshold(self):
+        common = dict(n=500, pf=1.7, years=(1, 1, 1, 1, 1), dd=-600, max_position_fraction=0.4)
+        m = mk(pnl=2785 * 1.10 - 1, **common)
+        m["marginal"] = mk_marginal(base_pnl=2785 * 1.10 - 1, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
+        self.assertIn("pnl_5y", names(gates.sizing_config(m, self.b)))
+        m2 = mk(pnl=2785 * 1.10, **common)
+        m2["marginal"] = mk_marginal(base_pnl=2785 * 1.10, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
+        self.assertNotIn("pnl_5y", names(gates.sizing_config(m2, self.b)))
+
+    def test_pf_threshold(self):
+        common = dict(pnl=3500, n=500, years=(1, 1, 1, 1, 1), dd=-600, max_position_fraction=0.4)
+        m = mk(pf=1.619, **common)
+        m["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
+        self.assertIn("pf_5y", names(gates.sizing_config(m, self.b)))
+        m2 = mk(pf=1.62, **common)
+        m2["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
+        self.assertNotIn("pf_5y", names(gates.sizing_config(m2, self.b)))
+
+    def test_max_drawdown_threshold(self):
+        common = dict(pnl=3500, n=500, pf=1.7, years=(1, 1, 1, 1, 1), max_position_fraction=0.4)
+        m = mk(dd=-780.01, **common)
+        m["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
+        self.assertIn("max_drawdown", names(gates.sizing_config(m, self.b)))
+        m2 = mk(dd=-780.0, **common)
+        m2["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
+        self.assertNotIn("max_drawdown", names(gates.sizing_config(m2, self.b)))
+
+    def test_years_not_worse_boundary(self):
+        # baseline's 3rd year (2024) = 500; margin exactly -50 passes, -51 fails
+        common = dict(pnl=3500, n=500, pf=1.7, dd=-600, max_position_fraction=0.4)
+        m = mk(years=(500, 500, 450, 785, 500), **common)
+        m["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
+        self.assertNotIn("years_not_worse", names(gates.sizing_config(m, self.b)))
+        m2 = mk(years=(500, 500, 449, 785, 500), **common)
+        m2["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
+        self.assertIn("years_not_worse", names(gates.sizing_config(m2, self.b)))
+
+    def test_max_position_fraction_cap(self):
+        common = dict(pnl=3500, n=500, pf=1.7, years=(1, 1, 1, 1, 1), dd=-600)
+        m = mk(max_position_fraction=0.45, **common)
+        m["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
+        self.assertNotIn("max_position_fraction", names(gates.sizing_config(m, self.b)))
+        m2 = mk(max_position_fraction=0.4501, **common)
+        m2["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
+        self.assertIn("max_position_fraction", names(gates.sizing_config(m2, self.b)))
+
+
 class Resolve(unittest.TestCase):
     def test_names(self):
         self.assertEqual(gates.resolve("default", "ticker"), "default-ticker")
@@ -212,6 +305,7 @@ class Resolve(unittest.TestCase):
         self.assertEqual(gates.resolve("default-config", "config"), "volume-config")
         self.assertEqual(gates.resolve("stress-mode", "config"), "stress-mode")
         self.assertEqual(gates.resolve("additive-config", "config"), "additive-config")
+        self.assertEqual(gates.resolve("sizing-config", "config"), "sizing-config")
         with self.assertRaises(KeyError):
             gates.resolve("bogus", "config")
 

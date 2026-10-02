@@ -19,6 +19,14 @@ what pipeline_candidates.backtest_result stores. thresholds are stated at the re
                    than 50 worse than the baseline's same year (combined_years_not_worse) — this is the
                    quality-config years_positive requirement's replacement for a candidate whose baseline
                    itself has flat/negative years an additive edge can never repair
+  sizing-config  : for a candidate that only changes position sizing (no new entries/exits): same trade
+                   set as the baseline (metrics['marginal'], via metrics.marginal_metrics()/split_marginal() -
+                   trade count within +-2 % of baseline's and the matched ('base') subset >= 95 % of the
+                   baseline's trade count, i.e. almost every baseline trade still fires); P&L >= baseline
+                   x 1.10; PF >= baseline PF - 0.02; max drawdown no more than 30 % deeper than the
+                   baseline's (dd >= baseline dd x 1.3); every year's P&L >= that year's baseline P&L - 50;
+                   and the largest single position observed (metrics['max_position_fraction'], size x
+                   entry_price / 10,000 capital) <= 0.45
 """
 from __future__ import annotations
 
@@ -146,16 +154,55 @@ def additive_config(m: dict, baseline: dict | None = None) -> dict:
     return _result("additive-config", checks)
 
 
+MAX_POSITION_FRACTION_CAP = 0.45
+
+
+def sizing_config(m: dict, baseline: dict | None = None) -> dict:
+    """for a candidate that only changes position sizing (same entries/exits as the baseline, a
+    bigger or smaller fraction on some of them). needs metrics['marginal'] (metrics.marginal_metrics()'s
+    base/added split against the baseline tag, built from metrics.split_marginal()/trade_key()) to
+    confirm the trade set itself did not change, and metrics['max_position_fraction'] (from
+    metrics.max_position_fraction(), already folded into metrics.summarize()) to cap position size."""
+    err = _need_baseline("sizing-config", baseline)
+    if err:
+        return err
+    b = baseline
+    mg = m.get("marginal")
+    if not mg:
+        return _result("sizing-config", [check("marginal", None, "marginal split required (metrics.marginal_metrics against the baseline tag)", False)])
+    base = mg["base"]
+    n_lo, n_hi = 0.98 * b["n"], 1.02 * b["n"]
+    common_frac = (base["n"] / b["n"]) if b["n"] else 0.0
+    need_pnl = b["pnl"] * 1.10
+    need_pf = b["pf"] - 0.02
+    dd_floor = b["dd"] * 1.3
+    year_margins = {y: round(m["years"][y]["pnl"] - b["years"][y]["pnl"], 2) for y in b["years"]}
+    worst_margin_year = min(year_margins, key=lambda y: year_margins[y])
+    max_frac = m.get("max_position_fraction", 0.0)
+    checks = [
+        check("same_trade_count", m["n"], f"within [{n_lo:.1f}, {n_hi:.1f}] (baseline {b['n']} +-2 %)", n_lo <= m["n"] <= n_hi),
+        check("same_trade_set", common_frac, f">= 0.95 of baseline's {b['n']} trade keys in common (date, ticker, entry_time, direction)", common_frac >= 0.95),
+        check("pnl_5y", m["pnl"], f">= {need_pnl:+.0f} (baseline {b['pnl']:+.0f} x 1.10)", m["pnl"] >= need_pnl),
+        check("pf_5y", m["pf"], f">= {need_pf:.3f} (baseline {b['pf']:.3f} - 0.02)", m["pf"] >= need_pf),
+        check("max_drawdown", m["dd"], f">= {dd_floor:+.0f} (baseline {b['dd']:+.0f} x 1.3, no more than 30 % deeper)", m["dd"] >= dd_floor),
+        check("years_not_worse", year_margins[worst_margin_year],
+              f">= -50 vs baseline per year (worst: {worst_margin_year})", year_margins[worst_margin_year] >= -50.0),
+        check("max_position_fraction", max_frac, f"<= {MAX_POSITION_FRACTION_CAP} (size x entry_price / 10,000 capital)", max_frac <= MAX_POSITION_FRACTION_CAP),
+    ]
+    return _result("sizing-config", checks)
+
+
 GATES = {
     "default-ticker": default_ticker,
     "volume-config": volume_config,
     "quality-config": quality_config,
     "stress-mode": stress_mode,
     "additive-config": additive_config,
+    "sizing-config": sizing_config,
 }
 ALIASES = {"default-config": "volume-config", "default": None}
-NEEDS_BASELINE = {"volume-config", "quality-config", "stress-mode", "additive-config"}
-NEEDS_MARGINAL = {"additive-config"}
+NEEDS_BASELINE = {"volume-config", "quality-config", "stress-mode", "additive-config", "sizing-config"}
+NEEDS_MARGINAL = {"additive-config", "sizing-config"}
 
 
 def resolve(name: str, kind: str) -> str:

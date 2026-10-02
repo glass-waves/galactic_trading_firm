@@ -15,7 +15,7 @@ adjustments) and its review. implementation notes: `scripts/pipeline/` (runner),
 |---|---|---|
 | **candidate** | one idea in the lane. kind `ticker` (the promoted config on one more name) or `config` (the promoted blob plus a patch). carries its gate, stage, results, cooldown | `pipeline_candidates`, every transition in `pipeline_events` |
 | **stage** | `proposed → backtesting → backtest_passed \| backtest_failed → shadow → shadow_passed \| shadow_failed → promotion_proposed → promoted`; `withdrawn` (human, from anywhere); `rejected` | `pipeline_candidates.stage` |
-| **gate** | a named, pre-registered accept-if rule set over the five-year IEX replay at 36 % sizing (comparable with the research record). `default-ticker`, `volume-config`, `quality-config`, `stress-mode` | `scripts/pipeline/gates.py`; result json in `backtest_result` / `shadow_result` |
+| **gate** | a named, pre-registered accept-if rule set over the five-year IEX replay at 36 % sizing (comparable with the research record). `default-ticker`, `volume-config`, `quality-config`, `stress-mode`, `additive-config`, `sizing-config` | `scripts/pipeline/gates.py`; result json in `backtest_result` / `shadow_result` |
 | **book** | one engine set the trader hosts. `primary` (role primary; exactly one enabled) or a shadow (role shadow; config row or ticker set; **always** a `SimulatedBroker`) | `books`; per-day hosting in `book_sessions` |
 | **materialized config** | for a `config` candidate: base blob + patch inserted as a `config_versions` row (`status='backtesting'`, `created_by='pipeline'`, candidate name in `mutation_reason`). that one row is backtested, shadowed and promoted | `pipeline_candidates.materialized_config_id` |
 
@@ -60,6 +60,20 @@ of the combined book would make such a candidate ungateable no matter how good i
 `combined_years_not_worse` asks only that the new window not make a bad year worse, which is what an
 additive candidate can actually promise.
 
+`sizing-config` is for a candidate that changes *how big* a position gets, not *which* trades fire
+(e.g. tiering `fixed_fractional` sizing on an indicator reading at entry). like `additive-config`
+it uses `metrics.marginal_metrics()`/`split_marginal()` against the baseline's trade set, but the
+bar is "the trade set barely moved" rather than "exactly unchanged plus a new edge": trade count
+within ±2 % of the baseline's and the matched (`base`) subset ≥ 95 % of the baseline's trade count
+(entries/exits can drift slightly — e.g. a size-dependent fill cost — but the set must still be
+*this* strategy's trades, not a different one). on top of that: P&L ≥ baseline × 1.10 (sizing up
+should show up as more P&L, not just more risk), PF ≥ baseline PF − 0.02, max drawdown no more than
+30 % deeper (`dd ≥ baseline dd × 1.3`), every year ≥ that year's baseline − 50, and the largest
+single position actually observed in the trades (`metrics.max_position_fraction()`: size ×
+entry_price ÷ 10,000 capital) ≤ 0.45 — a hard risk cap independent of whatever `--max-position-pct`
+the sweep ran at, so a `_sweep_args` override (above) can raise the sweep's clamp without raising
+the gate's.
+
 `advance --dry-run` prints what it would do and writes nothing. `regate` reuses the tag's sweep CSVs
 and, for a config candidate, the already-materialized `config_versions` row — no new sweep and no
 re-materialization — so it is cheap to try a different gate against a backtest already on disk; it
@@ -83,7 +97,8 @@ and a replay with `--config-id <materialized row>` produce the same trades):
   "indicators": [{ "instance_id": "pdl_5m", "...": "..." }],   // appended (or replaced by instance_id)
   "actions":    [{ "instance_id": "window_stress_short", "...": "..." }],
   "session":    { "no_new_entries_after": "15:30", "force_exit_by": "15:55" },  // shallow-merged; force_exit_by is mirrored into every session_close action
-  "tickers":    ["AMZN", "AAPL", "NVDA", "MSFT"]        // optional: replaces the list
+  "tickers":    ["AMZN", "AAPL", "NVDA", "MSFT"],       // optional: replaces the list
+  "_sweep_args": "--max-position-pct 0.45"              // optional: see below
 }
 ```
 
@@ -92,6 +107,31 @@ then `pipeline.py propose --name bear-bounce-sma50 --kind config --patch <that f
 row on that set, and its promotion row is swept as a whole before it is proposed.
 seeds already in the repo: `research/volume/rl_*.json` (long regime cells), `research/regime/*.json`,
 `research/stress/stress_mode_v1.patch.json` when the stress study delivers one.
+
+**`_sweep_args` (optional, string)** — a meta key, not a config-blob key: it never reaches
+`materialize.apply_patch()` (which only reads the five keys above — the backtest CLI's
+`--patch-json` does the same, so a materialized row and a `--patch-json` replay stay identical)
+and the materializer never writes it into the `config_versions` blob. the runner (`run_backtest()`
+in `pipeline.py`) reads it off the candidate's stored patch and appends its tokens to the gate
+sweep's argv *after* the standard `GATE_SWEEP_ARGS` and the candidate's own `--config-id`/`--tickers`
+— every flag the gate sweep always passes is still passed, this just adds more after it. that
+ordering matters because `get_arg()` in `crates/backtest/src/main.rs` resolves a flag that appears
+twice to its **last** occurrence (`args.iter().rposition(...)`), so e.g. `_sweep_args:
+"--max-position-pct 0.45"` overrides the standard sweep's `--max-position-pct 0.36` instead of
+being shadowed by it. this is for a candidate whose whole point is a cap the standard sweep would
+otherwise clamp away (e.g. a sizing tier that only pays off above the research sizing's own
+position cap) — most candidates have no need for it. the resolved argv (including the override)
+is recorded in `backtest_result.sweep.args` and also separately as
+`backtest_result.sweep_args_override`, so `pipeline.py show NAME` always shows what actually ran.
+
+**config candidates jump the queue ahead of ticker candidates.** `pipeline.py advance` builds its
+nightly backtest queue from the `proposed`/`backtesting` candidates ordered by id — except within
+each of those two groups, `kind == 'config'` candidates sort before `kind == 'ticker'` candidates
+(ties keep id order). this is a code-level ordering choice in `cmd_advance()`, not a schema change:
+there is no `priority` column and no migration, because a config edge (a decided, specific idea) is
+cheaper to resolve and more valuable to get an answer on than the next name in a 20-ticker screen
+batch, and the existing `notes`/`gate` columns are not suited to carrying an ordering key. a config
+candidate proposed today is swept before any ticker candidate already queued, regardless of id.
 
 rules: one idea per candidate; the gate is chosen at proposal time and not changed afterwards;
 a name can be re-proposed only after its 180-day cooldown; anything that needs new engine code is
