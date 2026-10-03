@@ -435,8 +435,21 @@ def verify_dates(tag: str, k: int = 3) -> list[str]:
     return sorted(best)
 
 
-def verify_materialization(cand: dict, base_id: int, mid: int) -> dict:
-    """one-day replays: --config-id <materialized> vs --config-id <base> --patch-json <merged patch>; trade rows must match."""
+def verify_materialization(cand: dict, base_id: int, mid: int, sweep_args_override: str | None = None) -> dict:
+    """one-day replays: --config-id <materialized> vs --config-id <base> --patch-json <merged patch>; trade rows
+    must match. deliberately runs with NO --sizing-fraction / --max-position-pct of any kind on either side -
+    not the standard sizing args, and not the candidate's own `_sweep_args` - because crates/backtest/src/main.rs's
+    apply() applies those single-flag CLI overrides to config.actions / config.session *before* the --patch-json
+    loop runs. for a patch that adds its own Sizing action or sets its own `session.max_position_pct` (exactly what
+    a sizing-config candidate does - see research/sizing/size_vpin26_v1.patch.json), a bare CLI override lands on
+    the materialized side (the field is already present when the override runs) but gets overwritten right back by
+    the patch's own values on the --patch-json side (the patch_files loop runs after). the two sides then size
+    trades differently for a reason that has nothing to do with whether materialize.py actually mirrors --patch-json
+    - which is this check's only job (confirmed by hand: `backtest --config-id <mid>` vs `--config-id <base>
+    --patch-json <patch>` with no sizing flags at all produce byte-identical trade rows for candidate #28; adding
+    back either the standard sizing args or `_sweep_args` reproduces the mismatch, 0.45 materialized-side vs 0.40
+    patch-side). `sweep_args_override` is accepted (and recorded) for visibility only - the real gate sweep
+    (run_sweep()/run_backtest() above) still applies it; this check never does."""
     patch = dict(cand.get("patch") or {})
     if cand.get("tickers") and "tickers" not in patch:
         patch["tickers"] = list(cand["tickers"])
@@ -444,12 +457,12 @@ def verify_materialization(cand: dict, base_id: int, mid: int) -> dict:
     scratch.mkdir(parents=True, exist_ok=True)
     pfile = scratch / f"cand_{cand['id']}_patch.json"
     pfile.write_text(json.dumps(patch))
-    out = {"dates": {}, "ok": True}
+    out = {"dates": {}, "ok": True, "args": [], "sweep_args_override": sweep_args_override}
     dates = verify_dates(f"cand_{cand['id']}")
     for d in dates:
         try:
-            a, _, _ = run_backtest_day(d, ["--config-id", str(mid)], sizing=True)
-            b, _, _ = run_backtest_day(d, ["--config-id", str(base_id), "--patch-json", str(pfile)], sizing=True)
+            a, _, _ = run_backtest_day(d, ["--config-id", str(mid)], sizing=False)
+            b, _, _ = run_backtest_day(d, ["--config-id", str(base_id), "--patch-json", str(pfile)], sizing=False)
         except PipelineError as e:
             out["dates"][d] = {"error": str(e)[:300]}
             out["ok"] = False
@@ -457,7 +470,7 @@ def verify_materialization(cand: dict, base_id: int, mid: int) -> dict:
         same = sorted(a) == sorted(b)
         out["dates"][d] = {"trades_materialized": len(a), "trades_patch": len(b), "identical": same}
         out["ok"] = out["ok"] and same
-    log(f"materialize check row {mid} vs row {base_id}+patch: " + ", ".join(f"{d}: {v.get('trades_materialized', '?')} trades {'=' if v.get('identical') else '≠'}" for d, v in out["dates"].items()))
+    log(f"materialize check row {mid} vs row {base_id}+patch (no sizing args on either side): " + ", ".join(f"{d}: {v.get('trades_materialized', '?')} trades {'=' if v.get('identical') else '≠'}" for d, v in out["dates"].items()))
     return out
 
 
@@ -537,7 +550,7 @@ def run_backtest(cand: dict, actor: str = "pipeline", budget: list[int] | None =
 
     mcheck = None
     if cand["kind"] == "config":
-        mcheck = verify_materialization(cand, base_id, mid)
+        mcheck = verify_materialization(cand, base_id, mid, sweep_args_override)
 
     gate_name = gates.resolve(cand["gate"], cand["kind"])
     baseline_tag, baseline = None, None
@@ -547,7 +560,7 @@ def run_backtest(cand: dict, actor: str = "pipeline", budget: list[int] | None =
             ensure_sweep(baseline_tag, bargs)
         baseline = metrics.full_metrics(baseline_tag)
     m = metrics.full_metrics(tag, tickers, baseline_tag=baseline_tag if gate_name in gates.NEEDS_MARGINAL else None)
-    g = gates.run_gate(gate_name, m, baseline)
+    g = gates.run_gate(gate_name, m, baseline, sweep_args_override=sweep_args_override)
     if mcheck and not mcheck["ok"]:
         g["checks"].append(gates.check("materialize_equals_patch", False, "identical trade rows on the verify days", False))
         g["pass"] = False
@@ -878,9 +891,14 @@ def run_regate(cand: dict, new_gate_raw: str, actor: str = "pipeline") -> str:
         if bargs:
             ensure_sweep(baseline_tag, bargs)
         baseline = metrics.full_metrics(baseline_tag)
-    m = metrics.full_metrics(tag, tickers, baseline_tag=baseline_tag if new_gate in gates.NEEDS_MARGINAL else None)
-    g = gates.run_gate(new_gate, m, baseline)
     prev = cand.get("backtest_result") or {}
+    sweep_args_override = prev.get("sweep_args_override")
+    m = metrics.full_metrics(tag, tickers, baseline_tag=baseline_tag if new_gate in gates.NEEDS_MARGINAL else None)
+    g = gates.run_gate(new_gate, m, baseline, sweep_args_override=sweep_args_override)
+    # the materialize-vs-patch check is carried forward unchanged: regate re-runs only the gate math
+    # on the existing sweep/materialized row (docs/pipeline.md "regate reuses ... no new sweep and no
+    # re-materialization"), and the verify inputs (tag, materialized row, patch, sweep_args_override)
+    # have not changed since the backtest step ran it, so there is nothing to re-verify.
     mcheck = prev.get("materialize_check")
     if mcheck and not mcheck.get("ok"):
         g["checks"].append(gates.check("materialize_equals_patch", False, "identical trade rows on the verify days", False))
@@ -927,7 +945,10 @@ def cmd_regate(a) -> int:
 
 def cmd_backtest(a) -> int:
     with Lock(PIPELINE_LOCK, 0, "pipeline"):
-        cand = get_candidate(a.name, active_only=True)
+        # --rerun is specifically for backtest_passed|backtest_failed (rerun_backtest()'s own guard
+        # enforces that); backtest_failed is a TERMINAL stage, so active_only=True would make the
+        # name lookup fail before --rerun ever got to run (cmd_regate already does this: line ~932).
+        cand = get_candidate(a.name, active_only=not a.rerun)
         if a.rerun:
             rerun_backtest(cand, actor_for("pipeline"), a.reason or "rerun requested")
         out = run_backtest(cand, actor_for("pipeline"), budget=[MAX_NEW_TICKER_FETCHES])

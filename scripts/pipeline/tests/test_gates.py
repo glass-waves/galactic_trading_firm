@@ -19,6 +19,7 @@ def mk(pnl=2154, n=407, pf=1.48, years=(1565, -181, -93, 451, 413), stress=None,
 
 
 BASE = mk()
+SWEEP_125 = "--max-position-pct 0.45"  # candidate #28-style override: effective cap 0.45, tolerance 0.459
 
 
 def names(res):
@@ -226,10 +227,11 @@ class SizingConfig(unittest.TestCase):
 
     def test_passes_at_boundaries(self):
         # trades exactly +2 %, 95 % of baseline's keys matched, P&L exactly x1.10, PF exactly -0.02,
-        # dd exactly x1.3, every year exactly -50 vs baseline, fraction exactly the 0.45 cap
-        m = mk(pnl=2785 * 1.10, n=510, pf=1.62, years=(450, 450, 450, 735, 450), dd=-780, max_position_fraction=0.45)
+        # dd exactly x1.3, every year exactly -50 vs baseline, fraction exactly the _sweep_args cap
+        # (0.45) x 1.02 tolerance
+        m = mk(pnl=2785 * 1.10, n=510, pf=1.62, years=(450, 450, 450, 735, 450), dd=-780, max_position_fraction=0.45 * 1.02)
         m["marginal"] = mk_marginal(base_pnl=2785 * 1.10, base_n=475, added_pnl=0, added_n=35, added_pf=1.0)
-        r = gates.sizing_config(m, self.b)
+        r = gates.sizing_config(m, self.b, sweep_args_override=SWEEP_125)
         self.assertTrue(r["pass"], names(r))
         self.assertEqual(r["gate"], "sizing-config")
 
@@ -237,65 +239,94 @@ class SizingConfig(unittest.TestCase):
         common = dict(pnl=3500, pf=1.7, years=(1, 1, 1, 1, 1), dd=-600, max_position_fraction=0.4)
         m = mk(n=510, **common)
         m["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=10, added_pf=1.0)
-        self.assertNotIn("same_trade_count", names(gates.sizing_config(m, self.b)))
+        self.assertNotIn("same_trade_count", names(gates.sizing_config(m, self.b, sweep_args_override=SWEEP_125)))
         m2 = mk(n=511, **common)
         m2["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=11, added_pf=1.0)
-        self.assertIn("same_trade_count", names(gates.sizing_config(m2, self.b)))
+        self.assertIn("same_trade_count", names(gates.sizing_config(m2, self.b, sweep_args_override=SWEEP_125)))
 
     def test_same_trade_set_boundary(self):
         common = dict(pnl=3500, n=500, pf=1.7, years=(1, 1, 1, 1, 1), dd=-600, max_position_fraction=0.4)
         m = mk(**common)
         m["marginal"] = mk_marginal(base_pnl=3500, base_n=475, added_pnl=0, added_n=25, added_pf=1.0)
-        self.assertNotIn("same_trade_set", names(gates.sizing_config(m, self.b)))
+        self.assertNotIn("same_trade_set", names(gates.sizing_config(m, self.b, sweep_args_override=SWEEP_125)))
         m2 = mk(**common)
         m2["marginal"] = mk_marginal(base_pnl=3500, base_n=474, added_pnl=0, added_n=26, added_pf=1.0)
-        self.assertIn("same_trade_set", names(gates.sizing_config(m2, self.b)))
+        self.assertIn("same_trade_set", names(gates.sizing_config(m2, self.b, sweep_args_override=SWEEP_125)))
 
     def test_pnl_threshold(self):
         common = dict(n=500, pf=1.7, years=(1, 1, 1, 1, 1), dd=-600, max_position_fraction=0.4)
         m = mk(pnl=2785 * 1.10 - 1, **common)
         m["marginal"] = mk_marginal(base_pnl=2785 * 1.10 - 1, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
-        self.assertIn("pnl_5y", names(gates.sizing_config(m, self.b)))
+        self.assertIn("pnl_5y", names(gates.sizing_config(m, self.b, sweep_args_override=SWEEP_125)))
         m2 = mk(pnl=2785 * 1.10, **common)
         m2["marginal"] = mk_marginal(base_pnl=2785 * 1.10, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
-        self.assertNotIn("pnl_5y", names(gates.sizing_config(m2, self.b)))
+        self.assertNotIn("pnl_5y", names(gates.sizing_config(m2, self.b, sweep_args_override=SWEEP_125)))
 
     def test_pf_threshold(self):
         common = dict(pnl=3500, n=500, years=(1, 1, 1, 1, 1), dd=-600, max_position_fraction=0.4)
         m = mk(pf=1.619, **common)
         m["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
-        self.assertIn("pf_5y", names(gates.sizing_config(m, self.b)))
+        self.assertIn("pf_5y", names(gates.sizing_config(m, self.b, sweep_args_override=SWEEP_125)))
         m2 = mk(pf=1.62, **common)
         m2["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
-        self.assertNotIn("pf_5y", names(gates.sizing_config(m2, self.b)))
+        self.assertNotIn("pf_5y", names(gates.sizing_config(m2, self.b, sweep_args_override=SWEEP_125)))
 
     def test_max_drawdown_threshold(self):
         common = dict(pnl=3500, n=500, pf=1.7, years=(1, 1, 1, 1, 1), max_position_fraction=0.4)
         m = mk(dd=-780.01, **common)
         m["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
-        self.assertIn("max_drawdown", names(gates.sizing_config(m, self.b)))
+        self.assertIn("max_drawdown", names(gates.sizing_config(m, self.b, sweep_args_override=SWEEP_125)))
         m2 = mk(dd=-780.0, **common)
         m2["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
-        self.assertNotIn("max_drawdown", names(gates.sizing_config(m2, self.b)))
+        self.assertNotIn("max_drawdown", names(gates.sizing_config(m2, self.b, sweep_args_override=SWEEP_125)))
 
     def test_years_not_worse_boundary(self):
         # baseline's 3rd year (2024) = 500; margin exactly -50 passes, -51 fails
         common = dict(pnl=3500, n=500, pf=1.7, dd=-600, max_position_fraction=0.4)
         m = mk(years=(500, 500, 450, 785, 500), **common)
         m["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
-        self.assertNotIn("years_not_worse", names(gates.sizing_config(m, self.b)))
+        self.assertNotIn("years_not_worse", names(gates.sizing_config(m, self.b, sweep_args_override=SWEEP_125)))
         m2 = mk(years=(500, 500, 449, 785, 500), **common)
         m2["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
-        self.assertIn("years_not_worse", names(gates.sizing_config(m2, self.b)))
+        self.assertIn("years_not_worse", names(gates.sizing_config(m2, self.b, sweep_args_override=SWEEP_125)))
 
-    def test_max_position_fraction_cap(self):
+    def test_max_position_fraction_cap_standard(self):
+        # no _sweep_args override -> cap is the standard 0.36, tolerance 0.36 x 1.02 = 0.3672
         common = dict(pnl=3500, n=500, pf=1.7, years=(1, 1, 1, 1, 1), dd=-600)
-        m = mk(max_position_fraction=0.45, **common)
+        threshold = 0.36 * gates.MAX_POSITION_FRACTION_TOLERANCE
+        m = mk(max_position_fraction=threshold, **common)
         m["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
         self.assertNotIn("max_position_fraction", names(gates.sizing_config(m, self.b)))
-        m2 = mk(max_position_fraction=0.4501, **common)
+        m2 = mk(max_position_fraction=threshold + 0.0001, **common)
         m2["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
         self.assertIn("max_position_fraction", names(gates.sizing_config(m2, self.b)))
+
+    def test_max_position_fraction_cap_follows_sweep_args_override(self):
+        # candidate #28 size-vpin26-x1.25: _sweep_args raises the sweep's own clamp to 0.45, so the
+        # gate's cap check follows it too (x 1.02 = 0.459), not the standard 0.36's 0.3672
+        common = dict(pnl=3500, n=500, pf=1.7, years=(1, 1, 1, 1, 1), dd=-600)
+        m = mk(max_position_fraction=0.456, **common)
+        m["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
+        self.assertIn("max_position_fraction", names(gates.sizing_config(m, self.b)))  # fails the standard 0.3672 cap
+        self.assertNotIn("max_position_fraction", names(gates.sizing_config(m, self.b, sweep_args_override=SWEEP_125)))
+        m2 = mk(max_position_fraction=0.4591, **common)
+        m2["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
+        self.assertIn("max_position_fraction", names(gates.sizing_config(m2, self.b, sweep_args_override=SWEEP_125)))
+
+
+class EffectiveMaxPositionPct(unittest.TestCase):
+    def test_no_override_is_standard(self):
+        self.assertEqual(gates.effective_max_position_pct(None), 0.36)
+        self.assertEqual(gates.effective_max_position_pct(""), 0.36)
+
+    def test_parses_flag_from_sweep_args(self):
+        self.assertEqual(gates.effective_max_position_pct("--max-position-pct 0.45"), 0.45)
+        self.assertEqual(gates.effective_max_position_pct("--sizing-fraction 0.30 --max-position-pct 0.45"), 0.45)
+        self.assertEqual(gates.effective_max_position_pct("--max-position-pct=0.45"), 0.45)
+
+    def test_malformed_or_missing_flag_falls_back(self):
+        self.assertEqual(gates.effective_max_position_pct("--sizing-fraction 0.30"), 0.36)
+        self.assertEqual(gates.effective_max_position_pct("--max-position-pct notanumber"), 0.36)
 
 
 class Resolve(unittest.TestCase):
@@ -314,6 +345,17 @@ class Resolve(unittest.TestCase):
         self.assertEqual(set(r), {"gate", "pass", "checks"})
         for c in r["checks"]:
             self.assertEqual(set(c), {"name", "value", "threshold", "ok"})
+
+    def test_run_gate_forwards_sweep_args_override_to_sizing_config(self):
+        b = mk(pnl=2785, n=500, pf=1.64, years=(500, 500, 500, 785, 500), dd=-600, max_position_fraction=0.36)
+        common = dict(pnl=3500, n=500, pf=1.7, years=(1, 1, 1, 1, 1), dd=-600, max_position_fraction=0.4)
+        m = mk(**common)
+        m["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
+        self.assertIn("max_position_fraction", names(gates.run_gate("sizing-config", m, b)))
+        self.assertNotIn("max_position_fraction", names(gates.run_gate("sizing-config", m, b, sweep_args_override=SWEEP_125)))
+        # other gates ignore the kwarg silently
+        self.assertEqual(gates.run_gate("default-ticker", BASE, sweep_args_override=SWEEP_125),
+                          gates.run_gate("default-ticker", BASE))
 
 
 if __name__ == "__main__":

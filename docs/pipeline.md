@@ -70,9 +70,10 @@ within ±2 % of the baseline's and the matched (`base`) subset ≥ 95 % of the b
 should show up as more P&L, not just more risk), PF ≥ baseline PF − 0.02, max drawdown no more than
 30 % deeper (`dd ≥ baseline dd × 1.3`), every year ≥ that year's baseline − 50, and the largest
 single position actually observed in the trades (`metrics.max_position_fraction()`: size ×
-entry_price ÷ 10,000 capital) ≤ 0.45 — a hard risk cap independent of whatever `--max-position-pct`
-the sweep ran at, so a `_sweep_args` override (above) can raise the sweep's clamp without raising
-the gate's.
+entry_price ÷ 10,000 capital) ≤ the candidate's own effective cap × 1.02 — its `_sweep_args`'
+`--max-position-pct` if it has one, else the standard 0.36 (`gates.effective_max_position_pct()`),
+with a 2 % tolerance for whole-share rounding and fill-price-vs-sizing-price drift. a `_sweep_args`
+override therefore raises both the sweep's clamp and the gate's own cap check together, by design.
 
 `advance --dry-run` prints what it would do and writes nothing. `regate` reuses the tag's sweep CSVs
 and, for a config candidate, the already-materialized `config_versions` row — no new sweep and no

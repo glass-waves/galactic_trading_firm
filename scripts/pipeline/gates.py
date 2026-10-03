@@ -26,13 +26,21 @@ what pipeline_candidates.backtest_result stores. thresholds are stated at the re
                    x 1.10; PF >= baseline PF - 0.02; max drawdown no more than 30 % deeper than the
                    baseline's (dd >= baseline dd x 1.3); every year's P&L >= that year's baseline P&L - 50;
                    and the largest single position observed (metrics['max_position_fraction'], size x
-                   entry_price / 10,000 capital) <= 0.45
+                   entry_price / 10,000 capital) <= the candidate's own effective sizing cap (its
+                   _sweep_args' --max-position-pct if it has one, else the standard 0.36) x 1.02 - a 2 %
+                   tolerance for whole-share rounding and fill-vs-sizing-price drift, not a fixed 0.45:
+                   a candidate that raises its own cap via _sweep_args is measured against that cap, not
+                   the standard sweep's
 """
 from __future__ import annotations
+
+import re
 
 YEAR_FLOOR = -300.0
 MIN_PF = 1.3
 MIN_YEARS_POSITIVE = 4
+STANDARD_MAX_POSITION_PCT = 0.36
+MAX_POSITION_FRACTION_TOLERANCE = 1.02
 
 
 def check(name: str, value, threshold: str, ok: bool) -> dict:
@@ -154,15 +162,31 @@ def additive_config(m: dict, baseline: dict | None = None) -> dict:
     return _result("additive-config", checks)
 
 
-MAX_POSITION_FRACTION_CAP = 0.45
+def effective_max_position_pct(sweep_args_override: str | None, default: float = STANDARD_MAX_POSITION_PCT) -> float:
+    """the candidate's own sizing cap: the value its _sweep_args passed to --max-position-pct (the
+    flag the gate sweep actually ran with — see docs/pipeline.md's _sweep_args section and
+    crates/backtest/src/main.rs get_arg(), which resolves a repeated flag to its last occurrence),
+    else the standard research sizing cap. a malformed or missing value falls back to `default`."""
+    if sweep_args_override:
+        m = re.search(r"--max-position-pct[ =](\S+)", sweep_args_override)
+        if m:
+            try:
+                return float(m.group(1))
+            except ValueError:
+                pass
+    return default
 
 
-def sizing_config(m: dict, baseline: dict | None = None) -> dict:
+def sizing_config(m: dict, baseline: dict | None = None, sweep_args_override: str | None = None) -> dict:
     """for a candidate that only changes position sizing (same entries/exits as the baseline, a
     bigger or smaller fraction on some of them). needs metrics['marginal'] (metrics.marginal_metrics()'s
     base/added split against the baseline tag, built from metrics.split_marginal()/trade_key()) to
     confirm the trade set itself did not change, and metrics['max_position_fraction'] (from
-    metrics.max_position_fraction(), already folded into metrics.summarize()) to cap position size."""
+    metrics.max_position_fraction(), already folded into metrics.summarize()) to cap position size.
+    `sweep_args_override` is the candidate's stored patch `_sweep_args` (pipeline.py's
+    backtest_result.sweep_args_override) - it raises the cap check's own threshold exactly as it
+    raised the sweep's clamp, so a candidate that asked to run at a higher cap is judged against
+    that cap, not the standard sweep's 0.36."""
     err = _need_baseline("sizing-config", baseline)
     if err:
         return err
@@ -179,6 +203,8 @@ def sizing_config(m: dict, baseline: dict | None = None) -> dict:
     year_margins = {y: round(m["years"][y]["pnl"] - b["years"][y]["pnl"], 2) for y in b["years"]}
     worst_margin_year = min(year_margins, key=lambda y: year_margins[y])
     max_frac = m.get("max_position_fraction", 0.0)
+    cap = effective_max_position_pct(sweep_args_override)
+    cap_threshold = cap * MAX_POSITION_FRACTION_TOLERANCE
     checks = [
         check("same_trade_count", m["n"], f"within [{n_lo:.1f}, {n_hi:.1f}] (baseline {b['n']} +-2 %)", n_lo <= m["n"] <= n_hi),
         check("same_trade_set", common_frac, f">= 0.95 of baseline's {b['n']} trade keys in common (date, ticker, entry_time, direction)", common_frac >= 0.95),
@@ -187,7 +213,9 @@ def sizing_config(m: dict, baseline: dict | None = None) -> dict:
         check("max_drawdown", m["dd"], f">= {dd_floor:+.0f} (baseline {b['dd']:+.0f} x 1.3, no more than 30 % deeper)", m["dd"] >= dd_floor),
         check("years_not_worse", year_margins[worst_margin_year],
               f">= -50 vs baseline per year (worst: {worst_margin_year})", year_margins[worst_margin_year] >= -50.0),
-        check("max_position_fraction", max_frac, f"<= {MAX_POSITION_FRACTION_CAP} (size x entry_price / 10,000 capital)", max_frac <= MAX_POSITION_FRACTION_CAP),
+        check("max_position_fraction", max_frac,
+              f"<= {cap_threshold:.4f} (cap {cap:g}{' from _sweep_args' if sweep_args_override else ' standard'} x 1.02; size x entry_price / 10,000 capital)",
+              max_frac <= cap_threshold),
     ]
     return _result("sizing-config", checks)
 
@@ -216,7 +244,10 @@ def resolve(name: str, kind: str) -> str:
     raise KeyError(f"unknown gate '{name}' (known: {', '.join(GATES)})")
 
 
-def run_gate(name: str, metrics: dict, baseline: dict | None = None) -> dict:
+def run_gate(name: str, metrics: dict, baseline: dict | None = None, sweep_args_override: str | None = None) -> dict:
+    """sweep_args_override is only used by sizing-config (its cap check); every other gate ignores it."""
+    if name == "sizing-config":
+        return sizing_config(metrics, baseline, sweep_args_override=sweep_args_override)
     return GATES[name](metrics, baseline)
 
 
