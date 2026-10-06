@@ -1,9 +1,9 @@
 # research pipeline — status
 
-generated 2026-10-06 03:32 UTC by `scripts/pipeline/pipeline.py report`. do not edit: regenerated nightly. lane: proposed → backtesting → backtest_passed → shadow → shadow_passed → promotion_proposed → promoted (human). failures: backtest_failed / shadow_failed (180 d cooldown), withdrawn (human).
+generated 2026-10-06 05:16 UTC by `scripts/pipeline/pipeline.py report`. do not edit: regenerated nightly. lane: proposed → backtesting → backtest_passed → shadow → shadow_passed → promotion_proposed → promoted (human). failures: backtest_failed / shadow_failed (180 d cooldown), withdrawn (human).
 
 - gate sweeps run at the research sizing (`--sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY`, IEX cache, 3 bps + $0.005); the per-year floor (no year < −300) is stated at 36 %. live and shadow books size at the blob's fraction; parity replays use no sizing override.
-- shadow-book creation: **enabled** (`PIPELINE_SHADOW_BOOKS=1`; while disabled `advance` only prints the books it would create).
+- shadow-book creation: **disabled** (`PIPELINE_SHADOW_BOOKS=0`; while disabled `advance` only prints the books it would create).
 - baseline `iex_v18` (promoted row on its own tickers): +1728 / 436 trades / PF 1.37 · 22:+991 23:-3 24:-20 25:+332 26:+429
 
 ## promotion proposals (open)
@@ -12,8 +12,7 @@ none.
 
 ## flags (plumbing, not verdicts)
 
-- `ticker:JPM` (#8, backtesting): **coverage** JPM: stale: missing sessions among SPY's last 5 (2026-09-29..2026-10-05)
-- `ticker:V` (#9, backtesting): **coverage** V: stale: missing sessions among SPY's last 5 (2026-09-29..2026-10-05)
+none.
 
 ## candidates by stage
 
@@ -40,12 +39,9 @@ none.
 | 26 | `ticker:TXN` | ticker | default-ticker | TXN | 3 d | — |
 | 27 | `ticker:AMAT` | ticker | default-ticker | AMAT | 3 d | — |
 
-### backtesting (2)
+### backtesting (0)
 
-| id | name | kind | gate | tickers | since | backtest (5y P&L / trades / PF · per year · gate) |
-|---:|---|---|---|---|---|---|
-| 8 | `ticker:JPM` | ticker | default-ticker | JPM | 1 m | blocked: coverage |
-| 9 | `ticker:V` | ticker | default-ticker | V | 0 m | blocked: coverage |
+none.
 
 ### backtest_passed (0)
 
@@ -57,8 +53,8 @@ none.
 |---:|---|---|---|---|---|---|---|
 | 4 | `vpin-0.26` | config | quality-config | shadow:vpin-0.26 | 5 d | 4 sessions / 0 trades / +0 · needs 16 more sessions and 15 more trades (or 56 sessions to the time limit) | +1646 / 324 / PF 1.48 · 22:+820 23:+42 24:+105 25:+210 26:+469 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 |
 | 6 | `stress-s15-core` | config | additive-config | shadow:stress-s15-core | 5 d | 4 sessions / 0 trades / +0 · needs 16 more sessions and 15 more trades (or 56 sessions to the time limit) | +2003 / 459 / PF 1.41 · 22:+1226 23:-3 24:-24 25:+376 26:+429 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 · added +274 / 23 / PF 3.32 (worst yr -4, worst day -44) |
-| 28 | `size-vpin26-x1.25` | config | sizing-config | shadow:size-vpin26-x1.25 | 2 d | 1 sessions / 0 trades / +0 · needs 19 more sessions and 15 more trades (or 59 sessions to the time limit) | +2155 / 436 / PF 1.40 · 22:+1194 23:+46 24:+10 25:+410 26:+496 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 · added +0 / 0 / PF 0.00 (worst yr +0, worst day +0) |
-| 29 | `thrust-1h15` | config | quality-config | shadow:thrust-1h15 | 2 d | 1 sessions / 0 trades / +0 · needs 19 more sessions and 15 more trades (or 59 sessions to the time limit) | +1714 / 278 / PF 1.63 · 22:+644 23:+55 24:-56 25:+396 26:+676 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 |
+| 28 | `size-vpin26-x1.25` | config | sizing-config | shadow:size-vpin26-x1.25 | 3 d | 1 sessions / 0 trades / +0 · needs 19 more sessions and 15 more trades (or 59 sessions to the time limit) | +2155 / 436 / PF 1.40 · 22:+1194 23:+46 24:+10 25:+410 26:+496 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 · added +0 / 0 / PF 0.00 (worst yr +0, worst day +0) |
+| 29 | `thrust-1h15` | config | quality-config | shadow:thrust-1h15 | 3 d | 1 sessions / 0 trades / +0 · needs 19 more sessions and 15 more trades (or 59 sessions to the time limit) | +1714 / 278 / PF 1.63 · 22:+644 23:+55 24:-56 25:+396 26:+676 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 |
 
 ### shadow_passed (0)
 
@@ -68,20 +64,28 @@ none.
 
 none.
 
-### backtest_failed (5)
+### backtest_failed (7)
 
 | id | name | kind | gate | tickers | since | backtest (5y P&L / trades / PF · per year · gate) |
 |---:|---|---|---|---|---|---|
 | 1 | `bear-bounce-sma50` | config | volume-config | base | 8 d | +2179 / 828 / PF 1.23 · 22:+1422 23:+371 24:-436 25:+61 26:+762 · fail: pf_5y, min_year_pnl · base iex_v18: +1728 / 436 / PF 1.37 · cooldown to 2027-03-26 |
 | 2 | `ticker:AMD` | ticker | default-ticker | AMD | 8 d | -18 / 158 / PF 0.99 · 22:+476 23:+132 24:-335 25:+171 26:-463 · fail: pf_5y, years_positive, min_year_pnl, pnl_2026 · cooldown to 2027-03-26 |
 | 3 | `ticker:META` | ticker | default-ticker | META | 8 d | -19 / 160 / PF 0.99 · 22:+132 23:-223 24:-76 25:+73 26:+76 · fail: pf_5y, years_positive · cooldown to 2027-03-26 |
-| 5 | `rs-long-x0.3` | config | volume-config | base | 6 d | +1997 / 1586 / PF 1.11 · 22:+1490 23:+238 24:-197 25:-213 26:+679 · fail: pf_5y, years_positive · base iex_v18: +1728 / 436 / PF 1.37 · cooldown to 2027-03-28 |
+| 5 | `rs-long-x0.3` | config | volume-config | base | 7 d | +1997 / 1586 / PF 1.11 · 22:+1490 23:+238 24:-197 25:-213 26:+679 · fail: pf_5y, years_positive · base iex_v18: +1728 / 436 / PF 1.37 · cooldown to 2027-03-28 |
 | 7 | `trend-day-ride` | config | additive-config | base | 5 d | +2142 / 803 / PF 1.23 · 22:+2003 23:-260 24:-307 25:+461 26:+246 · fail: added_pf, added_worst_year, combined_years_not_worse · base iex_v18: +1728 / 436 / PF 1.37 · added +395 / 367 / PF 1.08 (worst yr -287, worst day -273) · cooldown to 2027-03-29 |
+| 8 | `ticker:JPM` | ticker | default-ticker | JPM | 2 m | +23 / 51 / PF 1.03 · 22:-100 23:+4 24:+45 25:+292 26:-217 · fail: pf_5y, years_positive, trades_5y, pnl_2026 · cooldown to 2027-04-04 |
+| 9 | `ticker:V` | ticker | default-ticker | V | 0 m | -245 / 67 / PF 0.64 · 22:-107 23:+6 24:-62 25:+44 26:-128 · fail: pf_5y, years_positive, trades_5y, pnl_2026 · cooldown to 2027-04-04 |
 
 ## last 20 events
 
 | when (UTC) | candidate | transition | actor | detail |
 |---|---|---|---|---|
+| 2026-10-06 05:16 | `ticker:V` | backtesting → backtest_failed | pipeline | gate tag=cand_9 pass=False |
+| 2026-10-06 05:16 | `ticker:V` | backtesting → backtesting | pipeline | sweep_done tag=cand_9 |
+| 2026-10-06 05:13 | `ticker:V` | backtesting → backtesting | pipeline | backtest_resume |
+| 2026-10-06 05:13 | `ticker:JPM` | backtesting → backtest_failed | pipeline | gate tag=cand_8 pass=False |
+| 2026-10-06 05:13 | `ticker:JPM` | backtesting → backtesting | pipeline | sweep_done tag=cand_8 |
+| 2026-10-06 05:11 | `ticker:JPM` | backtesting → backtesting | pipeline | backtest_resume |
 | 2026-10-06 03:32 | `ticker:V` | backtesting → backtesting | pipeline | coverage_hole why=stale: missing sessions among SPY's last 5 (2026-09-29..2026-10-05) |
 | 2026-10-06 03:31 | `ticker:V` | proposed → backtesting | pipeline | backtest_start |
 | 2026-10-06 03:31 | `ticker:JPM` | backtesting → backtesting | pipeline | coverage_hole why=stale: missing sessions among SPY's last 5 (2026-09-29..2026-10-05) |
@@ -96,9 +100,3 @@ none.
 | 2026-10-03 04:17 | `size-vpin26-x1.25` | backtesting → backtesting | pipeline | backtest_resume |
 | 2026-10-03 04:17 | `size-vpin26-x1.25` | backtest_failed → backtesting | pipeline | backtest_rerun |
 | 2026-10-03 04:07 | `thrust-1h15` | backtest_passed → shadow | pipeline | shadow_start book=shadow:thrust-1h15 |
-| 2026-10-03 03:40 | `thrust-1h15` | backtesting → backtest_passed | pipeline | gate tag=cand_29 pass=True |
-| 2026-10-03 03:40 | `thrust-1h15` | backtesting → backtesting | pipeline | sweep_done tag=cand_29 |
-| 2026-10-03 03:35 | `thrust-1h15` | backtesting → backtesting | pipeline | materialized config_version_id=19 |
-| 2026-10-03 03:35 | `thrust-1h15` | proposed → backtesting | pipeline | backtest_start |
-| 2026-10-03 03:35 | `size-vpin26-x1.25` | backtesting → backtest_failed | pipeline | gate tag=cand_28 pass=False |
-| 2026-10-03 03:35 | `size-vpin26-x1.25` | backtesting → backtesting | pipeline | sweep_done tag=cand_28 |

@@ -66,7 +66,7 @@ GATE_SWEEP_ARGS = SIZING_ARGS + CROSS_ARGS
 FETCH_START = "2022-01-01"
 COOLDOWN_DAYS = 180
 MAX_NEW_TICKER_FETCHES = 2
-COVERAGE_RETRY_DAYS = 7
+COVERAGE_RETRY_DAYS = 1  # a stale tail is transient: retry the next night (was 7 until 2026-10-05)
 TERMINAL = {"backtest_failed", "shadow_failed", "rejected", "withdrawn", "promoted"}
 SHADOW_BOOKS_ENABLED = os.environ.get("PIPELINE_SHADOW_BOOKS", "0") == "1"
 VERIFY_DATES = [d for d in os.environ.get("PIPELINE_VERIFY_DATES", "2025-04-04,2025-05-12,2026-08-12").split(",") if d]
@@ -319,6 +319,20 @@ def yesterday_et() -> str:
     return (today_et() - dt.timedelta(days=1)).isoformat()
 
 
+def fetch_end() -> str:
+    """last session to fetch a candidate's bars through: the last session in SPY's cache (the
+    export appends each trading day's bars at 13:20 PT, and the coverage check compares a
+    candidate's tail against SPY's), falling back to yesterday. fetching only through
+    'yesterday' left Monday-night candidates one session short of SPY and stuck (2026-10-05)."""
+    try:
+        spy = metrics.sessions(metrics.BARS_DIR / "SPY.csv")
+        if spy:
+            return max(spy).isoformat()
+    except Exception:
+        pass
+    return yesterday_et()
+
+
 # ------------------------------------------------------------------ propose
 
 def cmd_propose(a) -> int:
@@ -523,9 +537,9 @@ def run_backtest(cand: dict, actor: str = "pipeline", budget: list[int] | None =
                     event_only(cand, actor, {"event": "deferred", "reason": "fetch budget", "ticker": t})
                 return "deferred"
             if dry_run:
-                log(f"[dry-run] #{cid}: would fetch {t} bars {FETCH_START}..{yesterday_et()} ({'; '.join(cov['problems'])})")
+                log(f"[dry-run] #{cid}: would fetch {t} bars {FETCH_START}..{fetch_end()} ({'; '.join(cov['problems'])})")
                 continue
-            fetch_bars([t], FETCH_START, yesterday_et())
+            fetch_bars([t], FETCH_START, fetch_end())
             if new_fetch:
                 budget[0] -= 1
             cov = metrics.coverage(t)
