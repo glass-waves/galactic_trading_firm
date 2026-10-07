@@ -35,8 +35,8 @@ command: needs code — add `--feed iex|sip` to `backtest --fetch-bars` (pass `a
 accept if: IEX-VPIN run at some floor gives PF ≥ 1.4 pooled, ≥ 350 trades, positive in ≥ 4 of 5 years — then that floor with an IEX-consistent live warmup is the v19 candidate; otherwise flag the VPIN filter as unvalidated live.
 result: ran 2026-09-24 evening (full IEX cache `data/bars_iex`, whole replay on IEX not just VPIN; plan doc §14.1). v18 cell on IEX: 407 / +2,154 / PF 1.48 / 3 pos years. VPIN 0.26 at ±0.2 %: 306 / +1,952 / PF 1.58 / 4 pos years (2023 −97) — the only cell meeting PF ≥ 1.4 with ≥ 4 years, but 306 < 350 trades. no-VPIN rows PF 1.20, so the filter is real on IEX too. verdict: partially accepted — filter validated, floor 0.217 kept, wider cells rejected; live warm-up moved to IEX (4d81b14).
 
-### RQ-4 Tradier as the live bar feed (parked 2026-10-04 by the owner: "save for a later date")
-status: parked
+### RQ-4 Tradier as the live bar feed (parked 2026-10-04; re-prioritised 2026-10-07 after §16.1: SIP replay PF 1.56 / 510 trades vs IEX 1.37 / 436)
+status: parked — recommended next
 why: Tradier docs say its equities feed is consolidated (all exchanges) at $10/mo Pro vs Alpaca's $99 SIP plan; would fix the VPIN volume gap on the free IEX stream. real-time is gated to a brokerage account; the websocket is per-trade ticks (adapter must bucket minutes); REST 1m history only 10–20 days (Alpaca stays the history source). research: docs/research/2026-10-04_tradier_data_quality.md.
 command: put a free sandbox token in .env as TRADIER_TOKEN (TRADIER_BASE=https://sandbox.tradier.com), then `set -a; source .env; set +a; python3 scripts/analysis/tradier_volume_check.py 2026-10-02` — the decisive test, 10 minutes.
 accept if: Tradier/SIP volume ratio ≈ 1.0 (± 0.05) with minute correlation > 0.95 on all five symbols → then scope a tradier_feed.rs adapter (2–3 days) and run it as a parallel feed for a week before anything depends on it. ratio well below 1 → close.

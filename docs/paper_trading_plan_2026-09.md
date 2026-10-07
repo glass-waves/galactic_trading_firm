@@ -1096,3 +1096,12 @@ reading: still clears PF 1.3 with a flatter, more even record (2023/2024 now bre
 exceptional). the 2022 outperformance in the old record was partly an artefact of a multi-day VWAP
 in a trending tape. all pipeline gates and the stress / bear-bounce candidates are re-run on the
 fixed binary before anything is judged; earlier §15 rankings are indicative until re-run.
+
+### 16.1 the feed is the main lever (2026-10-07)
+
+v18 replayed on the SIP (consolidated) cache with the corrected VWAP (tag `sip_v18_vwapfix`):
+**+2,754 / 510 trades / PF 1.56 / 5 of 5 years positive (+1108 +328 +182 +410 +726) / maxDD −369**,
+vs the IEX record `iex_v18` +1,728 / 436 / PF 1.37 / 3 of 5. the VWAP fix barely moved SIP; the
+IEX→SIP gap is the volume sample feeding VPIN. caveat: the filters were fitted on SIP (some home-field
+fit), but no IEX threshold recovered it. consolidated live bars (Alpaca Algo Trader Plus $99/mo, or
+Tradier ~$10/mo if its feed is truly consolidated — RQ-4) are the cheapest volume-and-PF lever found.
