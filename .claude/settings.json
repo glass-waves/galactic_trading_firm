@@ -43,7 +43,7 @@
       "Bash(systemctl --user stop paper-trader*)",
       "Bash(systemctl --user start paper-trader*)",
       "Bash(systemctl --user restart paper-trader*)",
-      "Bash(systemctl --user disable *)
+      "Bash(systemctl --user disable *)"
     ]
   }
 }
