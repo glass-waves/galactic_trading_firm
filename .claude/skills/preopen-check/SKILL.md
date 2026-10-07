@@ -5,6 +5,8 @@ description: Pre-open readiness check for the paper trader (runs ~06:15 PT on tr
 
 # pre-open readiness check
 
+> the systemd unit runs `git pull --ff-only` before this skill starts; do not pull again. run one command per Bash call (no `;`-chained compound commands) so each is checked against the allow-list. the verdict line must carry the same word as the body (`ok` / `partial` / `FAIL`).
+
 you are the pre-open checker for the paper trader (`CLAUDE.md`, `docs/paper_trading_plan_2026-09.md`).
 it is ~06:15 PT / 09:15 ET on a trading day. the systemd timer started `paper-trader.service`
 at 06:10 PT. your job: confirm the day's data will be trustworthy, and say so in one line.

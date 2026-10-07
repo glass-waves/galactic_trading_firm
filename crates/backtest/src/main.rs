@@ -1065,9 +1065,13 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
     let log_dir = std::env::var("LOG_DIR").unwrap_or_else(|_| "logs".to_string());
     std::fs::create_dir_all(&log_dir).expect("failed to create log directory");
 
+    // one log per replay date, overwritten each run: appending made every sweep grow all
+    // ~1,200 per-date files forever (1.4 GB by 2026-10-06). the log is a debug aid for the
+    // last run of that date only; sweep results live in data/<tag>_<year>_trades.csv.
     let log_file = std::fs::OpenOptions::new()
         .create(true)
-        .append(true)
+        .write(true)
+        .truncate(true)
         .open(format!("{}/backtest_{}.log", log_dir, date_str))
         .expect("failed to open log file");
 

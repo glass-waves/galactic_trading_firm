@@ -27,7 +27,7 @@ CAPITAL="${CAP:-${INITIAL_CAPITAL:-10000}}"
 PROMOTED="$(Q "SELECT max(id) FROM config_versions WHERE status='promoted'")"
 
 ARGS=(--date "$D" --lookback-days 8 --capital "$CAPITAL" --slippage-bps 3.0 --half-spread 0.005
-      --output-trades-csv --bars-dir data/bars_iex --cross-index SPY)
+      --output-trades-csv --bars-dir data/bars_iex --cross-index SPY --cross-lag 1)
 [[ -n "$CFG" ]] && ARGS+=(--config-id "$CFG")
 [[ -n "$TICKERS" ]] && ARGS+=(--tickers "$TICKERS")
 

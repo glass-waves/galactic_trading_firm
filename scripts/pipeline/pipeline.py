@@ -68,7 +68,23 @@ COOLDOWN_DAYS = 180
 MAX_NEW_TICKER_FETCHES = 2
 COVERAGE_RETRY_DAYS = 1  # a stale tail is transient: retry the next night (was 7 until 2026-10-05)
 TERMINAL = {"backtest_failed", "shadow_failed", "rejected", "withdrawn", "promoted"}
-SHADOW_BOOKS_ENABLED = os.environ.get("PIPELINE_SHADOW_BOOKS", "0") == "1"
+def _shadow_switch_default() -> str:
+    """the env var wins; otherwise the value the installed nightly unit sets, so a manual
+    `report` / `advance` agrees with what the timer does (status.md header was inconsistent)."""
+    v = os.environ.get("PIPELINE_SHADOW_BOOKS")
+    if v is not None:
+        return v
+    for unit in (Path.home() / ".config/systemd/user/pipeline.service", Path(__file__).resolve().parents[2] / "deploy/systemd/pipeline.service"):
+        try:
+            for line in unit.read_text().splitlines():
+                if line.strip().startswith("Environment=PIPELINE_SHADOW_BOOKS="):
+                    return line.strip().split("=", 2)[2].strip()
+        except OSError:
+            continue
+    return "0"
+
+
+SHADOW_BOOKS_ENABLED = _shadow_switch_default() == "1"
 VERIFY_DATES = [d for d in os.environ.get("PIPELINE_VERIFY_DATES", "2025-04-04,2025-05-12,2026-08-12").split(",") if d]
 
 

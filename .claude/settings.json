@@ -25,14 +25,25 @@
       "Bash(systemctl --user start intraday-review.service)",
       "Bash(systemctl --user start eod-review.service)",
       "Bash(systemctl --user list-timers *)",
-      "Bash(./scripts/psql.sh *)"
+      "Bash(./scripts/psql.sh *)",
+      "Bash(cd *)",
+      "Bash(git pull*)",
+      "Bash(git log *)",
+      "Bash(git status*)",
+      "Bash(git diff *)",
+      "Bash(git show *)",
+      "Bash(systemctl --user show *)",
+      "Bash(head *)",
+      "Bash(grep *)",
+      "Bash(wc *)",
+      "Bash(ls *)"
     ],
     "deny": [
       "Bash(rm -rf *)",
       "Bash(systemctl --user stop paper-trader*)",
       "Bash(systemctl --user start paper-trader*)",
       "Bash(systemctl --user restart paper-trader*)",
-      "Bash(systemctl --user disable *)"
+      "Bash(systemctl --user disable *)
     ]
   }
 }

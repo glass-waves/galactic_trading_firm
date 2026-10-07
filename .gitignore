@@ -57,3 +57,7 @@ target*/
 
 # pipeline sweep args are small and part of the candidate record
 !data/cand_*.args
+
+# one-off research caches
+data/st_prevwap/
+data/live/ticks_*.csv
