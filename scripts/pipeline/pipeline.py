@@ -31,6 +31,7 @@ import json
 import os
 import re
 import shlex
+import signal
 import subprocess
 import sys
 import time
@@ -123,16 +124,29 @@ class Lock:
     def __enter__(self):
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.fh = open(self.path, "a+")
-        deadline = time.monotonic() + self.wait_s
-        while True:
+        if self.wait_s <= 0:
             try:
                 fcntl.flock(self.fh, fcntl.LOCK_EX | fcntl.LOCK_NB)
                 return self
             except BlockingIOError:
-                if time.monotonic() >= deadline:
-                    self.fh.close()
-                    raise PipelineError(f"could not take the {self.what} lock ({self.path}) within {self.wait_s:.0f} s")
-                time.sleep(15)
+                self.fh.close()
+                raise PipelineError(f"could not take the {self.what} lock ({self.path}): held elsewhere")
+        # a BLOCKING wait with an alarm-based timeout. polling with LOCK_NB every 15 s starved
+        # forever behind other jobs' blocking `flock -w` waiters, which the kernel wakes first
+        # (found 2026-10-07: a ticker backtest sat > 2 h holding the pipeline lock).
+        def _timeout(signum, frame):
+            raise TimeoutError
+        old_handler = signal.signal(signal.SIGALRM, _timeout)
+        signal.alarm(max(1, int(self.wait_s)))
+        try:
+            fcntl.flock(self.fh, fcntl.LOCK_EX)
+            return self
+        except TimeoutError:
+            self.fh.close()
+            raise PipelineError(f"could not take the {self.what} lock ({self.path}) within {self.wait_s:.0f} s")
+        finally:
+            signal.alarm(0)
+            signal.signal(signal.SIGALRM, old_handler)
 
     def __exit__(self, *exc):
         try:
