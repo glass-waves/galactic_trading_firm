@@ -1,0 +1,11 @@
+{
+  "LLY": "cand_12", "COST": "cand_13", "HD": "cand_14", "XOM": "cand_15",
+  "CVX": "cand_16", "ADBE": "cand_17", "CRM": "cand_18", "ORCL": "cand_19",
+  "QCOM": "cand_20", "CAT": "cand_21", "GS": "cand_22", "PG": "cand_23",
+  "ABBV": "cand_24", "MRK": "cand_25", "TXN": "cand_26", "AMAT": "cand_27",
+  "MA": "cand_10", "UNH": "cand_11", "JPM": "cand_8", "V": "cand_9",
+  "AMD": "cand_2", "META": "cand_3",
+  "QQQ": "cand_30", "SMH": "cand_31", "XLK": "cand_32", "XLF": "cand_33", "IWM": "cand_34", "XLE": "cand_35",
+  "TSLA": "cand_36", "AVGO": "cand_37", "NFLX": "cand_38", "COIN": "cand_39", "PLTR": "cand_40",
+  "MU": "cand_41", "SHOP": "cand_42", "UBER": "cand_43"
+}

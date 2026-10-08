@@ -1,0 +1,2480 @@
+{
+  "results": [
+    {
+      "ticker": "LLY",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": 217.83,
+        "n": 147,
+        "win_rate": 34.0,
+        "pf": 1.139,
+        "dd": -267.88,
+        "gross_win": 1781.01,
+        "gross_loss": 1563.18,
+        "tag": "cand_12",
+        "max_position_fraction": 0.3618,
+        "years": {
+          "2022": {
+            "pnl": -104.59,
+            "n": 19,
+            "win_rate": 21.1,
+            "pf": 0.668,
+            "dd": -223.5,
+            "gross_win": 210.1,
+            "gross_loss": 314.69
+          },
+          "2023": {
+            "pnl": 236.66,
+            "n": 23,
+            "win_rate": 39.1,
+            "pf": 2.566,
+            "dd": -76.74,
+            "gross_win": 387.82,
+            "gross_loss": 151.16
+          },
+          "2024": {
+            "pnl": 69.11,
+            "n": 25,
+            "win_rate": 28.0,
+            "pf": 1.213,
+            "dd": -138.45,
+            "gross_win": 394.28,
+            "gross_loss": 325.17
+          },
+          "2025": {
+            "pnl": -90.27,
+            "n": 39,
+            "win_rate": 38.5,
+            "pf": 0.815,
+            "dd": -267.88,
+            "gross_win": 398.99,
+            "gross_loss": 489.26
+          },
+          "2026": {
+            "pnl": 106.92,
+            "n": 41,
+            "win_rate": 36.6,
+            "pf": 1.378,
+            "dd": -105.57,
+            "gross_win": 389.82,
+            "gross_loss": 282.9
+          }
+        },
+        "years_positive": 3,
+        "min_year_pnl": -104.59,
+        "pnl_2026": 106.92
+      }
+    },
+    {
+      "ticker": "COST",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -55.72,
+        "n": 68,
+        "win_rate": 30.9,
+        "pf": 0.915,
+        "dd": -296.0,
+        "gross_win": 598.13,
+        "gross_loss": 653.85,
+        "tag": "cand_13",
+        "max_position_fraction": 0.3574,
+        "years": {
+          "2022": {
+            "pnl": 149.55,
+            "n": 12,
+            "win_rate": 66.7,
+            "pf": 4.672,
+            "dd": -27.12,
+            "gross_win": 190.28,
+            "gross_loss": 40.73
+          },
+          "2023": {
+            "pnl": 6.01,
+            "n": 9,
+            "win_rate": 33.3,
+            "pf": 1.102,
+            "dd": -58.68,
+            "gross_win": 64.84,
+            "gross_loss": 58.83
+          },
+          "2024": {
+            "pnl": -123.23,
+            "n": 11,
+            "win_rate": 9.1,
+            "pf": 0.448,
+            "dd": -140.8,
+            "gross_win": 99.85,
+            "gross_loss": 223.08
+          },
+          "2025": {
+            "pnl": -111.64,
+            "n": 14,
+            "win_rate": 7.1,
+            "pf": 0.155,
+            "dd": -111.64,
+            "gross_win": 20.47,
+            "gross_loss": 132.11
+          },
+          "2026": {
+            "pnl": 23.59,
+            "n": 22,
+            "win_rate": 36.4,
+            "pf": 1.118,
+            "dd": -93.23,
+            "gross_win": 222.69,
+            "gross_loss": 199.1
+          }
+        },
+        "years_positive": 3,
+        "min_year_pnl": -123.23,
+        "pnl_2026": 23.59
+      }
+    },
+    {
+      "ticker": "HD",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -567.75,
+        "n": 92,
+        "win_rate": 25.0,
+        "pf": 0.517,
+        "dd": -674.29,
+        "gross_win": 607.39,
+        "gross_loss": 1175.14,
+        "tag": "cand_14",
+        "max_position_fraction": 0.3593,
+        "years": {
+          "2022": {
+            "pnl": -71.06,
+            "n": 30,
+            "win_rate": 40.0,
+            "pf": 0.831,
+            "dd": -182.94,
+            "gross_win": 349.34,
+            "gross_loss": 420.4
+          },
+          "2023": {
+            "pnl": -63.72,
+            "n": 8,
+            "win_rate": 25.0,
+            "pf": 0.442,
+            "dd": -92.22,
+            "gross_win": 50.51,
+            "gross_loss": 114.23
+          },
+          "2024": {
+            "pnl": -76.98,
+            "n": 11,
+            "win_rate": 9.1,
+            "pf": 0.36,
+            "dd": -79.62,
+            "gross_win": 43.36,
+            "gross_loss": 120.34
+          },
+          "2025": {
+            "pnl": -186.33,
+            "n": 18,
+            "win_rate": 16.7,
+            "pf": 0.307,
+            "dd": -186.33,
+            "gross_win": 82.58,
+            "gross_loss": 268.91
+          },
+          "2026": {
+            "pnl": -169.66,
+            "n": 25,
+            "win_rate": 20.0,
+            "pf": 0.325,
+            "dd": -215.48,
+            "gross_win": 81.6,
+            "gross_loss": 251.26
+          }
+        },
+        "years_positive": 0,
+        "min_year_pnl": -186.33,
+        "pnl_2026": -169.66
+      }
+    },
+    {
+      "ticker": "XOM",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": 131.41,
+        "n": 51,
+        "win_rate": 33.3,
+        "pf": 1.278,
+        "dd": -149.07,
+        "gross_win": 604.23,
+        "gross_loss": 472.82,
+        "tag": "cand_15",
+        "max_position_fraction": 0.3598,
+        "years": {
+          "2022": {
+            "pnl": 163.99,
+            "n": 18,
+            "win_rate": 27.8,
+            "pf": 2.048,
+            "dd": -61.95,
+            "gross_win": 320.45,
+            "gross_loss": 156.46
+          },
+          "2023": {
+            "pnl": 64.15,
+            "n": 11,
+            "win_rate": 54.5,
+            "pf": 2.342,
+            "dd": -27.75,
+            "gross_win": 111.96,
+            "gross_loss": 47.81
+          },
+          "2024": {
+            "pnl": -10.43,
+            "n": 6,
+            "win_rate": 16.7,
+            "pf": 0.748,
+            "dd": -37.63,
+            "gross_win": 30.89,
+            "gross_loss": 41.32
+          },
+          "2025": {
+            "pnl": 25.36,
+            "n": 4,
+            "win_rate": 50.0,
+            "pf": 2.88,
+            "dd": -13.49,
+            "gross_win": 38.85,
+            "gross_loss": 13.49
+          },
+          "2026": {
+            "pnl": -111.66,
+            "n": 12,
+            "win_rate": 25.0,
+            "pf": 0.478,
+            "dd": -149.07,
+            "gross_win": 102.08,
+            "gross_loss": 213.74
+          }
+        },
+        "years_positive": 3,
+        "min_year_pnl": -111.66,
+        "pnl_2026": -111.66
+      }
+    },
+    {
+      "ticker": "CVX",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": 212.91,
+        "n": 56,
+        "win_rate": 30.4,
+        "pf": 1.429,
+        "dd": -153.02,
+        "gross_win": 709.29,
+        "gross_loss": 496.38,
+        "tag": "cand_16",
+        "max_position_fraction": 0.3603,
+        "years": {
+          "2022": {
+            "pnl": 28.55,
+            "n": 19,
+            "win_rate": 26.3,
+            "pf": 1.168,
+            "dd": -95.01,
+            "gross_win": 198.35,
+            "gross_loss": 169.8
+          },
+          "2023": {
+            "pnl": 43.66,
+            "n": 19,
+            "win_rate": 31.6,
+            "pf": 1.239,
+            "dd": -100.1,
+            "gross_win": 226.55,
+            "gross_loss": 182.89
+          },
+          "2024": {
+            "pnl": -66.65,
+            "n": 6,
+            "win_rate": 16.7,
+            "pf": 0.213,
+            "dd": -84.69,
+            "gross_win": 18.04,
+            "gross_loss": 84.69
+          },
+          "2025": {
+            "pnl": 67.86,
+            "n": 4,
+            "win_rate": 25.0,
+            "pf": 3.737,
+            "dd": -18.73,
+            "gross_win": 92.65,
+            "gross_loss": 24.79
+          },
+          "2026": {
+            "pnl": 139.49,
+            "n": 8,
+            "win_rate": 50.0,
+            "pf": 5.077,
+            "dd": -26.02,
+            "gross_win": 173.7,
+            "gross_loss": 34.21
+          }
+        },
+        "years_positive": 4,
+        "min_year_pnl": -66.65,
+        "pnl_2026": 139.49
+      }
+    },
+    {
+      "ticker": "ADBE",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -70.2,
+        "n": 122,
+        "win_rate": 32.8,
+        "pf": 0.958,
+        "dd": -388.95,
+        "gross_win": 1591.58,
+        "gross_loss": 1661.78,
+        "tag": "cand_17",
+        "max_position_fraction": 0.3613,
+        "years": {
+          "2022": {
+            "pnl": -31.27,
+            "n": 21,
+            "win_rate": 38.1,
+            "pf": 0.909,
+            "dd": -203.61,
+            "gross_win": 310.68,
+            "gross_loss": 341.95
+          },
+          "2023": {
+            "pnl": -204.1,
+            "n": 21,
+            "win_rate": 14.3,
+            "pf": 0.322,
+            "dd": -224.65,
+            "gross_win": 97.04,
+            "gross_loss": 301.14
+          },
+          "2024": {
+            "pnl": 126.43,
+            "n": 28,
+            "win_rate": 35.7,
+            "pf": 1.412,
+            "dd": -119.59,
+            "gross_win": 433.64,
+            "gross_loss": 307.21
+          },
+          "2025": {
+            "pnl": -53.9,
+            "n": 25,
+            "win_rate": 32.0,
+            "pf": 0.872,
+            "dd": -219.37,
+            "gross_win": 366.36,
+            "gross_loss": 420.26
+          },
+          "2026": {
+            "pnl": 92.64,
+            "n": 27,
+            "win_rate": 40.7,
+            "pf": 1.318,
+            "dd": -145.16,
+            "gross_win": 383.86,
+            "gross_loss": 291.22
+          }
+        },
+        "years_positive": 2,
+        "min_year_pnl": -204.1,
+        "pnl_2026": 92.64
+      }
+    },
+    {
+      "ticker": "CRM",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -182.44,
+        "n": 106,
+        "win_rate": 23.6,
+        "pf": 0.87,
+        "dd": -446.45,
+        "gross_win": 1224.11,
+        "gross_loss": 1406.55,
+        "tag": "cand_18",
+        "max_position_fraction": 0.3637,
+        "years": {
+          "2022": {
+            "pnl": 87.74,
+            "n": 24,
+            "win_rate": 37.5,
+            "pf": 1.267,
+            "dd": -156.71,
+            "gross_win": 416.56,
+            "gross_loss": 328.82
+          },
+          "2023": {
+            "pnl": -96.56,
+            "n": 14,
+            "win_rate": 14.3,
+            "pf": 0.193,
+            "dd": -96.56,
+            "gross_win": 23.09,
+            "gross_loss": 119.65
+          },
+          "2024": {
+            "pnl": -83.15,
+            "n": 18,
+            "win_rate": 16.7,
+            "pf": 0.622,
+            "dd": -162.87,
+            "gross_win": 137.09,
+            "gross_loss": 220.24
+          },
+          "2025": {
+            "pnl": 7.31,
+            "n": 23,
+            "win_rate": 21.7,
+            "pf": 1.027,
+            "dd": -127.45,
+            "gross_win": 276.17,
+            "gross_loss": 268.86
+          },
+          "2026": {
+            "pnl": -97.78,
+            "n": 27,
+            "win_rate": 22.2,
+            "pf": 0.792,
+            "dd": -446.45,
+            "gross_win": 371.2,
+            "gross_loss": 468.98
+          }
+        },
+        "years_positive": 2,
+        "min_year_pnl": -97.78,
+        "pnl_2026": -97.78
+      }
+    },
+    {
+      "ticker": "ORCL",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": 43.89,
+        "n": 77,
+        "win_rate": 31.2,
+        "pf": 1.037,
+        "dd": -484.01,
+        "gross_win": 1220.54,
+        "gross_loss": 1176.65,
+        "tag": "cand_19",
+        "max_position_fraction": 0.3614,
+        "years": {
+          "2022": {
+            "pnl": 74.32,
+            "n": 3,
+            "win_rate": 66.7,
+            "pf": 8.209,
+            "dd": -10.31,
+            "gross_win": 84.63,
+            "gross_loss": 10.31
+          },
+          "2023": {
+            "pnl": 11.16,
+            "n": 2,
+            "win_rate": 50.0,
+            "pf": 1.168,
+            "dd": -66.28,
+            "gross_win": 77.44,
+            "gross_loss": 66.28
+          },
+          "2024": {
+            "pnl": -38.58,
+            "n": 7,
+            "win_rate": 14.3,
+            "pf": 0.373,
+            "dd": -57.57,
+            "gross_win": 23.0,
+            "gross_loss": 61.58
+          },
+          "2025": {
+            "pnl": 184.18,
+            "n": 31,
+            "win_rate": 38.7,
+            "pf": 1.444,
+            "dd": -189.98,
+            "gross_win": 598.99,
+            "gross_loss": 414.81
+          },
+          "2026": {
+            "pnl": -187.19,
+            "n": 34,
+            "win_rate": 23.5,
+            "pf": 0.7,
+            "dd": -397.8,
+            "gross_win": 436.48,
+            "gross_loss": 623.67
+          }
+        },
+        "years_positive": 3,
+        "min_year_pnl": -187.19,
+        "pnl_2026": -187.19
+      }
+    },
+    {
+      "ticker": "QCOM",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -533.85,
+        "n": 98,
+        "win_rate": 29.6,
+        "pf": 0.66,
+        "dd": -765.1,
+        "gross_win": 1036.76,
+        "gross_loss": 1570.61,
+        "tag": "cand_20",
+        "max_position_fraction": 0.3681,
+        "years": {
+          "2022": {
+            "pnl": 192.29,
+            "n": 23,
+            "win_rate": 47.8,
+            "pf": 1.668,
+            "dd": -87.07,
+            "gross_win": 480.12,
+            "gross_loss": 287.83
+          },
+          "2023": {
+            "pnl": -25.89,
+            "n": 15,
+            "win_rate": 33.3,
+            "pf": 0.846,
+            "dd": -103.7,
+            "gross_win": 142.53,
+            "gross_loss": 168.42
+          },
+          "2024": {
+            "pnl": -328.66,
+            "n": 22,
+            "win_rate": 22.7,
+            "pf": 0.255,
+            "dd": -361.87,
+            "gross_win": 112.64,
+            "gross_loss": 441.3
+          },
+          "2025": {
+            "pnl": -61.86,
+            "n": 8,
+            "win_rate": 12.5,
+            "pf": 0.471,
+            "dd": -116.87,
+            "gross_win": 55.01,
+            "gross_loss": 116.87
+          },
+          "2026": {
+            "pnl": -309.73,
+            "n": 30,
+            "win_rate": 23.3,
+            "pf": 0.443,
+            "dd": -382.92,
+            "gross_win": 246.46,
+            "gross_loss": 556.19
+          }
+        },
+        "years_positive": 1,
+        "min_year_pnl": -328.66,
+        "pnl_2026": -309.73
+      }
+    },
+    {
+      "ticker": "CAT",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": 266.57,
+        "n": 92,
+        "win_rate": 40.2,
+        "pf": 1.263,
+        "dd": -195.57,
+        "gross_win": 1278.57,
+        "gross_loss": 1012.0,
+        "tag": "cand_21",
+        "max_position_fraction": 0.3594,
+        "years": {
+          "2022": {
+            "pnl": 119.82,
+            "n": 10,
+            "win_rate": 60.0,
+            "pf": 2.141,
+            "dd": -73.75,
+            "gross_win": 224.85,
+            "gross_loss": 105.03
+          },
+          "2023": {
+            "pnl": 35.43,
+            "n": 18,
+            "win_rate": 44.4,
+            "pf": 1.215,
+            "dd": -70.85,
+            "gross_win": 200.14,
+            "gross_loss": 164.71
+          },
+          "2024": {
+            "pnl": -128.52,
+            "n": 10,
+            "win_rate": 20.0,
+            "pf": 0.142,
+            "dd": -147.22,
+            "gross_win": 21.32,
+            "gross_loss": 149.84
+          },
+          "2025": {
+            "pnl": 203.24,
+            "n": 15,
+            "win_rate": 46.7,
+            "pf": 3.662,
+            "dd": -52.27,
+            "gross_win": 279.58,
+            "gross_loss": 76.34
+          },
+          "2026": {
+            "pnl": 36.6,
+            "n": 39,
+            "win_rate": 35.9,
+            "pf": 1.071,
+            "dd": -195.57,
+            "gross_win": 552.68,
+            "gross_loss": 516.08
+          }
+        },
+        "years_positive": 4,
+        "min_year_pnl": -128.52,
+        "pnl_2026": 36.6
+      }
+    },
+    {
+      "ticker": "GS",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -564.32,
+        "n": 93,
+        "win_rate": 26.9,
+        "pf": 0.566,
+        "dd": -584.74,
+        "gross_win": 736.64,
+        "gross_loss": 1300.96,
+        "tag": "cand_22",
+        "max_position_fraction": 0.3603,
+        "years": {
+          "2022": {
+            "pnl": -95.75,
+            "n": 18,
+            "win_rate": 22.2,
+            "pf": 0.551,
+            "dd": -116.17,
+            "gross_win": 117.52,
+            "gross_loss": 213.27
+          },
+          "2023": {
+            "pnl": 45.28,
+            "n": 9,
+            "win_rate": 55.6,
+            "pf": 1.388,
+            "dd": -73.64,
+            "gross_win": 162.05,
+            "gross_loss": 116.77
+          },
+          "2024": {
+            "pnl": -155.45,
+            "n": 11,
+            "win_rate": 27.3,
+            "pf": 0.274,
+            "dd": -193.84,
+            "gross_win": 58.81,
+            "gross_loss": 214.26
+          },
+          "2025": {
+            "pnl": 31.69,
+            "n": 17,
+            "win_rate": 41.2,
+            "pf": 1.159,
+            "dd": -180.79,
+            "gross_win": 231.17,
+            "gross_loss": 199.48
+          },
+          "2026": {
+            "pnl": -390.09,
+            "n": 38,
+            "win_rate": 15.8,
+            "pf": 0.3,
+            "dd": -407.42,
+            "gross_win": 167.09,
+            "gross_loss": 557.18
+          }
+        },
+        "years_positive": 2,
+        "min_year_pnl": -390.09,
+        "pnl_2026": -390.09
+      }
+    },
+    {
+      "ticker": "PG",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -151.46,
+        "n": 21,
+        "win_rate": 33.3,
+        "pf": 0.401,
+        "dd": -155.57,
+        "gross_win": 101.52,
+        "gross_loss": 252.98,
+        "tag": "cand_23",
+        "max_position_fraction": 0.3601,
+        "years": {
+          "2022": {
+            "pnl": -21.15,
+            "n": 5,
+            "win_rate": 20.0,
+            "pf": 0.587,
+            "dd": -51.15,
+            "gross_win": 30.0,
+            "gross_loss": 51.15
+          },
+          "2023": {
+            "pnl": 10.81,
+            "n": 3,
+            "win_rate": 33.3,
+            "pf": 2.011,
+            "dd": -10.69,
+            "gross_win": 21.5,
+            "gross_loss": 10.69
+          },
+          "2024": {
+            "pnl": -32.18,
+            "n": 2,
+            "win_rate": 50.0,
+            "pf": 0.016,
+            "dd": -32.71,
+            "gross_win": 0.53,
+            "gross_loss": 32.71
+          },
+          "2025": {
+            "pnl": 17.33,
+            "n": 3,
+            "win_rate": 66.7,
+            "pf": 16.613,
+            "dd": -1.11,
+            "gross_win": 18.44,
+            "gross_loss": 1.11
+          },
+          "2026": {
+            "pnl": -126.27,
+            "n": 8,
+            "win_rate": 25.0,
+            "pf": 0.197,
+            "dd": -155.57,
+            "gross_win": 31.05,
+            "gross_loss": 157.32
+          }
+        },
+        "years_positive": 2,
+        "min_year_pnl": -126.27,
+        "pnl_2026": -126.27
+      }
+    },
+    {
+      "ticker": "ABBV",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -44.26,
+        "n": 41,
+        "win_rate": 22.0,
+        "pf": 0.903,
+        "dd": -129.69,
+        "gross_win": 411.8,
+        "gross_loss": 456.06,
+        "tag": "cand_24",
+        "max_position_fraction": 0.3595,
+        "years": {
+          "2022": {
+            "pnl": 55.03,
+            "n": 10,
+            "win_rate": 20.0,
+            "pf": 1.684,
+            "dd": -30.4,
+            "gross_win": 135.5,
+            "gross_loss": 80.47
+          },
+          "2023": {
+            "pnl": -48.52,
+            "n": 3,
+            "win_rate": 0.0,
+            "pf": 0.0,
+            "dd": -48.52,
+            "gross_win": 0,
+            "gross_loss": 48.52
+          },
+          "2024": {
+            "pnl": 17.14,
+            "n": 6,
+            "win_rate": 33.3,
+            "pf": 1.283,
+            "dd": -57.77,
+            "gross_win": 77.8,
+            "gross_loss": 60.66
+          },
+          "2025": {
+            "pnl": -26.52,
+            "n": 8,
+            "win_rate": 12.5,
+            "pf": 0.504,
+            "dd": -39.31,
+            "gross_win": 26.92,
+            "gross_loss": 53.44
+          },
+          "2026": {
+            "pnl": -41.39,
+            "n": 14,
+            "win_rate": 28.6,
+            "pf": 0.806,
+            "dd": -108.48,
+            "gross_win": 171.58,
+            "gross_loss": 212.97
+          }
+        },
+        "years_positive": 2,
+        "min_year_pnl": -48.52,
+        "pnl_2026": -41.39
+      }
+    },
+    {
+      "ticker": "MRK",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": 89.58,
+        "n": 25,
+        "win_rate": 36.0,
+        "pf": 1.256,
+        "dd": -206.26,
+        "gross_win": 439.06,
+        "gross_loss": 349.48,
+        "tag": "cand_25",
+        "max_position_fraction": 0.3623,
+        "years": {
+          "2022": {
+            "pnl": 90.07,
+            "n": 4,
+            "win_rate": 75.0,
+            "pf": 79.322,
+            "dd": -1.15,
+            "gross_win": 91.22,
+            "gross_loss": 1.15
+          },
+          "2023": {
+            "pnl": 0.0,
+            "n": 0,
+            "win_rate": 0.0,
+            "pf": 0.0,
+            "dd": 0.0,
+            "gross_win": 0.0,
+            "gross_loss": 0.0
+          },
+          "2024": {
+            "pnl": 202.0,
+            "n": 3,
+            "win_rate": 66.7,
+            "pf": 54.581,
+            "dd": -3.77,
+            "gross_win": 205.77,
+            "gross_loss": 3.77
+          },
+          "2025": {
+            "pnl": -188.78,
+            "n": 9,
+            "win_rate": 22.2,
+            "pf": 0.234,
+            "dd": -188.78,
+            "gross_win": 57.59,
+            "gross_loss": 246.37
+          },
+          "2026": {
+            "pnl": -13.71,
+            "n": 9,
+            "win_rate": 22.2,
+            "pf": 0.86,
+            "dd": -67.24,
+            "gross_win": 84.48,
+            "gross_loss": 98.19
+          }
+        },
+        "years_positive": 2,
+        "min_year_pnl": -188.78,
+        "pnl_2026": -13.71
+      }
+    },
+    {
+      "ticker": "TXN",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -94.68,
+        "n": 66,
+        "win_rate": 36.4,
+        "pf": 0.871,
+        "dd": -201.17,
+        "gross_win": 638.19,
+        "gross_loss": 732.87,
+        "tag": "cand_26",
+        "max_position_fraction": 0.361,
+        "years": {
+          "2022": {
+            "pnl": -78.54,
+            "n": 11,
+            "win_rate": 36.4,
+            "pf": 0.607,
+            "dd": -129.29,
+            "gross_win": 121.34,
+            "gross_loss": 199.88
+          },
+          "2023": {
+            "pnl": -19.19,
+            "n": 5,
+            "win_rate": 40.0,
+            "pf": 0.583,
+            "dd": -46.0,
+            "gross_win": 26.81,
+            "gross_loss": 46.0
+          },
+          "2024": {
+            "pnl": -45.28,
+            "n": 14,
+            "win_rate": 28.6,
+            "pf": 0.606,
+            "dd": -57.29,
+            "gross_win": 69.76,
+            "gross_loss": 115.04
+          },
+          "2025": {
+            "pnl": 162.34,
+            "n": 12,
+            "win_rate": 50.0,
+            "pf": 4.938,
+            "dd": -21.92,
+            "gross_win": 203.56,
+            "gross_loss": 41.22
+          },
+          "2026": {
+            "pnl": -114.01,
+            "n": 24,
+            "win_rate": 33.3,
+            "pf": 0.655,
+            "dd": -169.15,
+            "gross_win": 216.72,
+            "gross_loss": 330.73
+          }
+        },
+        "years_positive": 1,
+        "min_year_pnl": -114.01,
+        "pnl_2026": -114.01
+      }
+    },
+    {
+      "ticker": "AMAT",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -326.11,
+        "n": 112,
+        "win_rate": 33.0,
+        "pf": 0.823,
+        "dd": -640.72,
+        "gross_win": 1521.06,
+        "gross_loss": 1847.17,
+        "tag": "cand_27",
+        "max_position_fraction": 0.363,
+        "years": {
+          "2022": {
+            "pnl": -46.69,
+            "n": 21,
+            "win_rate": 28.6,
+            "pf": 0.862,
+            "dd": -170.24,
+            "gross_win": 291.33,
+            "gross_loss": 338.02
+          },
+          "2023": {
+            "pnl": -252.54,
+            "n": 17,
+            "win_rate": 23.5,
+            "pf": 0.279,
+            "dd": -252.54,
+            "gross_win": 97.6,
+            "gross_loss": 350.14
+          },
+          "2024": {
+            "pnl": -125.44,
+            "n": 25,
+            "win_rate": 44.0,
+            "pf": 0.708,
+            "dd": -215.96,
+            "gross_win": 304.32,
+            "gross_loss": 429.76
+          },
+          "2025": {
+            "pnl": -109.47,
+            "n": 12,
+            "win_rate": 25.0,
+            "pf": 0.253,
+            "dd": -122.19,
+            "gross_win": 37.15,
+            "gross_loss": 146.62
+          },
+          "2026": {
+            "pnl": 208.03,
+            "n": 37,
+            "win_rate": 35.1,
+            "pf": 1.357,
+            "dd": -160.85,
+            "gross_win": 790.66,
+            "gross_loss": 582.63
+          }
+        },
+        "years_positive": 1,
+        "min_year_pnl": -252.54,
+        "pnl_2026": 208.03
+      }
+    },
+    {
+      "ticker": "MA",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -234.1,
+        "n": 85,
+        "win_rate": 32.9,
+        "pf": 0.797,
+        "dd": -275.84,
+        "gross_win": 920.44,
+        "gross_loss": 1154.54,
+        "tag": "cand_10",
+        "max_position_fraction": 0.3599,
+        "years": {
+          "2022": {
+            "pnl": -203.47,
+            "n": 24,
+            "win_rate": 29.2,
+            "pf": 0.561,
+            "dd": -259.54,
+            "gross_win": 259.7,
+            "gross_loss": 463.17
+          },
+          "2023": {
+            "pnl": 0.93,
+            "n": 8,
+            "win_rate": 37.5,
+            "pf": 1.014,
+            "dd": -41.91,
+            "gross_win": 68.22,
+            "gross_loss": 67.29
+          },
+          "2024": {
+            "pnl": 8.11,
+            "n": 6,
+            "win_rate": 33.3,
+            "pf": 1.2,
+            "dd": -29.72,
+            "gross_win": 48.63,
+            "gross_loss": 40.52
+          },
+          "2025": {
+            "pnl": 13.76,
+            "n": 17,
+            "win_rate": 47.1,
+            "pf": 1.078,
+            "dd": -78.68,
+            "gross_win": 189.24,
+            "gross_loss": 175.48
+          },
+          "2026": {
+            "pnl": -53.43,
+            "n": 30,
+            "win_rate": 26.7,
+            "pf": 0.869,
+            "dd": -214.56,
+            "gross_win": 354.65,
+            "gross_loss": 408.08
+          }
+        },
+        "years_positive": 3,
+        "min_year_pnl": -203.47,
+        "pnl_2026": -53.43
+      }
+    },
+    {
+      "ticker": "UNH",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -130.2,
+        "n": 119,
+        "win_rate": 28.6,
+        "pf": 0.896,
+        "dd": -341.35,
+        "gross_win": 1115.87,
+        "gross_loss": 1246.07,
+        "tag": "cand_11",
+        "max_position_fraction": 0.3601,
+        "years": {
+          "2022": {
+            "pnl": -67.52,
+            "n": 29,
+            "win_rate": 31.0,
+            "pf": 0.744,
+            "dd": -123.95,
+            "gross_win": 196.36,
+            "gross_loss": 263.88
+          },
+          "2023": {
+            "pnl": -143.67,
+            "n": 15,
+            "win_rate": 26.7,
+            "pf": 0.367,
+            "dd": -192.63,
+            "gross_win": 83.38,
+            "gross_loss": 227.05
+          },
+          "2024": {
+            "pnl": -12.07,
+            "n": 29,
+            "win_rate": 31.0,
+            "pf": 0.952,
+            "dd": -149.98,
+            "gross_win": 238.48,
+            "gross_loss": 250.55
+          },
+          "2025": {
+            "pnl": 118.29,
+            "n": 24,
+            "win_rate": 25.0,
+            "pf": 1.374,
+            "dd": -203.21,
+            "gross_win": 434.2,
+            "gross_loss": 315.91
+          },
+          "2026": {
+            "pnl": -25.23,
+            "n": 22,
+            "win_rate": 27.3,
+            "pf": 0.866,
+            "dd": -121.48,
+            "gross_win": 163.45,
+            "gross_loss": 188.68
+          }
+        },
+        "years_positive": 1,
+        "min_year_pnl": -143.67,
+        "pnl_2026": -25.23
+      }
+    },
+    {
+      "ticker": "JPM",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": 23.41,
+        "n": 51,
+        "win_rate": 31.4,
+        "pf": 1.035,
+        "dd": -283.22,
+        "gross_win": 697.61,
+        "gross_loss": 674.2,
+        "tag": "cand_8",
+        "max_position_fraction": 0.3622,
+        "years": {
+          "2022": {
+            "pnl": -100.22,
+            "n": 13,
+            "win_rate": 30.8,
+            "pf": 0.589,
+            "dd": -120.1,
+            "gross_win": 143.77,
+            "gross_loss": 243.99
+          },
+          "2023": {
+            "pnl": 3.69,
+            "n": 3,
+            "win_rate": 33.3,
+            "pf": 1.251,
+            "dd": -14.7,
+            "gross_win": 18.39,
+            "gross_loss": 14.7
+          },
+          "2024": {
+            "pnl": 45.43,
+            "n": 6,
+            "win_rate": 33.3,
+            "pf": 1.963,
+            "dd": -42.99,
+            "gross_win": 92.61,
+            "gross_loss": 47.18
+          },
+          "2025": {
+            "pnl": 291.68,
+            "n": 12,
+            "win_rate": 58.3,
+            "pf": 5.3,
+            "dd": -39.76,
+            "gross_win": 359.52,
+            "gross_loss": 67.84
+          },
+          "2026": {
+            "pnl": -217.17,
+            "n": 17,
+            "win_rate": 11.8,
+            "pf": 0.277,
+            "dd": -283.22,
+            "gross_win": 83.32,
+            "gross_loss": 300.49
+          }
+        },
+        "years_positive": 3,
+        "min_year_pnl": -217.17,
+        "pnl_2026": -217.17
+      }
+    },
+    {
+      "ticker": "V",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -245.46,
+        "n": 67,
+        "win_rate": 29.9,
+        "pf": 0.64,
+        "dd": -248.64,
+        "gross_win": 437.02,
+        "gross_loss": 682.48,
+        "tag": "cand_9",
+        "max_position_fraction": 0.3593,
+        "years": {
+          "2022": {
+            "pnl": -106.75,
+            "n": 17,
+            "win_rate": 29.4,
+            "pf": 0.513,
+            "dd": -135.22,
+            "gross_win": 112.56,
+            "gross_loss": 219.31
+          },
+          "2023": {
+            "pnl": 6.47,
+            "n": 9,
+            "win_rate": 33.3,
+            "pf": 1.102,
+            "dd": -33.6,
+            "gross_win": 69.65,
+            "gross_loss": 63.18
+          },
+          "2024": {
+            "pnl": -61.68,
+            "n": 8,
+            "win_rate": 0.0,
+            "pf": 0.0,
+            "dd": -61.68,
+            "gross_win": 0,
+            "gross_loss": 61.68
+          },
+          "2025": {
+            "pnl": 44.31,
+            "n": 12,
+            "win_rate": 50.0,
+            "pf": 1.472,
+            "dd": -31.53,
+            "gross_win": 138.09,
+            "gross_loss": 93.78
+          },
+          "2026": {
+            "pnl": -127.81,
+            "n": 21,
+            "win_rate": 28.6,
+            "pf": 0.477,
+            "dd": -170.59,
+            "gross_win": 116.72,
+            "gross_loss": 244.53
+          }
+        },
+        "years_positive": 2,
+        "min_year_pnl": -127.81,
+        "pnl_2026": -127.81
+      }
+    },
+    {
+      "ticker": "AMD",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -17.79,
+        "n": 158,
+        "win_rate": 33.5,
+        "pf": 0.994,
+        "dd": -978.94,
+        "gross_win": 2720.05,
+        "gross_loss": 2737.84,
+        "tag": "cand_2",
+        "max_position_fraction": 0.3656,
+        "years": {
+          "2022": {
+            "pnl": 476.26,
+            "n": 22,
+            "win_rate": 40.9,
+            "pf": 6.557,
+            "dd": -26.44,
+            "gross_win": 561.97,
+            "gross_loss": 85.71
+          },
+          "2023": {
+            "pnl": 132.18,
+            "n": 28,
+            "win_rate": 35.7,
+            "pf": 1.363,
+            "dd": -142.4,
+            "gross_win": 496.02,
+            "gross_loss": 363.84
+          },
+          "2024": {
+            "pnl": -334.53,
+            "n": 43,
+            "win_rate": 27.9,
+            "pf": 0.51,
+            "dd": -586.52,
+            "gross_win": 347.49,
+            "gross_loss": 682.02
+          },
+          "2025": {
+            "pnl": 171.2,
+            "n": 24,
+            "win_rate": 45.8,
+            "pf": 1.396,
+            "dd": -187.68,
+            "gross_win": 603.77,
+            "gross_loss": 432.57
+          },
+          "2026": {
+            "pnl": -462.9,
+            "n": 41,
+            "win_rate": 26.8,
+            "pf": 0.606,
+            "dd": -776.76,
+            "gross_win": 710.8,
+            "gross_loss": 1173.7
+          }
+        },
+        "years_positive": 3,
+        "min_year_pnl": -462.9,
+        "pnl_2026": -462.9
+      }
+    },
+    {
+      "ticker": "META",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -19.43,
+        "n": 160,
+        "win_rate": 30.6,
+        "pf": 0.99,
+        "dd": -487.34,
+        "gross_win": 1862.83,
+        "gross_loss": 1882.26,
+        "tag": "cand_3",
+        "max_position_fraction": 0.3599,
+        "years": {
+          "2022": {
+            "pnl": 131.71,
+            "n": 30,
+            "win_rate": 36.7,
+            "pf": 1.289,
+            "dd": -193.02,
+            "gross_win": 588.0,
+            "gross_loss": 456.29
+          },
+          "2023": {
+            "pnl": -223.36,
+            "n": 20,
+            "win_rate": 10.0,
+            "pf": 0.217,
+            "dd": -271.78,
+            "gross_win": 62.05,
+            "gross_loss": 285.41
+          },
+          "2024": {
+            "pnl": -76.39,
+            "n": 37,
+            "win_rate": 37.8,
+            "pf": 0.812,
+            "dd": -159.88,
+            "gross_win": 329.95,
+            "gross_loss": 406.34
+          },
+          "2025": {
+            "pnl": 72.95,
+            "n": 40,
+            "win_rate": 32.5,
+            "pf": 1.183,
+            "dd": -116.35,
+            "gross_win": 472.06,
+            "gross_loss": 399.11
+          },
+          "2026": {
+            "pnl": 75.66,
+            "n": 33,
+            "win_rate": 27.3,
+            "pf": 1.226,
+            "dd": -174.24,
+            "gross_win": 410.77,
+            "gross_loss": 335.11
+          }
+        },
+        "years_positive": 3,
+        "min_year_pnl": -223.36,
+        "pnl_2026": 75.66
+      }
+    },
+    {
+      "ticker": "QQQ",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": 52.85,
+        "n": 67,
+        "win_rate": 35.8,
+        "pf": 1.102,
+        "dd": -141.92,
+        "gross_win": 572.09,
+        "gross_loss": 519.24,
+        "tag": "cand_30",
+        "max_position_fraction": 0.3607,
+        "years": {
+          "2022": {
+            "pnl": 94.81,
+            "n": 13,
+            "win_rate": 46.2,
+            "pf": 2.077,
+            "dd": -48.67,
+            "gross_win": 182.87,
+            "gross_loss": 88.06
+          },
+          "2023": {
+            "pnl": -4.59,
+            "n": 7,
+            "win_rate": 28.6,
+            "pf": 0.899,
+            "dd": -34.26,
+            "gross_win": 40.78,
+            "gross_loss": 45.37
+          },
+          "2024": {
+            "pnl": 4.81,
+            "n": 13,
+            "win_rate": 38.5,
+            "pf": 1.062,
+            "dd": -48.95,
+            "gross_win": 82.54,
+            "gross_loss": 77.73
+          },
+          "2025": {
+            "pnl": 60.33,
+            "n": 13,
+            "win_rate": 38.5,
+            "pf": 1.846,
+            "dd": -31.68,
+            "gross_win": 131.61,
+            "gross_loss": 71.28
+          },
+          "2026": {
+            "pnl": -102.51,
+            "n": 21,
+            "win_rate": 28.6,
+            "pf": 0.567,
+            "dd": -141.92,
+            "gross_win": 134.29,
+            "gross_loss": 236.8
+          }
+        },
+        "years_positive": 3,
+        "min_year_pnl": -102.51,
+        "pnl_2026": -102.51
+      }
+    },
+    {
+      "ticker": "SMH",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -141.11,
+        "n": 90,
+        "win_rate": 32.2,
+        "pf": 0.861,
+        "dd": -273.51,
+        "gross_win": 877.72,
+        "gross_loss": 1018.83,
+        "tag": "cand_31",
+        "max_position_fraction": 0.3638,
+        "years": {
+          "2022": {
+            "pnl": -74.58,
+            "n": 10,
+            "win_rate": 20.0,
+            "pf": 0.463,
+            "dd": -77.31,
+            "gross_win": 64.36,
+            "gross_loss": 138.94
+          },
+          "2023": {
+            "pnl": -129.35,
+            "n": 13,
+            "win_rate": 23.1,
+            "pf": 0.183,
+            "dd": -129.35,
+            "gross_win": 28.91,
+            "gross_loss": 158.26
+          },
+          "2024": {
+            "pnl": 132.47,
+            "n": 17,
+            "win_rate": 35.3,
+            "pf": 3.213,
+            "dd": -23.48,
+            "gross_win": 192.34,
+            "gross_loss": 59.87
+          },
+          "2025": {
+            "pnl": 164.55,
+            "n": 14,
+            "win_rate": 57.1,
+            "pf": 3.824,
+            "dd": -37.02,
+            "gross_win": 222.81,
+            "gross_loss": 58.26
+          },
+          "2026": {
+            "pnl": -234.2,
+            "n": 36,
+            "win_rate": 27.8,
+            "pf": 0.612,
+            "dd": -273.51,
+            "gross_win": 369.3,
+            "gross_loss": 603.5
+          }
+        },
+        "years_positive": 2,
+        "min_year_pnl": -234.2,
+        "pnl_2026": -234.2
+      }
+    },
+    {
+      "ticker": "XLK",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -178.38,
+        "n": 38,
+        "win_rate": 28.9,
+        "pf": 0.652,
+        "dd": -290.46,
+        "gross_win": 334.87,
+        "gross_loss": 513.25,
+        "tag": "cand_32",
+        "max_position_fraction": 0.3606,
+        "years": {
+          "2022": {
+            "pnl": 41.35,
+            "n": 11,
+            "win_rate": 45.5,
+            "pf": 1.362,
+            "dd": -70.73,
+            "gross_win": 155.51,
+            "gross_loss": 114.16
+          },
+          "2023": {
+            "pnl": -3.34,
+            "n": 2,
+            "win_rate": 50.0,
+            "pf": 0.869,
+            "dd": -25.43,
+            "gross_win": 22.09,
+            "gross_loss": 25.43
+          },
+          "2024": {
+            "pnl": -39.96,
+            "n": 6,
+            "win_rate": 16.7,
+            "pf": 0.098,
+            "dd": -44.28,
+            "gross_win": 4.32,
+            "gross_loss": 44.28
+          },
+          "2025": {
+            "pnl": 16.18,
+            "n": 8,
+            "win_rate": 25.0,
+            "pf": 1.2,
+            "dd": -41.52,
+            "gross_win": 97.04,
+            "gross_loss": 80.86
+          },
+          "2026": {
+            "pnl": -192.61,
+            "n": 11,
+            "win_rate": 18.2,
+            "pf": 0.225,
+            "dd": -192.61,
+            "gross_win": 55.91,
+            "gross_loss": 248.52
+          }
+        },
+        "years_positive": 2,
+        "min_year_pnl": -192.61,
+        "pnl_2026": -192.61
+      }
+    },
+    {
+      "ticker": "XLF",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -45.78,
+        "n": 2,
+        "win_rate": 50.0,
+        "pf": 0.255,
+        "dd": -61.46,
+        "gross_win": 15.68,
+        "gross_loss": 61.46,
+        "tag": "cand_33",
+        "max_position_fraction": 0.3634,
+        "years": {
+          "2022": {
+            "pnl": -61.46,
+            "n": 1,
+            "win_rate": 0.0,
+            "pf": 0.0,
+            "dd": -61.46,
+            "gross_win": 0,
+            "gross_loss": 61.46
+          },
+          "2023": {
+            "pnl": 0.0,
+            "n": 0,
+            "win_rate": 0.0,
+            "pf": 0.0,
+            "dd": 0.0,
+            "gross_win": 0.0,
+            "gross_loss": 0.0
+          },
+          "2024": {
+            "pnl": 0.0,
+            "n": 0,
+            "win_rate": 0.0,
+            "pf": 0.0,
+            "dd": 0.0,
+            "gross_win": 0.0,
+            "gross_loss": 0.0
+          },
+          "2025": {
+            "pnl": 15.68,
+            "n": 1,
+            "win_rate": 100.0,
+            "pf": 99.99,
+            "dd": 0.0,
+            "gross_win": 15.68,
+            "gross_loss": 0
+          },
+          "2026": {
+            "pnl": 0.0,
+            "n": 0,
+            "win_rate": 0.0,
+            "pf": 0.0,
+            "dd": 0.0,
+            "gross_win": 0.0,
+            "gross_loss": 0.0
+          }
+        },
+        "years_positive": 1,
+        "min_year_pnl": -61.46,
+        "pnl_2026": 0.0
+      }
+    },
+    {
+      "ticker": "IWM",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -241.0,
+        "n": 27,
+        "win_rate": 25.9,
+        "pf": 0.398,
+        "dd": -243.58,
+        "gross_win": 159.12,
+        "gross_loss": 400.12,
+        "tag": "cand_34",
+        "max_position_fraction": 0.3592,
+        "years": {
+          "2022": {
+            "pnl": -64.81,
+            "n": 5,
+            "win_rate": 40.0,
+            "pf": 0.292,
+            "dd": -67.39,
+            "gross_win": 26.74,
+            "gross_loss": 91.55
+          },
+          "2023": {
+            "pnl": -56.66,
+            "n": 4,
+            "win_rate": 0.0,
+            "pf": 0.0,
+            "dd": -56.66,
+            "gross_win": 0,
+            "gross_loss": 56.66
+          },
+          "2024": {
+            "pnl": 51.45,
+            "n": 6,
+            "win_rate": 50.0,
+            "pf": 2.108,
+            "dd": -40.69,
+            "gross_win": 97.87,
+            "gross_loss": 46.42
+          },
+          "2025": {
+            "pnl": -108.67,
+            "n": 7,
+            "win_rate": 14.3,
+            "pf": 0.096,
+            "dd": -108.67,
+            "gross_win": 11.56,
+            "gross_loss": 120.23
+          },
+          "2026": {
+            "pnl": -62.31,
+            "n": 5,
+            "win_rate": 20.0,
+            "pf": 0.269,
+            "dd": -66.02,
+            "gross_win": 22.95,
+            "gross_loss": 85.26
+          }
+        },
+        "years_positive": 1,
+        "min_year_pnl": -108.67,
+        "pnl_2026": -62.31
+      }
+    },
+    {
+      "ticker": "XLE",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -203.93,
+        "n": 43,
+        "win_rate": 23.3,
+        "pf": 0.574,
+        "dd": -297.63,
+        "gross_win": 275.17,
+        "gross_loss": 479.1,
+        "tag": "cand_35",
+        "max_position_fraction": 0.3622,
+        "years": {
+          "2022": {
+            "pnl": 43.56,
+            "n": 19,
+            "win_rate": 31.6,
+            "pf": 1.238,
+            "dd": -65.16,
+            "gross_win": 226.44,
+            "gross_loss": 182.88
+          },
+          "2023": {
+            "pnl": -45.77,
+            "n": 12,
+            "win_rate": 25.0,
+            "pf": 0.504,
+            "dd": -50.32,
+            "gross_win": 46.45,
+            "gross_loss": 92.22
+          },
+          "2024": {
+            "pnl": -63.3,
+            "n": 5,
+            "win_rate": 0.0,
+            "pf": 0.0,
+            "dd": -63.3,
+            "gross_win": 0,
+            "gross_loss": 63.3
+          },
+          "2025": {
+            "pnl": -41.42,
+            "n": 3,
+            "win_rate": 33.3,
+            "pf": 0.052,
+            "dd": -43.7,
+            "gross_win": 2.28,
+            "gross_loss": 43.7
+          },
+          "2026": {
+            "pnl": -97.0,
+            "n": 4,
+            "win_rate": 0.0,
+            "pf": 0.0,
+            "dd": -97.0,
+            "gross_win": 0,
+            "gross_loss": 97.0
+          }
+        },
+        "years_positive": 1,
+        "min_year_pnl": -97.0,
+        "pnl_2026": -97.0
+      }
+    },
+    {
+      "ticker": "TSLA",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -569.32,
+        "n": 223,
+        "win_rate": 31.4,
+        "pf": 0.855,
+        "dd": -953.87,
+        "gross_win": 3370.55,
+        "gross_loss": 3939.87,
+        "tag": "cand_36",
+        "max_position_fraction": 0.3628,
+        "years": {
+          "2022": {
+            "pnl": -379.03,
+            "n": 47,
+            "win_rate": 29.8,
+            "pf": 0.658,
+            "dd": -491.97,
+            "gross_win": 727.8,
+            "gross_loss": 1106.83
+          },
+          "2023": {
+            "pnl": -200.52,
+            "n": 48,
+            "win_rate": 37.5,
+            "pf": 0.801,
+            "dd": -448.18,
+            "gross_win": 804.82,
+            "gross_loss": 1005.34
+          },
+          "2024": {
+            "pnl": -213.15,
+            "n": 50,
+            "win_rate": 24.0,
+            "pf": 0.731,
+            "dd": -350.77,
+            "gross_win": 578.28,
+            "gross_loss": 791.43
+          },
+          "2025": {
+            "pnl": 423.83,
+            "n": 47,
+            "win_rate": 36.2,
+            "pf": 1.717,
+            "dd": -271.16,
+            "gross_win": 1015.15,
+            "gross_loss": 591.32
+          },
+          "2026": {
+            "pnl": -200.45,
+            "n": 31,
+            "win_rate": 29.0,
+            "pf": 0.549,
+            "dd": -253.31,
+            "gross_win": 244.5,
+            "gross_loss": 444.95
+          }
+        },
+        "years_positive": 1,
+        "min_year_pnl": -379.03,
+        "pnl_2026": -200.45
+      }
+    },
+    {
+      "ticker": "AVGO",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -454.87,
+        "n": 143,
+        "win_rate": 24.5,
+        "pf": 0.73,
+        "dd": -629.13,
+        "gross_win": 1232.39,
+        "gross_loss": 1687.26,
+        "tag": "cand_37",
+        "max_position_fraction": 0.3622,
+        "years": {
+          "2022": {
+            "pnl": 20.47,
+            "n": 22,
+            "win_rate": 36.4,
+            "pf": 1.128,
+            "dd": -82.87,
+            "gross_win": 180.75,
+            "gross_loss": 160.28
+          },
+          "2023": {
+            "pnl": -99.48,
+            "n": 27,
+            "win_rate": 18.5,
+            "pf": 0.574,
+            "dd": -99.48,
+            "gross_win": 133.86,
+            "gross_loss": 233.34
+          },
+          "2024": {
+            "pnl": 184.89,
+            "n": 29,
+            "win_rate": 37.9,
+            "pf": 1.934,
+            "dd": -58.92,
+            "gross_win": 382.94,
+            "gross_loss": 198.05
+          },
+          "2025": {
+            "pnl": -209.56,
+            "n": 29,
+            "win_rate": 20.7,
+            "pf": 0.599,
+            "dd": -210.68,
+            "gross_win": 313.63,
+            "gross_loss": 523.19
+          },
+          "2026": {
+            "pnl": -351.19,
+            "n": 36,
+            "win_rate": 13.9,
+            "pf": 0.386,
+            "dd": -418.45,
+            "gross_win": 221.21,
+            "gross_loss": 572.4
+          }
+        },
+        "years_positive": 2,
+        "min_year_pnl": -351.19,
+        "pnl_2026": -351.19
+      }
+    },
+    {
+      "ticker": "NFLX",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": 24.35,
+        "n": 128,
+        "win_rate": 34.4,
+        "pf": 1.014,
+        "dd": -416.49,
+        "gross_win": 1770.87,
+        "gross_loss": 1746.52,
+        "tag": "cand_38",
+        "max_position_fraction": 0.366,
+        "years": {
+          "2022": {
+            "pnl": -36.62,
+            "n": 31,
+            "win_rate": 35.5,
+            "pf": 0.938,
+            "dd": -387.54,
+            "gross_win": 557.21,
+            "gross_loss": 593.83
+          },
+          "2023": {
+            "pnl": 75.37,
+            "n": 24,
+            "win_rate": 37.5,
+            "pf": 1.263,
+            "dd": -114.41,
+            "gross_win": 361.7,
+            "gross_loss": 286.33
+          },
+          "2024": {
+            "pnl": -70.28,
+            "n": 29,
+            "win_rate": 24.1,
+            "pf": 0.767,
+            "dd": -154.79,
+            "gross_win": 230.9,
+            "gross_loss": 301.18
+          },
+          "2025": {
+            "pnl": 75.54,
+            "n": 29,
+            "win_rate": 51.7,
+            "pf": 1.203,
+            "dd": -107.64,
+            "gross_win": 447.23,
+            "gross_loss": 371.69
+          },
+          "2026": {
+            "pnl": -19.66,
+            "n": 15,
+            "win_rate": 13.3,
+            "pf": 0.898,
+            "dd": -132.44,
+            "gross_win": 173.83,
+            "gross_loss": 193.49
+          }
+        },
+        "years_positive": 2,
+        "min_year_pnl": -70.28,
+        "pnl_2026": -19.66
+      }
+    },
+    {
+      "ticker": "COIN",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -1307.21,
+        "n": 217,
+        "win_rate": 30.4,
+        "pf": 0.744,
+        "dd": -1593.76,
+        "gross_win": 3798.92,
+        "gross_loss": 5106.13,
+        "tag": "cand_39",
+        "max_position_fraction": 0.3816,
+        "years": {
+          "2022": {
+            "pnl": -193.28,
+            "n": 40,
+            "win_rate": 35.0,
+            "pf": 0.827,
+            "dd": -479.83,
+            "gross_win": 925.87,
+            "gross_loss": 1119.15
+          },
+          "2023": {
+            "pnl": -503.66,
+            "n": 37,
+            "win_rate": 29.7,
+            "pf": 0.579,
+            "dd": -775.77,
+            "gross_win": 692.78,
+            "gross_loss": 1196.44
+          },
+          "2024": {
+            "pnl": -142.09,
+            "n": 50,
+            "win_rate": 28.0,
+            "pf": 0.861,
+            "dd": -630.77,
+            "gross_win": 882.38,
+            "gross_loss": 1024.47
+          },
+          "2025": {
+            "pnl": -334.88,
+            "n": 45,
+            "win_rate": 33.3,
+            "pf": 0.607,
+            "dd": -440.45,
+            "gross_win": 516.21,
+            "gross_loss": 851.09
+          },
+          "2026": {
+            "pnl": -133.3,
+            "n": 45,
+            "win_rate": 26.7,
+            "pf": 0.854,
+            "dd": -442.58,
+            "gross_win": 781.68,
+            "gross_loss": 914.98
+          }
+        },
+        "years_positive": 0,
+        "min_year_pnl": -503.66,
+        "pnl_2026": -133.3
+      }
+    },
+    {
+      "ticker": "PLTR",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": 203.93,
+        "n": 160,
+        "win_rate": 25.6,
+        "pf": 1.065,
+        "dd": -431.67,
+        "gross_win": 3358.09,
+        "gross_loss": 3154.16,
+        "tag": "cand_40",
+        "max_position_fraction": 0.3745,
+        "years": {
+          "2022": {
+            "pnl": -92.35,
+            "n": 37,
+            "win_rate": 24.3,
+            "pf": 0.889,
+            "dd": -300.67,
+            "gross_win": 737.95,
+            "gross_loss": 830.3
+          },
+          "2023": {
+            "pnl": 364.68,
+            "n": 32,
+            "win_rate": 31.2,
+            "pf": 1.601,
+            "dd": -127.65,
+            "gross_win": 971.43,
+            "gross_loss": 606.75
+          },
+          "2024": {
+            "pnl": -223.11,
+            "n": 21,
+            "win_rate": 4.8,
+            "pf": 0.409,
+            "dd": -272.65,
+            "gross_win": 154.44,
+            "gross_loss": 377.55
+          },
+          "2025": {
+            "pnl": 389.6,
+            "n": 39,
+            "win_rate": 30.8,
+            "pf": 1.608,
+            "dd": -332.66,
+            "gross_win": 1030.73,
+            "gross_loss": 641.13
+          },
+          "2026": {
+            "pnl": -234.89,
+            "n": 31,
+            "win_rate": 29.0,
+            "pf": 0.664,
+            "dd": -431.67,
+            "gross_win": 463.54,
+            "gross_loss": 698.43
+          }
+        },
+        "years_positive": 2,
+        "min_year_pnl": -234.89,
+        "pnl_2026": -234.89
+      }
+    },
+    {
+      "ticker": "MU",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -316.88,
+        "n": 139,
+        "win_rate": 30.9,
+        "pf": 0.873,
+        "dd": -749.09,
+        "gross_win": 2174.88,
+        "gross_loss": 2491.76,
+        "tag": "cand_41",
+        "max_position_fraction": 0.3723,
+        "years": {
+          "2022": {
+            "pnl": 6.57,
+            "n": 23,
+            "win_rate": 26.1,
+            "pf": 1.02,
+            "dd": -241.66,
+            "gross_win": 328.7,
+            "gross_loss": 322.13
+          },
+          "2023": {
+            "pnl": -97.83,
+            "n": 14,
+            "win_rate": 28.6,
+            "pf": 0.483,
+            "dd": -127.09,
+            "gross_win": 91.29,
+            "gross_loss": 189.12
+          },
+          "2024": {
+            "pnl": -173.36,
+            "n": 27,
+            "win_rate": 40.7,
+            "pf": 0.672,
+            "dd": -411.46,
+            "gross_win": 355.58,
+            "gross_loss": 528.94
+          },
+          "2025": {
+            "pnl": 232.04,
+            "n": 32,
+            "win_rate": 28.1,
+            "pf": 1.464,
+            "dd": -290.07,
+            "gross_win": 731.76,
+            "gross_loss": 499.72
+          },
+          "2026": {
+            "pnl": -284.3,
+            "n": 43,
+            "win_rate": 30.2,
+            "pf": 0.701,
+            "dd": -456.01,
+            "gross_win": 667.55,
+            "gross_loss": 951.85
+          }
+        },
+        "years_positive": 2,
+        "min_year_pnl": -284.3,
+        "pnl_2026": -284.3
+      }
+    },
+    {
+      "ticker": "SHOP",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": 621.85,
+        "n": 113,
+        "win_rate": 33.6,
+        "pf": 1.298,
+        "dd": -526.82,
+        "gross_win": 2710.1,
+        "gross_loss": 2088.25,
+        "tag": "cand_42",
+        "max_position_fraction": 0.3684,
+        "years": {
+          "2022": {
+            "pnl": 708.23,
+            "n": 21,
+            "win_rate": 61.9,
+            "pf": 4.504,
+            "dd": -164.82,
+            "gross_win": 910.37,
+            "gross_loss": 202.14
+          },
+          "2023": {
+            "pnl": -445.44,
+            "n": 23,
+            "win_rate": 17.4,
+            "pf": 0.351,
+            "dd": -526.82,
+            "gross_win": 241.0,
+            "gross_loss": 686.44
+          },
+          "2024": {
+            "pnl": 4.31,
+            "n": 20,
+            "win_rate": 35.0,
+            "pf": 1.014,
+            "dd": -157.45,
+            "gross_win": 317.23,
+            "gross_loss": 312.92
+          },
+          "2025": {
+            "pnl": 42.54,
+            "n": 20,
+            "win_rate": 25.0,
+            "pf": 1.132,
+            "dd": -219.06,
+            "gross_win": 363.65,
+            "gross_loss": 321.11
+          },
+          "2026": {
+            "pnl": 312.21,
+            "n": 29,
+            "win_rate": 31.0,
+            "pf": 1.552,
+            "dd": -431.07,
+            "gross_win": 877.85,
+            "gross_loss": 565.64
+          }
+        },
+        "years_positive": 4,
+        "min_year_pnl": -445.44,
+        "pnl_2026": 312.21
+      }
+    },
+    {
+      "ticker": "UBER",
+      "selected_variant": "v18",
+      "qualifies": false,
+      "metrics": {
+        "pnl": -304.51,
+        "n": 84,
+        "win_rate": 35.7,
+        "pf": 0.794,
+        "dd": -423.92,
+        "gross_win": 1172.29,
+        "gross_loss": 1476.8,
+        "tag": "cand_43",
+        "max_position_fraction": 0.3688,
+        "years": {
+          "2022": {
+            "pnl": -165.64,
+            "n": 21,
+            "win_rate": 19.0,
+            "pf": 0.629,
+            "dd": -188.68,
+            "gross_win": 281.33,
+            "gross_loss": 446.97
+          },
+          "2023": {
+            "pnl": -164.31,
+            "n": 13,
+            "win_rate": 30.8,
+            "pf": 0.296,
+            "dd": -182.36,
+            "gross_win": 69.06,
+            "gross_loss": 233.37
+          },
+          "2024": {
+            "pnl": 269.69,
+            "n": 20,
+            "win_rate": 60.0,
+            "pf": 2.125,
+            "dd": -157.36,
+            "gross_win": 509.38,
+            "gross_loss": 239.69
+          },
+          "2025": {
+            "pnl": -32.85,
+            "n": 12,
+            "win_rate": 50.0,
+            "pf": 0.874,
+            "dd": -186.21,
+            "gross_win": 227.78,
+            "gross_loss": 260.63
+          },
+          "2026": {
+            "pnl": -211.4,
+            "n": 18,
+            "win_rate": 22.2,
+            "pf": 0.286,
+            "dd": -242.7,
+            "gross_win": 84.74,
+            "gross_loss": 296.14
+          }
+        },
+        "years_positive": 1,
+        "min_year_pnl": -211.4,
+        "pnl_2026": -211.4
+      }
+    }
+  ],
+  "qualifying": [],
+  "combined": {
+    "pnl": 1727.92,
+    "n": 436,
+    "pf": 1.366,
+    "dd": -468.58,
+    "years": {
+      "2022": 991.19,
+      "2023": -3.34,
+      "2024": -20.25,
+      "2025": 331.51,
+      "2026": 428.81
+    }
+  },
+  "baseline_v18": {
+    "pnl": 1727.92,
+    "n": 436,
+    "pf": 1.366
+  },
+  "concurrency": {
+    "days_checked": 325,
+    "days_over_cap": 3,
+    "max_concurrent": 4,
+    "over_days_sample": [
+      [
+        "2023-04-10",
+        4
+      ],
+      [
+        "2024-01-02",
+        4
+      ],
+      [
+        "2024-07-17",
+        4
+      ]
+    ]
+  },
+  "loyo": {
+    "2022": {
+      "selected": [],
+      "held_out_stats": {
+        "pnl": 991.19,
+        "n": 88,
+        "win_rate": 44.3,
+        "pf": 2.1,
+        "dd": -291.38,
+        "gross_win": 1892.21,
+        "gross_loss": 901.02
+      }
+    },
+    "2023": {
+      "selected": [],
+      "held_out_stats": {
+        "pnl": -3.34,
+        "n": 91,
+        "win_rate": 33.0,
+        "pf": 0.997,
+        "dd": -250.42,
+        "gross_win": 1118.16,
+        "gross_loss": 1121.5
+      }
+    },
+    "2024": {
+      "selected": [],
+      "held_out_stats": {
+        "pnl": -20.25,
+        "n": 102,
+        "win_rate": 38.2,
+        "pf": 0.984,
+        "dd": -331.08,
+        "gross_win": 1212.2,
+        "gross_loss": 1232.45
+      }
+    },
+    "2025": {
+      "selected": [],
+      "held_out_stats": {
+        "pnl": 331.51,
+        "n": 80,
+        "win_rate": 41.2,
+        "pf": 1.405,
+        "dd": -178.61,
+        "gross_win": 1149.31,
+        "gross_loss": 817.8
+      }
+    },
+    "2026": {
+      "selected": [],
+      "held_out_stats": {
+        "pnl": 428.81,
+        "n": 75,
+        "win_rate": 38.7,
+        "pf": 1.665,
+        "dd": -123.88,
+        "gross_win": 1073.39,
+        "gross_loss": 644.58
+      }
+    }
+  }
+}
