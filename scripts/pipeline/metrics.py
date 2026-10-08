@@ -288,6 +288,107 @@ def concurrency_exceedance(rows: list[dict], cap: int = 3) -> dict:
             "max_concurrent_observed": max_concurrent}
 
 
+def spy_session_list(spy_csv: Path = BARS_DIR / "SPY.csv", start: dt.date | None = None,
+                      end: dt.date | None = None) -> list[str]:
+    """ISO date strings for every SPY session in [start, end] (default 2022-01-01..sweep_end(),
+    the same window every other 5y metric uses) — the standalone-strategy gate's daily series are
+    built over this union so a day with no trades on either side still counts as a zero, not a gap."""
+    start = start or dt.date(2022, 1, 1)
+    end = end or sweep_end()
+    return [d.isoformat() for d in sessions(spy_csv) if start <= d <= end]
+
+
+def daily_series(rows: list[dict], session_list: list[str]) -> dict[str, float]:
+    """daily P&L for every date in `session_list`, 0.0 where `rows` has no trade that day."""
+    pnl = daily_pnl(rows)
+    return {d: round(pnl.get(d, 0.0), 2) for d in session_list}
+
+
+def pearson_corr(a: dict[str, float], b: dict[str, float]) -> float:
+    """Pearson correlation of two daily series over their shared dates. 0.0 when undefined (fewer
+    than 2 shared dates, or either series has zero variance over them)."""
+    dates = sorted(set(a) & set(b))
+    if len(dates) < 2:
+        return 0.0
+    xs = [a[d] for d in dates]
+    ys = [b[d] for d in dates]
+    n = len(xs)
+    mx, my = sum(xs) / n, sum(ys) / n
+    cov = sum((x - mx) * (y - my) for x, y in zip(xs, ys))
+    vx = sum((x - mx) ** 2 for x in xs)
+    vy = sum((y - my) ** 2 for y in ys)
+    if vx <= 0 or vy <= 0:
+        return 0.0
+    return round(cov / math.sqrt(vx * vy), 4)
+
+
+def combine_series(a: dict[str, float], b: dict[str, float]) -> dict[str, float]:
+    """sum of two daily series over the union of their dates (missing on one side = 0 there)."""
+    return {d: round(a.get(d, 0.0) + b.get(d, 0.0), 2) for d in (set(a) | set(b))}
+
+
+def drawdown_on_series(series: dict[str, float]) -> float:
+    """max drawdown of the equity curve built by walking `series` in date order — the same
+    accumulate-then-peak maths stats() uses on daily_pnl(rows), but over an already-built series
+    (e.g. a combined book's) rather than recomputed from trade rows."""
+    eq = peak = dd = 0.0
+    for d in sorted(series):
+        eq += series[d]
+        peak = max(peak, eq)
+        dd = min(dd, eq - peak)
+    return round(dd, 2)
+
+
+def ex_best_year_pf(rows: list[dict]) -> dict:
+    """stats() with the candidate's single best (highest-P&L) year excluded — guards against a
+    one-year wonder (a candidate whose whole edge is one favorable year). a year with no trades
+    has P&L 0 and is only "best" if every year is <= 0."""
+    year_pnl = {y: sum(r["pnl"] for r in rows if r["year"] == y) for y in YEARS}
+    best_year = max(year_pnl, key=lambda y: year_pnl[y])
+    out = stats([r for r in rows if r["year"] != best_year])
+    out["excluded_year"] = best_year
+    out["excluded_year_pnl"] = round(year_pnl[best_year], 2)
+    return out
+
+
+def standalone_metrics(tag: str, baseline_tag: str = "iex_v18", data_dir: Path = DATA) -> dict:
+    """everything the standalone-strategy gate needs beyond the candidate's own summarize(): a
+    daily P&L series for the candidate and the baseline over the union of SPY sessions (zero-filled
+    for days without trades — spy_session_list()/daily_series()), their Pearson correlation
+    (pearson_corr()), the combined book (baseline_rows + candidate rows — a plain concatenation is
+    exact because the live replay runs every book independently, same as additive_ticker's
+    'combined') with its PF and per-year stats from stats(), but its drawdown computed on the
+    combined *daily* series (drawdown_on_series()) rather than re-derived per-trade, active-day
+    counts for the candidate/baseline/combined (days with >= 1 trade), the candidate's PF with its
+    best year excluded (ex_best_year_pf() — guards a one-year wonder), and concurrency_exceedance()
+    over the combined set (info only, same rationale as additive_ticker's)."""
+    rows = load_trades(tag, data_dir)
+    baseline_rows = load_trades(baseline_tag, data_dir)
+    session_list = spy_session_list()
+    cand_series = daily_series(rows, session_list)
+    base_series = daily_series(baseline_rows, session_list)
+    corr = pearson_corr(cand_series, base_series)
+    combined_rows = baseline_rows + rows
+    combined_series = combine_series(cand_series, base_series)
+    combined = stats(combined_rows)
+    combined["dd"] = drawdown_on_series(combined_series)
+    combined["years"] = {y: stats([r for r in combined_rows if r["year"] == y]) for y in YEARS}
+    baseline_active_days = len(daily_pnl(baseline_rows))
+    candidate_active_days = len(daily_pnl(rows))
+    combined_active_days = len(set(daily_pnl(baseline_rows)) | set(daily_pnl(rows)))
+    concurrency = concurrency_exceedance(combined_rows)
+    return {
+        "baseline_tag": baseline_tag,
+        "daily_corr": corr,
+        "combined": combined,
+        "baseline_active_days": baseline_active_days,
+        "candidate_active_days": candidate_active_days,
+        "combined_active_days": combined_active_days,
+        "ex_best_year": ex_best_year_pf(rows),
+        "concurrency": concurrency,
+    }
+
+
 def marginal_metrics(tag: str, baseline_tag: str, data_dir: Path = DATA) -> dict:
     """split <tag>'s trades against <baseline_tag>'s trade set (see split_marginal()) and compute
     5y + per-year stats for both halves, plus the added half's worst single trade and worst day —
@@ -313,9 +414,13 @@ def marginal_metrics(tag: str, baseline_tag: str, data_dir: Path = DATA) -> dict
 
 
 def full_metrics(tag: str, tickers: list[str] | None = None, data_dir: Path = DATA,
-                 spy_ret: dict[str, float] | None = None, baseline_tag: str | None = None) -> dict:
+                 spy_ret: dict[str, float] | None = None, baseline_tag: str | None = None,
+                 want_standalone: bool = False) -> dict:
     """everything a gate may look at for one sweep tag. baseline_tag, when given, adds the
-    base/added marginal split against that tag's trades (metrics['marginal'])."""
+    base/added marginal split against that tag's trades (metrics['marginal']) — or, when
+    want_standalone is also set (the standalone-strategy gate), metrics['standalone']
+    (standalone_metrics()) instead: a different, more expensive computation (daily series,
+    correlation, combined drawdown) that only that gate needs."""
     m = summarize(tag, data_dir)
     rows = load_trades(tag, data_dir)
     spy_ret = spy_ret if spy_ret is not None else (spy_day_returns() if (BARS_DIR / "SPY.csv").exists() else {})
@@ -324,7 +429,10 @@ def full_metrics(tag: str, tickers: list[str] | None = None, data_dir: Path = DA
     if tickers:
         m["tickers"] = list(tickers)
     if baseline_tag:
-        m["marginal"] = marginal_metrics(tag, baseline_tag, data_dir)
+        if want_standalone:
+            m["standalone"] = standalone_metrics(tag, baseline_tag, data_dir)
+        else:
+            m["marginal"] = marginal_metrics(tag, baseline_tag, data_dir)
     return m
 
 

@@ -46,6 +46,25 @@ what pipeline_candidates.backtest_result stores. thresholds are stated at the re
                    3-position cap is reported as info (metrics.concurrency_exceedance() over the combined
                    set) and never gated — the replay runs each ticker set independently so a straight
                    concatenation is exact except for that cap
+  standalone-strategy: for a standalone second strategy (its own book, own tickers, a different edge —
+                   e.g. candidate #47 qqq-noise-pm-vol, QQQ only, afternoons, the promoted short windows
+                   disabled) judged two ways at once, never against a baseline swept on the candidate's
+                   own tickers (that baseline would be a different, barely-traded strategy on those
+                   names — meaningless; see additive-ticker's rationale, which this gate reuses for the
+                   baseline choice: pipeline.py's baseline_for() forces 'iex_v18' the same way).
+                   needs metrics['standalone'] (metrics.standalone_metrics() against baseline_tag=
+                   'iex_v18'): a daily P&L series for the candidate and the baseline over the union of
+                   SPY sessions (zero-filled), their Pearson correlation, the combined (baseline +
+                   candidate, concatenated trades — exact, each book replays independently) book's PF
+                   and drawdown computed on the combined daily series, active-day counts, and the
+                   candidate's PF with its single best year excluded (ex_best_year — guards against a
+                   one-year wonder). checks: standalone_pf >= 1.4; standalone_years_positive >= 4 of 5;
+                   standalone_trades >= 150 (5y); standalone_worst_year >= -300 (36 % sizing);
+                   daily_corr_with_baseline <= 0.30; combined_pf >= baseline_pf (not dilutive);
+                   combined_max_dd >= baseline_max_dd x 1.25 (no more than 25 % deeper); combined_active_days
+                   >= baseline_active_days x 1.25; ex_best_year_pf >= 1.2. the live 3-position cap is
+                   reported as info (metrics.concurrency_exceedance() over the combined set) and never
+                   gated, same as additive-ticker
 """
 from __future__ import annotations
 
@@ -61,6 +80,12 @@ ADDED_TICKER_MIN_PF = 1.15
 ADDED_TICKER_WORST_YEAR_FLOOR = -150.0
 COMBINED_PF_TOLERANCE = 0.02
 COMBINED_YEAR_TOLERANCE = 50.0
+STANDALONE_MIN_PF = 1.4
+STANDALONE_MIN_TRADES = 150
+STANDALONE_MAX_CORR = 0.30
+STANDALONE_DD_TOLERANCE = 1.25
+STANDALONE_ACTIVE_DAYS_FACTOR = 1.25
+STANDALONE_EX_BEST_YEAR_MIN_PF = 1.2
 
 
 def check(name: str, value, threshold: str, ok: bool) -> dict:
@@ -215,6 +240,42 @@ def additive_ticker(m: dict, baseline: dict | None = None) -> dict:
     return _result("additive-ticker", checks)
 
 
+def standalone_strategy(m: dict, baseline: dict | None = None) -> dict:
+    """for a standalone second-strategy candidate (its own book, own tickers, often a different
+    edge entirely) judged on its own 5y record AND on what it does to the live book, never against
+    a baseline swept on the candidate's own tickers (module docstring; the baseline is always
+    'iex_v18', forced by pipeline.py's baseline_for() the same way additive_ticker()'s is). needs
+    metrics['standalone'] (metrics.standalone_metrics() against baseline_tag='iex_v18')."""
+    err = _need_baseline("standalone-strategy", baseline)
+    if err:
+        return err
+    b = baseline
+    sa = m.get("standalone")
+    if not sa:
+        return _result("standalone-strategy", [check(
+            "standalone", None,
+            "standalone metrics required (metrics.standalone_metrics against baseline_tag='iex_v18')", False)])
+    combined = sa["combined"]
+    dd_floor = b["dd"] * STANDALONE_DD_TOLERANCE
+    need_active = STANDALONE_ACTIVE_DAYS_FACTOR * sa["baseline_active_days"]
+    exb = sa["ex_best_year"]
+    conc = sa.get("concurrency") or {}
+    checks = [
+        check("standalone_pf", m["pf"], f">= {STANDALONE_MIN_PF}", m["pf"] >= STANDALONE_MIN_PF),
+        check("standalone_years_positive", m["years_positive"], f">= {MIN_YEARS_POSITIVE} of 5", m["years_positive"] >= MIN_YEARS_POSITIVE),
+        check("standalone_trades", m["n"], f">= {STANDALONE_MIN_TRADES} (5y)", m["n"] >= STANDALONE_MIN_TRADES),
+        check("standalone_worst_year", m["min_year_pnl"], f">= {YEAR_FLOOR:+.0f} (36 % sizing)", m["min_year_pnl"] >= YEAR_FLOOR),
+        check("daily_corr_with_baseline", sa["daily_corr"], f"<= {STANDALONE_MAX_CORR}", sa["daily_corr"] <= STANDALONE_MAX_CORR),
+        check("combined_pf", combined["pf"], f">= {b['pf']:.3f} (baseline {sa['baseline_tag']}, not dilutive)", combined["pf"] >= b["pf"]),
+        check("combined_max_dd", combined["dd"], f">= {dd_floor:+.0f} (baseline {b['dd']:+.0f} x {STANDALONE_DD_TOLERANCE:g}, no more than 25 % deeper)", combined["dd"] >= dd_floor),
+        check("combined_active_days", sa["combined_active_days"], f">= {need_active:.0f} ({STANDALONE_ACTIVE_DAYS_FACTOR:g} x baseline {sa['baseline_active_days']})", sa["combined_active_days"] >= need_active),
+        check("ex_best_year_pf", exb["pf"], f">= {STANDALONE_EX_BEST_YEAR_MIN_PF} (excluding {exb.get('excluded_year')}, {exb.get('excluded_year_pnl'):+.0f})", exb["pf"] >= STANDALONE_EX_BEST_YEAR_MIN_PF),
+        check("concurrency_info", conc.get("n_exceedance_days", 0),
+              f"info only, not gated (cap {conc.get('cap', 3)}; max concurrent observed {conc.get('max_concurrent_observed', 0)})", True),
+    ]
+    return _result("standalone-strategy", checks)
+
+
 def effective_max_position_pct(sweep_args_override: str | None, default: float = STANDARD_MAX_POSITION_PCT) -> float:
     """the candidate's own sizing cap: the value its _sweep_args passed to --max-position-pct (the
     flag the gate sweep actually ran with — see docs/pipeline.md's _sweep_args section and
@@ -281,10 +342,12 @@ GATES = {
     "additive-config": additive_config,
     "sizing-config": sizing_config,
     "additive-ticker": additive_ticker,
+    "standalone-strategy": standalone_strategy,
 }
 ALIASES = {"default-config": "volume-config", "default": None}
-NEEDS_BASELINE = {"volume-config", "quality-config", "stress-mode", "additive-config", "sizing-config", "additive-ticker"}
+NEEDS_BASELINE = {"volume-config", "quality-config", "stress-mode", "additive-config", "sizing-config", "additive-ticker", "standalone-strategy"}
 NEEDS_MARGINAL = {"additive-config", "sizing-config", "additive-ticker"}
+NEEDS_STANDALONE = {"standalone-strategy"}
 
 
 def resolve(name: str, kind: str) -> str:

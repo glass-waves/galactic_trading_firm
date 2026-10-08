@@ -442,6 +442,160 @@ class SizingConfig(unittest.TestCase):
         self.assertIn("max_position_fraction", names(gates.sizing_config(m2, self.b, sweep_args_override=SWEEP_125)))
 
 
+def mk_standalone(daily_corr=0.0, combined_pf=1.5, combined_dd=-400.0, combined_active_days=500,
+                   baseline_active_days=325, candidate_active_days=275, ex_best_year_pf=1.3,
+                   excluded_year="2022", n_exceedance_days=0, combined_years=None, baseline_tag="iex_v18"):
+    combined = {"pf": combined_pf, "dd": combined_dd}
+    if combined_years is not None:
+        combined["years"] = {y: {"pnl": float(p)} for y, p in zip(YEARS, combined_years)}
+    return {
+        "baseline_tag": baseline_tag,
+        "daily_corr": daily_corr,
+        "combined": combined,
+        "baseline_active_days": baseline_active_days,
+        "candidate_active_days": candidate_active_days,
+        "combined_active_days": combined_active_days,
+        "ex_best_year": {"pf": ex_best_year_pf, "excluded_year": excluded_year, "excluded_year_pnl": 600.0},
+        "concurrency": {"cap": 3, "n_exceedance_days": n_exceedance_days,
+                        "max_concurrent_observed": 4 if n_exceedance_days else 2, "exceedance_days": []},
+    }
+
+
+class StandaloneStrategy(unittest.TestCase):
+    """baseline modeled on iex_v18 (the live book): +1,728 / 436 / PF 1.37, dd -469, 325 active
+    days. the candidate (modeled on #47 qqq-noise-pm-vol): standalone +1,095 / 275 / PF 1.50,
+    4/5 years, corr -0.03, combined with v18 PF 1.41 / dd -390 / 524 active days
+    (research/index_momentum/2026-10-07_index_intraday_momentum.md §4,7)."""
+
+    def setUp(self):
+        self.b = mk(pnl=1728, n=436, pf=1.37, years=(991, -3, -20, 332, 429), dd=-469)
+
+    def test_needs_baseline(self):
+        r = gates.standalone_strategy(BASE, None)
+        self.assertFalse(r["pass"])
+        self.assertEqual(names(r), ["baseline"])
+
+    def test_needs_standalone_metrics(self):
+        m = mk(pnl=1095, n=275, pf=1.50, years=(600, 168, -22, 227, 122))
+        r = gates.standalone_strategy(m, self.b)
+        self.assertFalse(r["pass"])
+        self.assertEqual(names(r), ["standalone"])
+
+    def test_study_numbers_pass(self):
+        # exact figures from the index-momentum study: standalone PF 1.50, 275 trades, 4/5 years,
+        # corr -0.03, combined PF 1.41 (> baseline 1.37), dd -390 (>= -469 x 1.25 = -586.25),
+        # active days 524 (>= 325 x 1.25 = 406.25), ex-2022 PF ~1.4
+        m = mk(pnl=1095, n=275, pf=1.50, years=(600, 168, -22, 227, 122))
+        m["standalone"] = mk_standalone(daily_corr=-0.03, combined_pf=1.41, combined_dd=-390.0,
+                                         combined_active_days=524, baseline_active_days=325,
+                                         candidate_active_days=275, ex_best_year_pf=1.4, excluded_year="2022")
+        r = gates.standalone_strategy(m, self.b)
+        self.assertTrue(r["pass"], names(r))
+        self.assertEqual(r["gate"], "standalone-strategy")
+
+    def test_standalone_pf_boundary(self):
+        m = mk(pnl=1095, n=275, pf=1.4, years=(600, 168, -22, 227, 122))
+        m["standalone"] = mk_standalone(ex_best_year_pf=1.4)
+        self.assertNotIn("standalone_pf", names(gates.standalone_strategy(m, self.b)))
+        m2 = mk(pnl=1095, n=275, pf=1.399, years=(600, 168, -22, 227, 122))
+        m2["standalone"] = mk_standalone(ex_best_year_pf=1.4)
+        self.assertIn("standalone_pf", names(gates.standalone_strategy(m2, self.b)))
+
+    def test_standalone_years_positive_boundary(self):
+        m = mk(pnl=1095, n=275, pf=1.5, years=(600, 168, -22, -5, 122))  # 3 of 5 positive
+        m["standalone"] = mk_standalone(ex_best_year_pf=1.4)
+        self.assertIn("standalone_years_positive", names(gates.standalone_strategy(m, self.b)))
+        m2 = mk(pnl=1095, n=275, pf=1.5, years=(600, 168, -22, 227, 122))  # 4 of 5
+        m2["standalone"] = mk_standalone(ex_best_year_pf=1.4)
+        self.assertNotIn("standalone_years_positive", names(gates.standalone_strategy(m2, self.b)))
+
+    def test_standalone_trades_boundary(self):
+        m = mk(pnl=1095, n=149, pf=1.5, years=(600, 168, -22, 227, 122))
+        m["standalone"] = mk_standalone(ex_best_year_pf=1.4)
+        self.assertIn("standalone_trades", names(gates.standalone_strategy(m, self.b)))
+        m2 = mk(pnl=1095, n=150, pf=1.5, years=(600, 168, -22, 227, 122))
+        m2["standalone"] = mk_standalone(ex_best_year_pf=1.4)
+        self.assertNotIn("standalone_trades", names(gates.standalone_strategy(m2, self.b)))
+
+    def test_standalone_worst_year_boundary(self):
+        m = mk(pnl=1095, n=275, pf=1.5, years=(600, 168, -301, 227, 122))
+        m["standalone"] = mk_standalone(ex_best_year_pf=1.4)
+        self.assertIn("standalone_worst_year", names(gates.standalone_strategy(m, self.b)))
+        m2 = mk(pnl=1095, n=275, pf=1.5, years=(600, 168, -300, 227, 122))
+        m2["standalone"] = mk_standalone(ex_best_year_pf=1.4)
+        self.assertNotIn("standalone_worst_year", names(gates.standalone_strategy(m2, self.b)))
+
+    def test_daily_corr_boundary(self):
+        m = mk(pnl=1095, n=275, pf=1.5, years=(600, 168, -22, 227, 122))
+        m["standalone"] = mk_standalone(daily_corr=0.30, ex_best_year_pf=1.4)
+        self.assertNotIn("daily_corr_with_baseline", names(gates.standalone_strategy(m, self.b)))
+        m2 = mk(pnl=1095, n=275, pf=1.5, years=(600, 168, -22, 227, 122))
+        m2["standalone"] = mk_standalone(daily_corr=0.301, ex_best_year_pf=1.4)
+        self.assertIn("daily_corr_with_baseline", names(gates.standalone_strategy(m2, self.b)))
+
+    def test_combined_pf_not_dilutive_boundary(self):
+        m = mk(pnl=1095, n=275, pf=1.5, years=(600, 168, -22, 227, 122))
+        m["standalone"] = mk_standalone(combined_pf=1.37, ex_best_year_pf=1.4)
+        self.assertNotIn("combined_pf", names(gates.standalone_strategy(m, self.b)))
+        m2 = mk(pnl=1095, n=275, pf=1.5, years=(600, 168, -22, 227, 122))
+        m2["standalone"] = mk_standalone(combined_pf=1.369, ex_best_year_pf=1.4)
+        self.assertIn("combined_pf", names(gates.standalone_strategy(m2, self.b)))
+
+    def test_combined_max_dd_boundary(self):
+        # baseline dd -469 x 1.25 = -586.25
+        m = mk(pnl=1095, n=275, pf=1.5, years=(600, 168, -22, 227, 122))
+        m["standalone"] = mk_standalone(combined_dd=-586.25, ex_best_year_pf=1.4)
+        self.assertNotIn("combined_max_dd", names(gates.standalone_strategy(m, self.b)))
+        m2 = mk(pnl=1095, n=275, pf=1.5, years=(600, 168, -22, 227, 122))
+        m2["standalone"] = mk_standalone(combined_dd=-586.26, ex_best_year_pf=1.4)
+        self.assertIn("combined_max_dd", names(gates.standalone_strategy(m2, self.b)))
+
+    def test_combined_active_days_boundary(self):
+        # baseline active days 325 x 1.25 = 406.25
+        m = mk(pnl=1095, n=275, pf=1.5, years=(600, 168, -22, 227, 122))
+        m["standalone"] = mk_standalone(combined_active_days=407, baseline_active_days=325, ex_best_year_pf=1.4)
+        self.assertNotIn("combined_active_days", names(gates.standalone_strategy(m, self.b)))
+        m2 = mk(pnl=1095, n=275, pf=1.5, years=(600, 168, -22, 227, 122))
+        m2["standalone"] = mk_standalone(combined_active_days=406, baseline_active_days=325, ex_best_year_pf=1.4)
+        self.assertIn("combined_active_days", names(gates.standalone_strategy(m2, self.b)))
+
+    def test_ex_best_year_pf_boundary(self):
+        m = mk(pnl=1095, n=275, pf=1.5, years=(600, 168, -22, 227, 122))
+        m["standalone"] = mk_standalone(ex_best_year_pf=1.2)
+        self.assertNotIn("ex_best_year_pf", names(gates.standalone_strategy(m, self.b)))
+        m2 = mk(pnl=1095, n=275, pf=1.5, years=(600, 168, -22, 227, 122))
+        m2["standalone"] = mk_standalone(ex_best_year_pf=1.199)
+        self.assertIn("ex_best_year_pf", names(gates.standalone_strategy(m2, self.b)))
+
+    def test_concurrency_is_info_not_a_gating_check(self):
+        m = mk(pnl=1095, n=275, pf=1.5, years=(600, 168, -22, 227, 122))
+        m["standalone"] = mk_standalone(ex_best_year_pf=1.4, n_exceedance_days=12)
+        r = gates.standalone_strategy(m, self.b)
+        self.assertTrue(r["pass"], names(r))
+        info = [c for c in r["checks"] if c["name"] == "concurrency_info"][0]
+        self.assertTrue(info["ok"])
+        self.assertEqual(info["value"], 12)
+
+    def test_one_year_wonder_like_candidate_fails_ex_best_year(self):
+        # almost all of the P&L is 2022; ex-2022 the strategy is a loser
+        m = mk(pnl=1095, n=275, pf=1.5, years=(1050, 10, -22, 30, 27))
+        m["standalone"] = mk_standalone(ex_best_year_pf=0.8, excluded_year="2022")
+        r = gates.standalone_strategy(m, self.b)
+        self.assertFalse(r["pass"])
+        self.assertIn("ex_best_year_pf", names(r))
+
+    def test_weak_candidate_fails_on_everything(self):
+        m = mk(pnl=200, n=80, pf=1.1, years=(100, 50, -301, 50, -50))  # 3/5, under trades, under worst year
+        m["standalone"] = mk_standalone(daily_corr=0.5, combined_pf=1.2, combined_dd=-600.0,
+                                         combined_active_days=350, baseline_active_days=325, ex_best_year_pf=0.9)
+        r = gates.standalone_strategy(m, self.b)
+        self.assertFalse(r["pass"])
+        failed = set(names(r))
+        for name in ("standalone_pf", "standalone_years_positive", "standalone_trades", "standalone_worst_year",
+                     "daily_corr_with_baseline", "combined_pf", "combined_max_dd", "combined_active_days", "ex_best_year_pf"):
+            self.assertIn(name, failed, name)
+
+
 class EffectiveMaxPositionPct(unittest.TestCase):
     def test_no_override_is_standard(self):
         self.assertEqual(gates.effective_max_position_pct(None), 0.36)

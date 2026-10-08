@@ -4,7 +4,7 @@ evaluation gate → promotion proposal → human promotes (docs/plans/2026-09-26
 
   pipeline.py propose --name NAME --kind ticker --ticker T [--gate default-ticker] [--notes ...] [--source human]
   pipeline.py propose --name NAME --kind config --patch FILE.json [--patch FILE2.json] [--tickers A,B]
-                      [--gate volume-config|quality-config|stress-mode] [--base ROW] [--notes ...]
+                      [--gate volume-config|quality-config|stress-mode|additive-config|sizing-config|standalone-strategy] [--base ROW] [--notes ...]
   pipeline.py list [--stage S]
   pipeline.py show NAME
   pipeline.py advance [--max-backtests N] [--dry-run]      # the nightly entry point
@@ -452,11 +452,14 @@ def candidate_tickers(cand: dict, prom: dict) -> list[str]:
 def baseline_for(base_id: int, tickers: list[str], prom: dict, gate_name: str | None = None) -> tuple[str, list[str] | None]:
     """(tag, sweep args to produce it or None when the research baseline already covers it).
 
-    additive-ticker is always judged against the live book as a whole ('iex_v18'), never against
-    a baseline swept on just the candidate's own (single, new) ticker — that is the point of the
-    gate: the candidate's marginal effect on the book, not its stand-alone record. every other
-    gate's baseline is the promoted config swept on the candidate's own ticker set."""
-    if gate_name == "additive-ticker":
+    additive-ticker and standalone-strategy are always judged against the live book as a whole
+    ('iex_v18'), never against a baseline swept on just the candidate's own ticker(s) — that
+    baseline would itself be a different, barely-traded strategy on those names (additive-ticker:
+    the candidate's marginal effect on the book, not its stand-alone record; standalone-strategy:
+    a second, unrelated strategy — e.g. candidate #47 qqq-noise-pm-vol trades QQQ afternoons with
+    the promoted short windows disabled, so v18-on-QQQ is not a meaningful comparison). every
+    other gate's baseline is the promoted config swept on the candidate's own ticker set."""
+    if gate_name in ("additive-ticker", "standalone-strategy"):
         return "iex_v18", None
     if base_id == prom["id"] and sorted(tickers) == sorted(prom["config_blob"]["tickers"]) and metrics.sweep_files_present("iex_v18"):
         args_file = DATA / "iex_v18.args"
@@ -610,7 +613,10 @@ def run_backtest(cand: dict, actor: str = "pipeline", budget: list[int] | None =
         if bargs:
             ensure_sweep(baseline_tag, bargs)
         baseline = metrics.full_metrics(baseline_tag)
-    m = metrics.full_metrics(tag, tickers, baseline_tag=baseline_tag if gate_name in gates.NEEDS_MARGINAL else None)
+    want_standalone = gate_name in gates.NEEDS_STANDALONE
+    m = metrics.full_metrics(tag, tickers,
+                              baseline_tag=baseline_tag if (gate_name in gates.NEEDS_MARGINAL or want_standalone) else None,
+                              want_standalone=want_standalone)
     g = gates.run_gate(gate_name, m, baseline, sweep_args_override=sweep_args_override)
     if mcheck and not mcheck["ok"]:
         g["checks"].append(gates.check("materialize_equals_patch", False, "identical trade rows on the verify days", False))
@@ -944,7 +950,10 @@ def run_regate(cand: dict, new_gate_raw: str, actor: str = "pipeline") -> str:
         baseline = metrics.full_metrics(baseline_tag)
     prev = cand.get("backtest_result") or {}
     sweep_args_override = prev.get("sweep_args_override")
-    m = metrics.full_metrics(tag, tickers, baseline_tag=baseline_tag if new_gate in gates.NEEDS_MARGINAL else None)
+    want_standalone = new_gate in gates.NEEDS_STANDALONE
+    m = metrics.full_metrics(tag, tickers,
+                              baseline_tag=baseline_tag if (new_gate in gates.NEEDS_MARGINAL or want_standalone) else None,
+                              want_standalone=want_standalone)
     g = gates.run_gate(new_gate, m, baseline, sweep_args_override=sweep_args_override)
     # the materialize-vs-patch check is carried forward unchanged: regate re-runs only the gate math
     # on the existing sweep/materialized row (docs/pipeline.md "regate reuses ... no new sweep and no
@@ -1155,6 +1164,15 @@ def cmd_show(a) -> int:
             "added": f"{metrics.fmt_stats(added)}, worst year {added['worst_year_pnl']:+.0f}, worst trade {added['worst_trade']:+.0f}, worst day {added['worst_day']:+.0f}",
             "added_by_year": {y: metrics.fmt_stats(added["years"][y]) for y in metrics.YEARS},
         }
+    sa = ((cand.get("backtest_result") or {}).get("metrics") or {}).get("standalone")
+    if sa:
+        exb = sa["ex_best_year"]
+        out["standalone_summary"] = {
+            "daily_corr_with_baseline": sa["daily_corr"],
+            "combined_vs_baseline": f"combined {metrics.fmt_stats(sa['combined'])}, dd {sa['combined']['dd']:+.0f} vs baseline {sa['baseline_tag']} {metrics.fmt_stats((cand.get('backtest_result') or {}).get('baseline', {}).get('metrics') or {})}",
+            "active_days": f"combined {sa['combined_active_days']} (candidate {sa['candidate_active_days']}, baseline {sa['baseline_active_days']})",
+            "ex_best_year": f"PF {exb['pf']:.2f} excluding {exb.get('excluded_year')} ({exb.get('excluded_year_pnl'):+.0f}); {metrics.fmt_stats(exb)}",
+        }
     print(json.dumps(out, indent=1, default=str))
     return 0
 
@@ -1196,7 +1214,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--ticker")
     p.add_argument("--patch", action="append", help="patch json (repeatable; applied in order)")
     p.add_argument("--tickers", help="config kind: trade this set instead of the base's")
-    p.add_argument("--gate", default="default", help="default-ticker | volume-config | quality-config | stress-mode")
+    p.add_argument("--gate", default="default", help="default-ticker | volume-config | quality-config | stress-mode | additive-config | additive-ticker | sizing-config | standalone-strategy")
     p.add_argument("--base", type=int, help="config_versions row to build on (default: the promoted row)")
     p.add_argument("--notes")
     p.add_argument("--source", default="human", help="human | routine | scout | agent")
@@ -1219,7 +1237,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(fn=cmd_backtest)
     p = sp.add_parser("regate", help="re-evaluate an existing backtest under a different gate (no new sweep)")
     p.add_argument("name")
-    p.add_argument("--gate", required=True, help="volume-config | quality-config | stress-mode | additive-config | additive-ticker | default-ticker")
+    p.add_argument("--gate", required=True, help="volume-config | quality-config | stress-mode | additive-config | additive-ticker | sizing-config | standalone-strategy | default-ticker")
     p.set_defaults(fn=cmd_regate)
     p = sp.add_parser("evaluate", help="evaluate a shadow trial now")
     p.add_argument("name")

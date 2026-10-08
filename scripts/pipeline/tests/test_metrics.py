@@ -3,6 +3,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import metrics  # noqa: E402
@@ -197,6 +198,156 @@ class MaxPositionFraction(unittest.TestCase):
             ])
             m = metrics.summarize("sz", d)
             self.assertAlmostEqual(m["max_position_fraction"], 37 * 98.1555 / 10000, places=4)
+
+
+class DailySeries(unittest.TestCase):
+    def test_zero_fills_days_without_trades(self):
+        rows = [trade("2024-01-02", "QQQ", "Long", "t1", 10.0), trade("2024-01-04", "QQQ", "Long", "t2", -5.0)]
+        series = metrics.daily_series(rows, ["2024-01-02", "2024-01-03", "2024-01-04"])
+        self.assertEqual(series, {"2024-01-02": 10.0, "2024-01-03": 0.0, "2024-01-04": -5.0})
+
+    def test_sums_same_day_trades(self):
+        rows = [trade("2024-01-02", "QQQ", "Long", "t1", 10.0), trade("2024-01-02", "QQQ", "Short", "t2", 3.0)]
+        series = metrics.daily_series(rows, ["2024-01-02"])
+        self.assertEqual(series, {"2024-01-02": 13.0})
+
+    def test_dates_outside_session_list_are_dropped(self):
+        rows = [trade("2024-01-05", "QQQ", "Long", "t1", 10.0)]
+        series = metrics.daily_series(rows, ["2024-01-02"])
+        self.assertEqual(series, {"2024-01-02": 0.0})
+
+    def test_empty_session_list(self):
+        self.assertEqual(metrics.daily_series([trade("2024-01-02", "QQQ", "Long", "t1", 10.0)], []), {})
+
+
+class PearsonCorr(unittest.TestCase):
+    def test_perfect_positive_correlation(self):
+        a = {"2024-01-02": 1.0, "2024-01-03": 2.0, "2024-01-04": 3.0}
+        b = {"2024-01-02": 10.0, "2024-01-03": 20.0, "2024-01-04": 30.0}
+        self.assertAlmostEqual(metrics.pearson_corr(a, b), 1.0)
+
+    def test_perfect_negative_correlation(self):
+        a = {"2024-01-02": 1.0, "2024-01-03": 2.0, "2024-01-04": 3.0}
+        b = {"2024-01-02": -1.0, "2024-01-03": -2.0, "2024-01-04": -3.0}
+        self.assertAlmostEqual(metrics.pearson_corr(a, b), -1.0)
+
+    def test_uncorrelated_series(self):
+        a = {"2024-01-02": 1.0, "2024-01-03": -1.0, "2024-01-04": 1.0, "2024-01-05": -1.0}
+        b = {"2024-01-02": 1.0, "2024-01-03": 1.0, "2024-01-04": -1.0, "2024-01-05": -1.0}
+        self.assertAlmostEqual(metrics.pearson_corr(a, b), 0.0)
+
+    def test_only_shared_dates_count(self):
+        a = {"2024-01-02": 1.0, "2024-01-03": 2.0, "2024-01-04": 3.0, "2024-01-09": 999.0}
+        b = {"2024-01-02": 10.0, "2024-01-03": 20.0, "2024-01-04": 30.0}
+        self.assertAlmostEqual(metrics.pearson_corr(a, b), 1.0)
+
+    def test_fewer_than_two_shared_dates_is_zero(self):
+        self.assertEqual(metrics.pearson_corr({"2024-01-02": 1.0}, {"2024-01-02": 2.0}), 0.0)
+        self.assertEqual(metrics.pearson_corr({}, {}), 0.0)
+
+    def test_zero_variance_is_zero(self):
+        a = {"2024-01-02": 1.0, "2024-01-03": 1.0, "2024-01-04": 1.0}
+        b = {"2024-01-02": 10.0, "2024-01-03": 20.0, "2024-01-04": 30.0}
+        self.assertEqual(metrics.pearson_corr(a, b), 0.0)
+
+
+class DrawdownOnSeries(unittest.TestCase):
+    def test_monotonic_gains_have_no_drawdown(self):
+        series = {"2024-01-02": 10.0, "2024-01-03": 5.0, "2024-01-04": 1.0}
+        self.assertEqual(metrics.drawdown_on_series(series), 0.0)
+
+    def test_drop_from_peak(self):
+        # equity: 10 -> 25 (peak) -> 5 -> dd = 5 - 25 = -20
+        series = {"2024-01-02": 10.0, "2024-01-03": 15.0, "2024-01-04": -20.0}
+        self.assertEqual(metrics.drawdown_on_series(series), -20.0)
+
+    def test_empty_series(self):
+        self.assertEqual(metrics.drawdown_on_series({}), 0.0)
+
+    def test_combine_series_sums_overlapping_dates(self):
+        a = {"2024-01-02": 10.0, "2024-01-03": 5.0}
+        b = {"2024-01-02": -3.0, "2024-01-04": 7.0}
+        self.assertEqual(metrics.combine_series(a, b), {"2024-01-02": 7.0, "2024-01-03": 5.0, "2024-01-04": 7.0})
+
+
+class ExBestYearPf(unittest.TestCase):
+    def test_excludes_the_highest_pnl_year(self):
+        rows = [
+            trade("2022-01-04", "QQQ", "Long", "t1", 1000.0),  # the one great year
+            trade("2023-01-04", "QQQ", "Long", "t2", 50.0),
+            trade("2023-02-04", "QQQ", "Short", "t3", -30.0),
+        ]
+        for r in rows:
+            r["year"] = r["date"][:4]
+        out = metrics.ex_best_year_pf(rows)
+        self.assertEqual(out["excluded_year"], "2022")
+        self.assertEqual(out["excluded_year_pnl"], 1000.0)
+        self.assertEqual(out["n"], 2)
+        self.assertEqual(out["pnl"], 20.0)
+
+    def test_all_years_empty_is_zero_pf_not_fatal(self):
+        out = metrics.ex_best_year_pf([])
+        self.assertEqual(out["n"], 0)
+        self.assertEqual(out["pf"], 0.0)
+        self.assertIn(out["excluded_year"], metrics.YEARS)
+
+
+class StandaloneMetrics(unittest.TestCase):
+    """metrics.standalone_metrics(): the standalone-strategy gate's inputs beyond summarize()."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.dir = Path(self.tmp.name)
+        for y in metrics.YEARS:
+            write_trades(self.dir / f"base_{y}_trades.csv", [])
+            write_trades(self.dir / f"cand_{y}_trades.csv", [])
+        write_trades(self.dir / "base_2022_trades.csv", [
+            trade("2022-01-04", "AAPL", "Short", "2022-01-04T15:01:00+00:00", 100.0, exit_time="2022-01-04T15:05:00+00:00"),
+            trade("2022-01-05", "AAPL", "Short", "2022-01-05T15:01:00+00:00", -20.0, exit_time="2022-01-05T15:05:00+00:00"),
+        ])
+        write_trades(self.dir / "cand_2022_trades.csv", [
+            trade("2022-01-04", "QQQ", "Long", "2022-01-04T19:01:00+00:00", 50.0, exit_time="2022-01-04T19:05:00+00:00"),
+            trade("2022-01-06", "QQQ", "Long", "2022-01-06T19:01:00+00:00", 30.0, exit_time="2022-01-06T19:05:00+00:00"),
+        ])
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def _session_list(self):
+        return ["2022-01-04", "2022-01-05", "2022-01-06", "2022-01-07"]
+
+    def test_full_metrics_attaches_standalone_only_when_requested(self):
+        m = metrics.full_metrics("cand", data_dir=self.dir, baseline_tag="base")
+        self.assertIn("marginal", m)
+        self.assertNotIn("standalone", m)
+        m = metrics.full_metrics("cand", data_dir=self.dir, baseline_tag="base", want_standalone=True)
+        self.assertIn("standalone", m)
+        self.assertNotIn("marginal", m)
+
+    def test_combined_is_concatenation_of_both_trade_sets(self):
+        with mock.patch.object(metrics, "spy_session_list", return_value=self._session_list()):
+            sa = metrics.standalone_metrics("cand", "base", self.dir)
+        self.assertEqual(sa["combined"]["n"], 4)
+        self.assertEqual(sa["combined"]["pnl"], 100.0 - 20.0 + 50.0 + 30.0)
+
+    def test_active_day_counts(self):
+        with mock.patch.object(metrics, "spy_session_list", return_value=self._session_list()):
+            sa = metrics.standalone_metrics("cand", "base", self.dir)
+        self.assertEqual(sa["baseline_active_days"], 2)  # 01-04, 01-05
+        self.assertEqual(sa["candidate_active_days"], 2)  # 01-04, 01-06
+        self.assertEqual(sa["combined_active_days"], 3)  # 01-04, 01-05, 01-06
+
+    def test_daily_corr_is_between_the_two_zero_filled_series(self):
+        with mock.patch.object(metrics, "spy_session_list", return_value=self._session_list()):
+            sa = metrics.standalone_metrics("cand", "base", self.dir)
+        cand_series = metrics.daily_series(metrics.load_trades("cand", self.dir), self._session_list())
+        base_series = metrics.daily_series(metrics.load_trades("base", self.dir), self._session_list())
+        self.assertAlmostEqual(sa["daily_corr"], metrics.pearson_corr(cand_series, base_series))
+
+    def test_ex_best_year_present(self):
+        with mock.patch.object(metrics, "spy_session_list", return_value=self._session_list()):
+            sa = metrics.standalone_metrics("cand", "base", self.dir)
+        self.assertEqual(sa["ex_best_year"]["excluded_year"], "2022")  # the only year with trades
 
 
 if __name__ == "__main__":

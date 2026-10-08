@@ -48,6 +48,11 @@ def _bt_cell(c: dict) -> str:
     if mg:
         a = mg["added"]
         addcell = f" · added {a['pnl']:+.0f} / {a['n']} / PF {a['pf']:.2f} (worst yr {a['worst_year_pnl']:+.0f}, worst day {a['worst_day']:+.0f})"
+    sa = m.get("standalone")
+    if sa:
+        exb = sa["ex_best_year"]
+        addcell += (f" · corr {sa['daily_corr']:+.2f} vs {sa['baseline_tag']} · combined PF {sa['combined']['pf']:.2f} / dd {sa['combined']['dd']:+.0f}"
+                    f" · active days {sa['combined_active_days']} (base {sa['baseline_active_days']}) · ex-best-yr PF {exb['pf']:.2f} (excl {exb.get('excluded_year')})")
     return f"{m['pnl']:+.0f} / {m['n']} / PF {m['pf']:.2f} · {years} · {verdict}{bcell}{addcell}"
 
 

@@ -15,7 +15,7 @@ adjustments) and its review. implementation notes: `scripts/pipeline/` (runner),
 |---|---|---|
 | **candidate** | one idea in the lane. kind `ticker` (the promoted config on one more name) or `config` (the promoted blob plus a patch). carries its gate, stage, results, cooldown | `pipeline_candidates`, every transition in `pipeline_events` |
 | **stage** | `proposed → backtesting → backtest_passed \| backtest_failed → shadow → shadow_passed \| shadow_failed → promotion_proposed → promoted`; `withdrawn` (human, from anywhere); `rejected` | `pipeline_candidates.stage` |
-| **gate** | a named, pre-registered accept-if rule set over the five-year IEX replay at 36 % sizing (comparable with the research record). `default-ticker`, `volume-config`, `quality-config`, `stress-mode`, `additive-config`, `sizing-config` | `scripts/pipeline/gates.py`; result json in `backtest_result` / `shadow_result` |
+| **gate** | a named, pre-registered accept-if rule set over the five-year IEX replay at 36 % sizing (comparable with the research record). `default-ticker`, `volume-config`, `quality-config`, `stress-mode`, `additive-config`, `additive-ticker`, `sizing-config`, `standalone-strategy` | `scripts/pipeline/gates.py`; result json in `backtest_result` / `shadow_result` |
 | **book** | one engine set the trader hosts. `primary` (role primary; exactly one enabled) or a shadow (role shadow; config row or ticker set; **always** a `SimulatedBroker`) | `books`; per-day hosting in `book_sessions` |
 | **materialized config** | for a `config` candidate: base blob + patch inserted as a `config_versions` row (`status='backtesting'`, `created_by='pipeline'`, candidate name in `mutation_reason`). that one row is backtested, shadowed and promoted | `pipeline_candidates.materialized_config_id` |
 
@@ -74,6 +74,39 @@ entry_price ÷ 10,000 capital) ≤ the candidate's own effective cap × 1.02 —
 `--max-position-pct` if it has one, else the standard 0.36 (`gates.effective_max_position_pct()`),
 with a 2 % tolerance for whole-share rounding and fill-price-vs-sizing-price drift. a `_sweep_args`
 override therefore raises both the sweep's clamp and the gate's own cap check together, by design.
+
+`standalone-strategy` is for a candidate that is a second, unrelated strategy — its own book, its
+own tickers, often its own entry logic, not an addition to the live book's existing trades (e.g.
+candidate #48 `qqq-noise-pm-vol`: QQQ only, afternoons, long and short, with the promoted short
+windows disabled). the other config gates all compare the candidate against the promoted config
+swept on the *candidate's own tickers* — meaningless here, since v18 on QQQ alone is a different,
+barely-traded strategy, not a baseline for this one. like `additive-ticker`, the baseline is
+forced to `iex_v18` (the live book's own record) regardless of the candidate's ticker set
+(`baseline_for()`'s `gate_name in ("additive-ticker", "standalone-strategy")` branch). the
+candidate is judged two ways at once: on its own 5y record (a higher bar than `default-ticker`,
+since this is a brand-new book, not a single extra name on the existing one), and on what it adds
+to the live book if run alongside it. `metrics.standalone_metrics()` builds a daily P&L series for
+the candidate and for `iex_v18` over the union of SPY's sessions (`data/bars_iex/SPY.csv`,
+zero-filled on days without trades), their Pearson correlation, the combined book (baseline rows +
+candidate rows, a plain concatenation — exact, since the live replay runs every book independently)
+with its drawdown computed on the combined *daily* series, active-day counts (days with ≥ 1
+trade), and the candidate's PF with its single best year excluded (`ex_best_year_pf()` — guards
+against a one-year wonder; the index-momentum study flagged that 55 % of #48's P&L is 2022, which
+is exactly what this check is for). checks: `standalone_pf` ≥ 1.4; `standalone_years_positive`
+≥ 4 of 5; `standalone_trades` ≥ 150 (5y); `standalone_worst_year` ≥ −300 (36 % sizing);
+`daily_corr_with_baseline` ≤ 0.30 (Pearson on the daily series over all sessions); `combined_pf` ≥
+baseline PF (not dilutive); `combined_max_dd` ≥ baseline max DD × 1.25 (no more than 25 % deeper,
+computed on the combined daily series); `combined_active_days` ≥ baseline active days × 1.25.
+the live 3-position cap is reported as info over the combined set
+(`metrics.concurrency_exceedance()`) and never gated, same rationale as `additive-ticker`: the
+replay runs each ticker set independently, so a straight concatenation is exact except for that
+cap. a standalone candidate commonly needs a longer warm-up than the primary's 8 days (e.g. #48's
+14-session lookback needs ≥ 22 calendar days): put `_sweep_args: "--lookback-days N"` in the patch
+(`run_backtest()` appends it to the gate sweep's argv after the standard sizing args, and
+`crates/backtest/src/main.rs`'s `get_arg()` resolves a repeated flag to its last occurrence, so it
+overrides `backtest_cached_range.sh`'s own `--lookback-days 8`); the patch's `session.warmup_days`
+is what the *live* trader reads for its own per-symbol warm-up once shadowed
+(`crates/data_feed/src/book.rs`), independent of the gate sweep's `_sweep_args`.
 
 `advance --dry-run` prints what it would do and writes nothing. `regate` reuses the tag's sweep CSVs
 and, for a config candidate, the already-materialized `config_versions` row — no new sweep and no
