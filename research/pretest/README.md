@@ -38,6 +38,24 @@ rebuilt automatically when the CSV is newer).
 - `calendar_control()` compares a calendar rule with the same trade on random sessions (5000 draws)
   — a long-only rule in a rising market needs this to mean anything.
 
+## verdict standard (since round 1b, 2026-10-08)
+A cell is only `dead` after a **pre-registered neighbourhood** around the paper's rule has been
+scanned (grid of its real knobs — threshold, stop, window, lag, bucket width — written down
+*before* the run), not after one point. Every grid cell's result is kept in `results/<id>.json`,
+not just the primary/best one. Verdicts, applied to the best-by-P&L point that clears the kill bar
+(or, if none does, the best-by-P&L point overall):
+- **dead** — no grid point anywhere in the neighbourhood has a positive *gross* edge.
+- **sub-cost** — some point has a positive gross edge, but net fails the kill bar; report the gross
+  bps/trade so the gap to cost is visible, not just "fails."
+- **decayed** — the bar-clearing point is positive in the early years and <=0 in the last two
+  (split reported explicitly, not asserted).
+- **fragile** — clears the bar but >=70% of its P&L comes from one instrument/name or its 3 best
+  trades.
+- **pass** — clears the bar, not fragile, not decayed.
+Every cell also reports: the number of grid cells scanned, the best cell (rule + net bps + PF +
+years), LOYO on whatever parameter was swept, and a random-session (or permutation) control —
+is the rule better than the same trade on an unconditioned sample of sessions/signs?
+
 ## adding a cell
 Write a rule in `cells.py`, append a dict to `CELLS` with the kill criterion copied from the
 matrix *before* running it, run `harness.py <id>`, and record the verdict in the matrix.
@@ -51,3 +69,10 @@ matrix *before* running it, run `harness.py <id>`, and record the verdict in the
   SPY+QQQ+IWM for index cells, the 4 names + the other ~30 large caps in `data/bars_iex` for
   single-stock cells) rather than one grid point, and uses finer verdicts (`dead` / `sub-cost` /
   `decayed` / `fragile` / `pass`) alongside the matrix's `pass-pretest`/`needs-product`/`dead`.
+- `2026-10-08_pretest_round1b.md` — bigger pre-registered neighbourhoods on round 1's own five
+  cells (#1 ORB, #6 HKS, #15 earnings gap, #17 turn-of-month, #9 pre-FOMC), written in
+  `cells_round1b.py` rather than `cells.py`: a custom VWAP-stop executor and a cross-sectional
+  rank-and-trade shape (HKS done the paper's way, across ~34 names) don't fit `cells.py`'s
+  one-symbol-at-a-time `rule(b, i, p) -> [Order]` interface, so this file is run **standalone**
+  through `harness.py`'s loader functions (`python3 research/pretest/cells_round1b.py`) and writes
+  its own `results/c1{1..5}_*.json` — `harness.py` and `cells.py` are untouched.

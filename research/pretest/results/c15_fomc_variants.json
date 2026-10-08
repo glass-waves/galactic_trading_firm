@@ -1,0 +1,1042 @@
+{
+ "id": "c15_fomc_variants",
+ "anomaly": "#9 pre-FOMC drift, variant + instrument neighbourhood",
+ "cells_scanned": 15,
+ "n_fomc_days": 40,
+ "instruments": [
+  "SPY",
+  "QQQ",
+  "IWM"
+ ],
+ "grid": {
+  "paper 14:00(d-1)->14:00(d)|SPY": {
+   "n": 38,
+   "pnl": 293.2,
+   "win": 65.8,
+   "pf": 2.569,
+   "bps": 22.73,
+   "gross_bps": 28.93,
+   "trades_yr": 8.0,
+   "active_share": 0.0318,
+   "max_dd": -79.5,
+   "worst_day": -37.8,
+   "pnl_ex_top3": 130.7,
+   "years_pos": 3,
+   "per_year": {
+    "2022": {
+     "pnl": 239.4,
+     "n": 8,
+     "pf": 14.23,
+     "bps": 87.94
+    },
+    "2023": {
+     "pnl": 47.4,
+     "n": 8,
+     "pf": 4.79,
+     "bps": 16.97
+    },
+    "2024": {
+     "pnl": 62.7,
+     "n": 8,
+     "pf": 1.99,
+     "bps": 25.41
+    },
+    "2025": {
+     "pnl": -0.2,
+     "n": 8,
+     "pf": 0.99,
+     "bps": -0.74
+    },
+    "2026": {
+     "pnl": -56.1,
+     "n": 6,
+     "pf": 0.15,
+     "bps": -28.84
+    }
+   },
+   "overnight": true
+  },
+  "paper 14:00(d-1)->14:00(d)|QQQ": {
+   "n": 38,
+   "pnl": 516.4,
+   "win": 65.8,
+   "pf": 2.966,
+   "bps": 39.05,
+   "gross_bps": 45.3,
+   "trades_yr": 8.0,
+   "active_share": 0.0318,
+   "max_dd": -89.1,
+   "worst_day": -52.6,
+   "pnl_ex_top3": 239.3,
+   "years_pos": 3,
+   "per_year": {
+    "2022": {
+     "pnl": 373.4,
+     "n": 8,
+     "pf": 11.9,
+     "bps": 132.45
+    },
+    "2023": {
+     "pnl": 64.1,
+     "n": 8,
+     "pf": 2.93,
+     "bps": 23.06
+    },
+    "2024": {
+     "pnl": 100.8,
+     "n": 8,
+     "pf": 2.1,
+     "bps": 39.14
+    },
+    "2025": {
+     "pnl": -7.4,
+     "n": 8,
+     "pf": 0.85,
+     "bps": -2.7
+    },
+    "2026": {
+     "pnl": -14.5,
+     "n": 6,
+     "pf": 0.74,
+     "bps": -8.6
+    }
+   },
+   "overnight": true
+  },
+  "paper 14:00(d-1)->14:00(d)|IWM": {
+   "n": 38,
+   "pnl": 358.6,
+   "win": 55.3,
+   "pf": 2.097,
+   "bps": 27.16,
+   "gross_bps": 33.65,
+   "trades_yr": 8.0,
+   "active_share": 0.0318,
+   "max_dd": -109.0,
+   "worst_day": -66.8,
+   "pnl_ex_top3": 98.6,
+   "years_pos": 3,
+   "per_year": {
+    "2022": {
+     "pnl": 221.8,
+     "n": 8,
+     "pf": 3.63,
+     "bps": 78.49
+    },
+    "2023": {
+     "pnl": -5.7,
+     "n": 8,
+     "pf": 0.93,
+     "bps": -1.23
+    },
+    "2024": {
+     "pnl": 82.7,
+     "n": 8,
+     "pf": 2.35,
+     "bps": 30.51
+    },
+    "2025": {
+     "pnl": 113.0,
+     "n": 8,
+     "pf": 14.66,
+     "bps": 40.0
+    },
+    "2026": {
+     "pnl": -53.3,
+     "n": 6,
+     "pf": 0.42,
+     "bps": -25.02
+    }
+   },
+   "overnight": true
+  },
+  "FOMC day 09:30->14:00|SPY": {
+   "n": 38,
+   "pnl": -28.9,
+   "win": 42.1,
+   "pf": 0.78,
+   "bps": -2.46,
+   "gross_bps": 3.73,
+   "trades_yr": 8.0,
+   "active_share": 0.0318,
+   "max_dd": -83.4,
+   "worst_day": -16.1,
+   "pnl_ex_top3": -75.3,
+   "years_pos": 1,
+   "per_year": {
+    "2022": {
+     "pnl": 52.9,
+     "n": 8,
+     "pf": 5.44,
+     "bps": 19.8
+    },
+    "2023": {
+     "pnl": -13.4,
+     "n": 8,
+     "pf": 0.37,
+     "bps": -4.92
+    },
+    "2024": {
+     "pnl": -2.0,
+     "n": 8,
+     "pf": 0.91,
+     "bps": -0.53
+    },
+    "2025": {
+     "pnl": -22.8,
+     "n": 8,
+     "pf": 0.23,
+     "bps": -9.11
+    },
+    "2026": {
+     "pnl": -43.7,
+     "n": 6,
+     "pf": 0.03,
+     "bps": -22.6
+    }
+   },
+   "overnight": false
+  },
+  "FOMC day 09:30->14:00|QQQ": {
+   "n": 38,
+   "pnl": 54.0,
+   "win": 50.0,
+   "pf": 1.264,
+   "bps": 3.69,
+   "gross_bps": 9.93,
+   "trades_yr": 8.0,
+   "active_share": 0.0318,
+   "max_dd": -95.2,
+   "worst_day": -26.8,
+   "pnl_ex_top3": -42.4,
+   "years_pos": 3,
+   "per_year": {
+    "2022": {
+     "pnl": 115.9,
+     "n": 8,
+     "pf": 4.91,
+     "bps": 42.33
+    },
+    "2023": {
+     "pnl": 4.2,
+     "n": 8,
+     "pf": 1.12,
+     "bps": 1.44
+    },
+    "2024": {
+     "pnl": 21.6,
+     "n": 8,
+     "pf": 1.78,
+     "bps": 7.88
+    },
+    "2025": {
+     "pnl": -48.0,
+     "n": 8,
+     "pf": 0.2,
+     "bps": -18.28
+    },
+    "2026": {
+     "pnl": -39.8,
+     "n": 6,
+     "pf": 0.21,
+     "bps": -21.1
+    }
+   },
+   "overnight": false
+  },
+  "FOMC day 09:30->14:00|IWM": {
+   "n": 38,
+   "pnl": 75.7,
+   "win": 55.3,
+   "pf": 1.292,
+   "bps": 5.78,
+   "gross_bps": 12.26,
+   "trades_yr": 8.0,
+   "active_share": 0.0318,
+   "max_dd": -63.6,
+   "worst_day": -33.7,
+   "pnl_ex_top3": -41.3,
+   "years_pos": 3,
+   "per_year": {
+    "2022": {
+     "pnl": 44.2,
+     "n": 8,
+     "pf": 1.98,
+     "bps": 15.6
+    },
+    "2023": {
+     "pnl": -32.6,
+     "n": 8,
+     "pf": 0.64,
+     "bps": -11.03
+    },
+    "2024": {
+     "pnl": 8.6,
+     "n": 8,
+     "pf": 1.41,
+     "bps": 3.18
+    },
+    "2025": {
+     "pnl": 93.0,
+     "n": 8,
+     "pf": 8.17,
+     "bps": 32.92
+    },
+    "2026": {
+     "pnl": -37.4,
+     "n": 6,
+     "pf": 0.59,
+     "bps": -17.66
+    }
+   },
+   "overnight": false
+  },
+  "day-before intraday open->close|SPY": {
+   "n": 38,
+   "pnl": -186.9,
+   "win": 42.1,
+   "pf": 0.566,
+   "bps": -14.49,
+   "gross_bps": -8.29,
+   "trades_yr": 8.0,
+   "active_share": 0.0318,
+   "max_dd": -253.9,
+   "worst_day": -68.2,
+   "pnl_ex_top3": -300.4,
+   "years_pos": 1,
+   "per_year": {
+    "2022": {
+     "pnl": -122.0,
+     "n": 8,
+     "pf": 0.35,
+     "bps": -44.44
+    },
+    "2023": {
+     "pnl": 62.3,
+     "n": 8,
+     "pf": 2.67,
+     "bps": 23.88
+    },
+    "2024": {
+     "pnl": -41.0,
+     "n": 8,
+     "pf": 0.54,
+     "bps": -15.0
+    },
+    "2025": {
+     "pnl": -52.6,
+     "n": 8,
+     "pf": 0.27,
+     "bps": -19.75
+    },
+    "2026": {
+     "pnl": -33.6,
+     "n": 6,
+     "pf": 0.22,
+     "bps": -18.01
+    }
+   },
+   "overnight": false
+  },
+  "day-before intraday open->close|QQQ": {
+   "n": 38,
+   "pnl": -264.4,
+   "win": 44.7,
+   "pf": 0.585,
+   "bps": -20.6,
+   "gross_bps": -14.37,
+   "trades_yr": 8.0,
+   "active_share": 0.0318,
+   "max_dd": -325.4,
+   "worst_day": -99.9,
+   "pnl_ex_top3": -427.2,
+   "years_pos": 1,
+   "per_year": {
+    "2022": {
+     "pnl": -194.4,
+     "n": 8,
+     "pf": 0.29,
+     "bps": -70.16
+    },
+    "2023": {
+     "pnl": 95.3,
+     "n": 8,
+     "pf": 3.59,
+     "bps": 34.54
+    },
+    "2024": {
+     "pnl": -73.3,
+     "n": 8,
+     "pf": 0.54,
+     "bps": -27.86
+    },
+    "2025": {
+     "pnl": -19.0,
+     "n": 8,
+     "pf": 0.78,
+     "bps": -5.34
+    },
+    "2026": {
+     "pnl": -73.1,
+     "n": 6,
+     "pf": 0.1,
+     "bps": -38.74
+    }
+   },
+   "overnight": false
+  },
+  "day-before intraday open->close|IWM": {
+   "n": 38,
+   "pnl": -245.0,
+   "win": 39.5,
+   "pf": 0.533,
+   "bps": -18.55,
+   "gross_bps": -12.07,
+   "trades_yr": 8.0,
+   "active_share": 0.0318,
+   "max_dd": -314.1,
+   "worst_day": -85.3,
+   "pnl_ex_top3": -397.1,
+   "years_pos": 1,
+   "per_year": {
+    "2022": {
+     "pnl": -105.6,
+     "n": 8,
+     "pf": 0.4,
+     "bps": -37.04
+    },
+    "2023": {
+     "pnl": 50.9,
+     "n": 8,
+     "pf": 1.63,
+     "bps": 17.25
+    },
+    "2024": {
+     "pnl": -30.6,
+     "n": 8,
+     "pf": 0.66,
+     "bps": -11.12
+    },
+    "2025": {
+     "pnl": -76.0,
+     "n": 8,
+     "pf": 0.15,
+     "bps": -27.69
+    },
+    "2026": {
+     "pnl": -83.7,
+     "n": 6,
+     "pf": 0.08,
+     "bps": -39.36
+    }
+   },
+   "overnight": false
+  },
+  "post-announcement 14:00->close (same day)|SPY": {
+   "n": 38,
+   "pnl": -359.6,
+   "win": 39.5,
+   "pf": 0.504,
+   "bps": -28.73,
+   "gross_bps": -22.54,
+   "trades_yr": 8.0,
+   "active_share": 0.0318,
+   "max_dd": -463.5,
+   "worst_day": -92.3,
+   "pnl_ex_top3": -530.5,
+   "years_pos": 1,
+   "per_year": {
+    "2022": {
+     "pnl": -109.3,
+     "n": 8,
+     "pf": 0.61,
+     "bps": -39.29
+    },
+    "2023": {
+     "pnl": -19.7,
+     "n": 8,
+     "pf": 0.85,
+     "bps": -4.15
+    },
+    "2024": {
+     "pnl": -122.9,
+     "n": 8,
+     "pf": 0.2,
+     "bps": -48.45
+    },
+    "2025": {
+     "pnl": 14.4,
+     "n": 8,
+     "pf": 1.36,
+     "bps": 5.3
+    },
+    "2026": {
+     "pnl": -122.0,
+     "n": 6,
+     "pf": 0.02,
+     "bps": -66.5
+    }
+   },
+   "overnight": false
+  },
+  "post-announcement 14:00->close (same day)|QQQ": {
+   "n": 38,
+   "pnl": -330.4,
+   "win": 50.0,
+   "pf": 0.61,
+   "bps": -26.44,
+   "gross_bps": -20.2,
+   "trades_yr": 8.0,
+   "active_share": 0.0318,
+   "max_dd": -456.8,
+   "worst_day": -110.4,
+   "pnl_ex_top3": -559.1,
+   "years_pos": 2,
+   "per_year": {
+    "2022": {
+     "pnl": -131.2,
+     "n": 8,
+     "pf": 0.62,
+     "bps": -44.45
+    },
+    "2023": {
+     "pnl": 32.2,
+     "n": 8,
+     "pf": 1.23,
+     "bps": 10.23
+    },
+    "2024": {
+     "pnl": -124.7,
+     "n": 8,
+     "pf": 0.3,
+     "bps": -48.98
+    },
+    "2025": {
+     "pnl": 40.3,
+     "n": 8,
+     "pf": 2.43,
+     "bps": 15.62
+    },
+    "2026": {
+     "pnl": -147.0,
+     "n": 6,
+     "pf": 0.07,
+     "bps": -77.32
+    }
+   },
+   "overnight": false
+  },
+  "post-announcement 14:00->close (same day)|IWM": {
+   "n": 38,
+   "pnl": -537.1,
+   "win": 36.8,
+   "pf": 0.527,
+   "bps": -40.49,
+   "gross_bps": -34.02,
+   "trades_yr": 8.0,
+   "active_share": 0.0318,
+   "max_dd": -619.1,
+   "worst_day": -177.4,
+   "pnl_ex_top3": -848.9,
+   "years_pos": 1,
+   "per_year": {
+    "2022": {
+     "pnl": -109.6,
+     "n": 8,
+     "pf": 0.63,
+     "bps": -40.74
+    },
+    "2023": {
+     "pnl": 56.3,
+     "n": 8,
+     "pf": 1.29,
+     "bps": 20.24
+    },
+    "2024": {
+     "pnl": -233.8,
+     "n": 8,
+     "pf": 0.22,
+     "bps": -82.86
+    },
+    "2025": {
+     "pnl": -71.7,
+     "n": 8,
+     "pf": 0.57,
+     "bps": -25.26
+    },
+    "2026": {
+     "pnl": -178.3,
+     "n": 6,
+     "pf": 0.01,
+     "bps": -84.95
+    }
+   },
+   "overnight": false
+  },
+  "next-day open->close|SPY": {
+   "n": 38,
+   "pnl": -295.5,
+   "win": 36.8,
+   "pf": 0.508,
+   "bps": -22.91,
+   "gross_bps": -16.72,
+   "trades_yr": 8.0,
+   "active_share": 0.0318,
+   "max_dd": -340.6,
+   "worst_day": -84.8,
+   "pnl_ex_top3": -430.1,
+   "years_pos": 1,
+   "per_year": {
+    "2022": {
+     "pnl": -159.6,
+     "n": 8,
+     "pf": 0.35,
+     "bps": -57.47
+    },
+    "2023": {
+     "pnl": -36.2,
+     "n": 8,
+     "pf": 0.72,
+     "bps": -14.42
+    },
+    "2024": {
+     "pnl": -68.6,
+     "n": 8,
+     "pf": 0.39,
+     "bps": -25.86
+    },
+    "2025": {
+     "pnl": -58.3,
+     "n": 8,
+     "pf": 0.36,
+     "bps": -21.74
+    },
+    "2026": {
+     "pnl": 27.1,
+     "n": 6,
+     "pf": 2.12,
+     "bps": 14.25
+    }
+   },
+   "overnight": false
+  },
+  "next-day open->close|QQQ": {
+   "n": 38,
+   "pnl": -498.4,
+   "win": 44.7,
+   "pf": 0.407,
+   "bps": -38.19,
+   "gross_bps": -31.96,
+   "trades_yr": 8.0,
+   "active_share": 0.0318,
+   "max_dd": -580.5,
+   "worst_day": -131.2,
+   "pnl_ex_top3": -649.1,
+   "years_pos": 1,
+   "per_year": {
+    "2022": {
+     "pnl": -307.7,
+     "n": 8,
+     "pf": 0.23,
+     "bps": -108.74
+    },
+    "2023": {
+     "pnl": -14.0,
+     "n": 8,
+     "pf": 0.88,
+     "bps": -4.56
+    },
+    "2024": {
+     "pnl": -126.2,
+     "n": 8,
+     "pf": 0.25,
+     "bps": -48.25
+    },
+    "2025": {
+     "pnl": -114.2,
+     "n": 8,
+     "pf": 0.17,
+     "bps": -43.26
+    },
+    "2026": {
+     "pnl": 63.7,
+     "n": 6,
+     "pf": 4.46,
+     "bps": 31.21
+    }
+   },
+   "overnight": false
+  },
+  "next-day open->close|IWM": {
+   "n": 38,
+   "pnl": -278.9,
+   "win": 50.0,
+   "pf": 0.696,
+   "bps": -20.29,
+   "gross_bps": -13.81,
+   "trades_yr": 8.0,
+   "active_share": 0.0318,
+   "max_dd": -468.0,
+   "worst_day": -118.7,
+   "pnl_ex_top3": -473.0,
+   "years_pos": 2,
+   "per_year": {
+    "2022": {
+     "pnl": -312.8,
+     "n": 8,
+     "pf": 0.29,
+     "bps": -110.31
+    },
+    "2023": {
+     "pnl": -5.7,
+     "n": 8,
+     "pf": 0.96,
+     "bps": -1.92
+    },
+    "2024": {
+     "pnl": -126.9,
+     "n": 8,
+     "pf": 0.4,
+     "bps": -44.27
+    },
+    "2025": {
+     "pnl": 65.5,
+     "n": 8,
+     "pf": 2.05,
+     "bps": 23.98
+    },
+    "2026": {
+     "pnl": 101.0,
+     "n": 6,
+     "pf": 3.31,
+     "bps": 48.2
+    }
+   },
+   "overnight": false
+  }
+ },
+ "decay_split_gross_bps": {
+  "paper 14:00(d-1)->14:00(d)|SPY": {
+   "gross_early_22_24_bps": 49.68,
+   "gross_late_25_26_bps": -6.64,
+   "n_early": 24,
+   "n_late": 14
+  },
+  "paper 14:00(d-1)->14:00(d)|QQQ": {
+   "gross_early_22_24_bps": 71.18,
+   "gross_late_25_26_bps": 0.94,
+   "n_early": 24,
+   "n_late": 14
+  },
+  "paper 14:00(d-1)->14:00(d)|IWM": {
+   "gross_early_22_24_bps": 42.45,
+   "gross_late_25_26_bps": 18.55,
+   "n_early": 24,
+   "n_late": 14
+  },
+  "FOMC day 09:30->14:00|SPY": {
+   "gross_early_22_24_bps": 11.01,
+   "gross_late_25_26_bps": -8.74,
+   "n_early": 24,
+   "n_late": 14
+  },
+  "FOMC day 09:30->14:00|QQQ": {
+   "gross_early_22_24_bps": 23.5,
+   "gross_late_25_26_bps": -13.33,
+   "n_early": 24,
+   "n_late": 14
+  },
+  "FOMC day 09:30->14:00|IWM": {
+   "gross_early_22_24_bps": 9.11,
+   "gross_late_25_26_bps": 17.66,
+   "n_early": 24,
+   "n_late": 14
+  },
+  "day-before intraday open->close|SPY": {
+   "gross_early_22_24_bps": -5.63,
+   "gross_late_25_26_bps": -12.85,
+   "n_early": 24,
+   "n_late": 14
+  },
+  "day-before intraday open->close|QQQ": {
+   "gross_early_22_24_bps": -14.89,
+   "gross_late_25_26_bps": -13.49,
+   "n_early": 24,
+   "n_late": 14
+  },
+  "day-before intraday open->close|IWM": {
+   "gross_early_22_24_bps": -3.78,
+   "gross_late_25_26_bps": -26.29,
+   "n_early": 24,
+   "n_late": 14
+  },
+  "post-announcement 14:00->close (same day)|SPY": {
+   "gross_early_22_24_bps": -24.42,
+   "gross_late_25_26_bps": -19.33,
+   "n_early": 24,
+   "n_late": 14
+  },
+  "post-announcement 14:00->close (same day)|QQQ": {
+   "gross_early_22_24_bps": -21.46,
+   "gross_late_25_26_bps": -18.05,
+   "n_early": 24,
+   "n_late": 14
+  },
+  "post-announcement 14:00->close (same day)|IWM": {
+   "gross_early_22_24_bps": -27.94,
+   "gross_late_25_26_bps": -44.44,
+   "n_early": 24,
+   "n_late": 14
+  },
+  "next-day open->close|SPY": {
+   "gross_early_22_24_bps": -26.37,
+   "gross_late_25_26_bps": -0.17,
+   "n_early": 24,
+   "n_late": 14
+  },
+  "next-day open->close|QQQ": {
+   "gross_early_22_24_bps": -47.59,
+   "gross_late_25_26_bps": -5.18,
+   "n_early": 24,
+   "n_late": 14
+  },
+  "next-day open->close|IWM": {
+   "gross_early_22_24_bps": -45.66,
+   "gross_late_25_26_bps": 40.78,
+   "n_early": 24,
+   "n_late": 14
+  }
+ },
+ "paper_overnight_window_flag_not_tradable": {
+  "paper 14:00(d-1)->14:00(d)|SPY": {
+   "n": 38,
+   "pnl": 293.2,
+   "win": 65.8,
+   "pf": 2.569,
+   "bps": 22.73,
+   "gross_bps": 28.93,
+   "trades_yr": 8.0,
+   "active_share": 0.0318,
+   "max_dd": -79.5,
+   "worst_day": -37.8,
+   "pnl_ex_top3": 130.7,
+   "years_pos": 3,
+   "per_year": {
+    "2022": {
+     "pnl": 239.4,
+     "n": 8,
+     "pf": 14.23,
+     "bps": 87.94
+    },
+    "2023": {
+     "pnl": 47.4,
+     "n": 8,
+     "pf": 4.79,
+     "bps": 16.97
+    },
+    "2024": {
+     "pnl": 62.7,
+     "n": 8,
+     "pf": 1.99,
+     "bps": 25.41
+    },
+    "2025": {
+     "pnl": -0.2,
+     "n": 8,
+     "pf": 0.99,
+     "bps": -0.74
+    },
+    "2026": {
+     "pnl": -56.1,
+     "n": 6,
+     "pf": 0.15,
+     "bps": -28.84
+    }
+   },
+   "overnight": true
+  },
+  "paper 14:00(d-1)->14:00(d)|QQQ": {
+   "n": 38,
+   "pnl": 516.4,
+   "win": 65.8,
+   "pf": 2.966,
+   "bps": 39.05,
+   "gross_bps": 45.3,
+   "trades_yr": 8.0,
+   "active_share": 0.0318,
+   "max_dd": -89.1,
+   "worst_day": -52.6,
+   "pnl_ex_top3": 239.3,
+   "years_pos": 3,
+   "per_year": {
+    "2022": {
+     "pnl": 373.4,
+     "n": 8,
+     "pf": 11.9,
+     "bps": 132.45
+    },
+    "2023": {
+     "pnl": 64.1,
+     "n": 8,
+     "pf": 2.93,
+     "bps": 23.06
+    },
+    "2024": {
+     "pnl": 100.8,
+     "n": 8,
+     "pf": 2.1,
+     "bps": 39.14
+    },
+    "2025": {
+     "pnl": -7.4,
+     "n": 8,
+     "pf": 0.85,
+     "bps": -2.7
+    },
+    "2026": {
+     "pnl": -14.5,
+     "n": 6,
+     "pf": 0.74,
+     "bps": -8.6
+    }
+   },
+   "overnight": true
+  },
+  "paper 14:00(d-1)->14:00(d)|IWM": {
+   "n": 38,
+   "pnl": 358.6,
+   "win": 55.3,
+   "pf": 2.097,
+   "bps": 27.16,
+   "gross_bps": 33.65,
+   "trades_yr": 8.0,
+   "active_share": 0.0318,
+   "max_dd": -109.0,
+   "worst_day": -66.8,
+   "pnl_ex_top3": 98.6,
+   "years_pos": 3,
+   "per_year": {
+    "2022": {
+     "pnl": 221.8,
+     "n": 8,
+     "pf": 3.63,
+     "bps": 78.49
+    },
+    "2023": {
+     "pnl": -5.7,
+     "n": 8,
+     "pf": 0.93,
+     "bps": -1.23
+    },
+    "2024": {
+     "pnl": 82.7,
+     "n": 8,
+     "pf": 2.35,
+     "bps": 30.51
+    },
+    "2025": {
+     "pnl": 113.0,
+     "n": 8,
+     "pf": 14.66,
+     "bps": 40.0
+    },
+    "2026": {
+     "pnl": -53.3,
+     "n": 6,
+     "pf": 0.42,
+     "bps": -25.02
+    }
+   },
+   "overnight": true
+  }
+ },
+ "loyo_tradable": {
+  "years": {
+   "2022": {
+    "pick": "next-day open->close|IWM",
+    "pnl": -312.8
+   },
+   "2023": {
+    "pick": "FOMC day 09:30->14:00|IWM",
+    "pnl": -32.6
+   },
+   "2024": {
+    "pick": "FOMC day 09:30->14:00|IWM",
+    "pnl": 8.6
+   },
+   "2025": {
+    "pick": "FOMC day 09:30->14:00|QQQ",
+    "pnl": -48.0
+   },
+   "2026": {
+    "pick": "FOMC day 09:30->14:00|IWM",
+    "pnl": -37.4
+   }
+  },
+  "pnl": -422.2,
+  "years_pos": 1
+ },
+ "best_label": "FOMC day 09:30->14:00|IWM",
+ "best": {
+  "n": 38,
+  "pnl": 75.7,
+  "win": 55.3,
+  "pf": 1.292,
+  "bps": 5.78,
+  "gross_bps": 12.26,
+  "trades_yr": 8.0,
+  "active_share": 0.0318,
+  "max_dd": -63.6,
+  "worst_day": -33.7,
+  "pnl_ex_top3": -41.3,
+  "years_pos": 3,
+  "per_year": {
+   "2022": {
+    "pnl": 44.2,
+    "n": 8,
+    "pf": 1.98,
+    "bps": 15.6
+   },
+   "2023": {
+    "pnl": -32.6,
+    "n": 8,
+    "pf": 0.64,
+    "bps": -11.03
+   },
+   "2024": {
+    "pnl": 8.6,
+    "n": 8,
+    "pf": 1.41,
+    "bps": 3.18
+   },
+   "2025": {
+    "pnl": 93.0,
+    "n": 8,
+    "pf": 8.17,
+    "bps": 32.92
+   },
+   "2026": {
+    "pnl": -37.4,
+    "n": 6,
+    "pf": 0.59,
+    "bps": -17.66
+   }
+  },
+  "overnight": false
+ },
+ "random_session_control": {
+  "pool_mean_bps": -6.18,
+  "obs_mean_bps": 5.78,
+  "p_random": 0.2334,
+  "n": 38,
+  "draws": 5000
+ },
+ "concentration": {
+  "top_name_share": 1.0,
+  "top_name": "IWM",
+  "top3_trades_share": 1.546,
+  "n_syms": 1
+ },
+ "verdict": "sub-cost",
+ "verdict_text": "best gross +12.3 bps/trade but net fails: 3/5 years positive (needs 4); PF 1.29 (needs > 1.3)"
+}

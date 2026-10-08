@@ -4398,7 +4398,8 @@
  "concentration": {
   "top_name_share": 1.0,
   "top_name": "QQQ",
-  "top3_trades_share": 2.743
+  "top3_trades_share": 2.743,
+  "n_syms": 1
  },
  "verdict": "sub-cost",
  "verdict_text": "best gross +8.5 bps/trade but net fails: 2/5 years positive (needs 4); PF 1.07 (needs > 1.3)"
