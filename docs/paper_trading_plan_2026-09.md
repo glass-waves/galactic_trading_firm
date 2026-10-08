@@ -1105,3 +1105,17 @@ vs the IEX record `iex_v18` +1,728 / 436 / PF 1.37 / 3 of 5. the VWAP fix barely
 IEX→SIP gap is the volume sample feeding VPIN. caveat: the filters were fitted on SIP (some home-field
 fit), but no IEX threshold recovered it. consolidated live bars (Alpaca Algo Trader Plus $99/mo, or
 Tradier ~$10/mo if its feed is truly consolidated — RQ-4) are the cheapest volume-and-PF lever found.
+
+### 16.2 volume round 2026-10-07 — results
+
+| book (5y replay, 36 % sizing, honest costs) | trades | P&L | PF | positive years |
+|---|---|---|---|---|
+| v18 on IEX (live today) | 436 | +1,728 | 1.37 | 3 |
+| best loosened IEX cell (quality-for-volume) | 486 | +1,925 | 1.38 | 5 |
+| spy-sqrt-band on IEX (candidate #44) | 460 | +2,195 | 1.46 | 5 |
+| v18 on SIP | 510 | +2,754 | 1.56 | 5 |
+| **spy-sqrt-band on SIP** (`sip_sqrt_band`) | **543** | **+3,072** | **1.59** | **5** |
+
+- on IEX the parameter frontier tops out near 460 trades at PF ~1.4–1.46; the afternoon never pays.
+- universe: 0 of 36 names qualify (research/universe/); the edge is specific to AAPL/AMZN/MSFT/NVDA.
+- the levers stack: consolidated data + the time-consistent band = +25 % trades and PF 1.59 vs today's live book.
