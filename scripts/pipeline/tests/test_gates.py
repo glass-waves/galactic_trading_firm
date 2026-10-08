@@ -206,6 +206,134 @@ class AdditiveConfig(unittest.TestCase):
         self.assertIn("added_pf", names(r))
 
 
+def mk_ticker_marginal(added_pnl, added_n, added_pf, combined_pf, combined_years,
+                        added_worst_year=0.0, n_exceedance_days=0, baseline_tag="iex_v18"):
+    combined_years_dict = {y: {"pnl": float(p)} for y, p in zip(YEARS, combined_years)}
+    return {
+        "baseline_tag": baseline_tag,
+        "added": {"pnl": added_pnl, "n": added_n, "pf": added_pf, "worst_year_pnl": added_worst_year, "worst_day": -50.0},
+        "combined": {"pf": combined_pf, "years": combined_years_dict},
+        "concurrency": {"cap": 3, "n_exceedance_days": n_exceedance_days,
+                        "max_concurrent_observed": 4 if n_exceedance_days else 3, "exceedance_days": []},
+    }
+
+
+class AdditiveTicker(unittest.TestCase):
+    """baseline is the live book itself (iex_v18): +1,728 / 436 / PF 1.37, years +991 -3 -20 +332
+    +429. a ticker candidate is judged on its MARGINAL effect on that book (its own sweep is a
+    single new ticker, concatenated with the baseline's trades — metrics.marginal_metrics()
+    against baseline_tag='iex_v18'), not its stand-alone five-year record (default_ticker())."""
+
+    def setUp(self):
+        self.b = mk(pnl=1728, n=436, pf=1.37, years=(991, -3, -20, 332, 429))
+
+    def test_needs_baseline(self):
+        r = gates.additive_ticker(BASE, None)
+        self.assertFalse(r["pass"])
+        self.assertEqual(names(r), ["baseline"])
+
+    def test_needs_marginal_split(self):
+        m = mk(pnl=2000, n=460, pf=1.4, years=(1, 1, 1, 1, 1))
+        r = gates.additive_ticker(m, self.b)
+        self.assertFalse(r["pass"])
+        self.assertEqual(names(r), ["marginal"])
+
+    def test_passes_at_boundaries(self):
+        # added trades exactly 40, added PF exactly 1.15, combined PF exactly baseline - 0.02,
+        # every combined year exactly baseline's year - 50, added worst year exactly -150
+        combined_years = (991 - 50, -3 - 50, -20 - 50, 332 - 50, 429 - 50)
+        m = mk(pnl=2000, n=476, pf=1.3, years=combined_years)
+        m["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=40, added_pf=1.15, combined_pf=1.35,
+                                            combined_years=combined_years, added_worst_year=-150.0)
+        r = gates.additive_ticker(m, self.b)
+        self.assertTrue(r["pass"], names(r))
+        self.assertEqual(r["gate"], "additive-ticker")
+
+    def test_added_trades_threshold(self):
+        combined_years = (991, -3, -20, 332, 429)
+        m = mk(pnl=1800, n=456, pf=1.4, years=combined_years)
+        m["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=39, added_pf=2.0, combined_pf=1.4, combined_years=combined_years)
+        self.assertIn("added_trades", names(gates.additive_ticker(m, self.b)))
+        m["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=40, added_pf=2.0, combined_pf=1.4, combined_years=combined_years)
+        self.assertNotIn("added_trades", names(gates.additive_ticker(m, self.b)))
+
+    def test_added_pnl_must_be_positive(self):
+        combined_years = (991, -3, -20, 332, 429)
+        m = mk(pnl=1728, n=476, pf=1.3, years=combined_years)
+        m["marginal"] = mk_ticker_marginal(added_pnl=0.0, added_n=40, added_pf=2.0, combined_pf=1.4, combined_years=combined_years)
+        self.assertIn("added_pnl", names(gates.additive_ticker(m, self.b)))
+        m["marginal"] = mk_ticker_marginal(added_pnl=0.01, added_n=40, added_pf=2.0, combined_pf=1.4, combined_years=combined_years)
+        self.assertNotIn("added_pnl", names(gates.additive_ticker(m, self.b)))
+
+    def test_added_pf_threshold(self):
+        combined_years = (991, -3, -20, 332, 429)
+        m = mk(pnl=1800, n=476, pf=1.4, years=combined_years)
+        m["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=40, added_pf=1.149, combined_pf=1.4, combined_years=combined_years)
+        self.assertIn("added_pf", names(gates.additive_ticker(m, self.b)))
+        m["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=40, added_pf=1.15, combined_pf=1.4, combined_years=combined_years)
+        self.assertNotIn("added_pf", names(gates.additive_ticker(m, self.b)))
+
+    def test_combined_pf_not_dilutive_boundary(self):
+        combined_years = (991, -3, -20, 332, 429)
+        common = dict(added_pnl=50.0, added_n=40, added_pf=2.0, combined_years=combined_years)
+        m = mk(pnl=1800, n=476, pf=1.35, years=combined_years)
+        m["marginal"] = mk_ticker_marginal(combined_pf=1.35, **common)
+        self.assertNotIn("combined_pf", names(gates.additive_ticker(m, self.b)))
+        m2 = mk(pnl=1800, n=476, pf=1.349, years=combined_years)
+        m2["marginal"] = mk_ticker_marginal(combined_pf=1.349, **common)
+        self.assertIn("combined_pf", names(gates.additive_ticker(m2, self.b)))
+
+    def test_combined_years_not_worse_is_relative_to_baseline_year(self):
+        # baseline 2023 = -3; combined 2023 = -54 -> margin -51, just past the -50 floor
+        combined_years = (991, -54, -20, 332, 429)
+        m = mk(pnl=1800, n=476, pf=1.4, years=combined_years)
+        m["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=40, added_pf=2.0, combined_pf=1.4, combined_years=combined_years)
+        self.assertIn("combined_years_not_worse", names(gates.additive_ticker(m, self.b)))
+        # -53 -> margin exactly -50: passes
+        combined_years2 = (991, -53, -20, 332, 429)
+        m2 = mk(pnl=1800, n=476, pf=1.4, years=combined_years2)
+        m2["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=40, added_pf=2.0, combined_pf=1.4, combined_years=combined_years2)
+        self.assertNotIn("combined_years_not_worse", names(gates.additive_ticker(m2, self.b)))
+
+    def test_added_worst_year_threshold(self):
+        combined_years = (991, -3, -20, 332, 429)
+        m = mk(pnl=1800, n=476, pf=1.4, years=combined_years)
+        m["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=40, added_pf=2.0, combined_pf=1.4,
+                                            combined_years=combined_years, added_worst_year=-150.01)
+        self.assertIn("added_worst_year", names(gates.additive_ticker(m, self.b)))
+        m["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=40, added_pf=2.0, combined_pf=1.4,
+                                            combined_years=combined_years, added_worst_year=-150.0)
+        self.assertNotIn("added_worst_year", names(gates.additive_ticker(m, self.b)))
+
+    def test_concurrency_is_info_not_a_gating_check(self):
+        # a candidate with heavy concurrency exceedance still passes if every real check clears —
+        # the live 3-position cap is reported, never gated
+        combined_years = (991, -3, -20, 332, 429)
+        m = mk(pnl=2000, n=476, pf=1.4, years=combined_years)
+        m["marginal"] = mk_ticker_marginal(added_pnl=100.0, added_n=40, added_pf=2.0, combined_pf=1.4,
+                                            combined_years=combined_years, n_exceedance_days=37)
+        r = gates.additive_ticker(m, self.b)
+        self.assertTrue(r["pass"], names(r))
+        info = [c for c in r["checks"] if c["name"] == "concurrency_info"][0]
+        self.assertTrue(info["ok"])
+        self.assertEqual(info["value"], 37)
+
+    def test_amzn_amd_like_fails_on_everything(self):
+        # modeled on a weak candidate: too few trades, loses money, drags PF below the baseline
+        combined_years = (900, -60, -70, 300, 400)
+        m = mk(pnl=1600, n=460, pf=1.2, years=combined_years)
+        m["marginal"] = mk_ticker_marginal(added_pnl=-128.0, added_n=24, added_pf=0.74, combined_pf=1.2,
+                                            combined_years=combined_years, added_worst_year=-200.0)
+        r = gates.additive_ticker(m, self.b)
+        self.assertFalse(r["pass"])
+        failed = set(names(r))
+        self.assertIn("added_trades", failed)
+        self.assertIn("added_pnl", failed)
+        self.assertIn("added_pf", failed)
+        self.assertIn("combined_pf", failed)
+        self.assertIn("added_worst_year", failed)
+
+
 class SizingConfig(unittest.TestCase):
     """baseline modeled on iex_v18 at 36 % research sizing: +2,785 / 500 / PF 1.64, dd -600, own max
     position fraction 0.36 (fixed_fractional, no tiering) — a sizing-only candidate (e.g. size up

@@ -22,9 +22,12 @@ def write_trades(path: Path, rows: list[dict]) -> None:
             w.writerow(row)
 
 
-def trade(date, ticker, direction, entry_time, pnl, entry_reason="window:x"):
-    return {"date": date, "ticker": ticker, "direction": direction, "entry_time": entry_time,
-            "pnl": pnl, "entry_reason": entry_reason}
+def trade(date, ticker, direction, entry_time, pnl, entry_reason="window:x", exit_time=None):
+    row = {"date": date, "ticker": ticker, "direction": direction, "entry_time": entry_time,
+           "pnl": pnl, "entry_reason": entry_reason}
+    if exit_time is not None:
+        row["exit_time"] = exit_time
+    return row
 
 
 class SplitMarginal(unittest.TestCase):
@@ -101,6 +104,71 @@ class MarginalMetrics(unittest.TestCase):
         m = metrics.full_metrics("cand", data_dir=self.dir, baseline_tag="base")
         self.assertIn("marginal", m)
         self.assertEqual(m["marginal"]["added"]["pnl"], 35.0)
+
+    def test_combined_is_baseline_rows_plus_added_rows(self):
+        # the additive-ticker gate's input: baseline_rows (80 pnl / 2 trades) + added_rows (35 / 2) —
+        # exact concatenation, since a different-ticker candidate's trades never match a baseline key
+        mg = metrics.marginal_metrics("cand", "base", self.dir)
+        self.assertEqual(mg["combined"]["pnl"], 80.0 + 35.0)
+        self.assertEqual(mg["combined"]["n"], 2 + 2)
+        self.assertEqual(mg["combined"]["years"]["2022"]["pnl"], 80.0 + 35.0)
+        self.assertIn("concurrency", mg)
+        self.assertEqual(mg["concurrency"]["n_exceedance_days"], 0)  # no entry/exit_time in this fixture
+
+
+class ConcurrencyExceedance(unittest.TestCase):
+    """metrics.concurrency_exceedance(): info only (additive-ticker gate), never a pass/fail check."""
+
+    def test_no_overlap_is_fine(self):
+        rows = [
+            trade("2024-01-02", "A", "Short", "2024-01-02T10:00:00+00:00", 1.0, exit_time="2024-01-02T10:05:00+00:00"),
+            trade("2024-01-02", "B", "Short", "2024-01-02T10:10:00+00:00", 1.0, exit_time="2024-01-02T10:15:00+00:00"),
+        ]
+        out = metrics.concurrency_exceedance(rows, cap=3)
+        self.assertEqual(out["n_exceedance_days"], 0)
+        self.assertEqual(out["max_concurrent_observed"], 1)
+
+    def test_four_concurrent_exceeds_cap_of_three(self):
+        rows = [
+            trade("2024-01-02", "A", "Short", "2024-01-02T10:00:00+00:00", 1.0, exit_time="2024-01-02T10:30:00+00:00"),
+            trade("2024-01-02", "B", "Short", "2024-01-02T10:05:00+00:00", 1.0, exit_time="2024-01-02T10:25:00+00:00"),
+            trade("2024-01-02", "C", "Short", "2024-01-02T10:10:00+00:00", 1.0, exit_time="2024-01-02T10:20:00+00:00"),
+            trade("2024-01-02", "D", "Short", "2024-01-02T10:12:00+00:00", 1.0, exit_time="2024-01-02T10:15:00+00:00"),
+        ]
+        out = metrics.concurrency_exceedance(rows, cap=3)
+        self.assertEqual(out["n_exceedance_days"], 1)
+        self.assertEqual(out["exceedance_days"], ["2024-01-02"])
+        self.assertEqual(out["max_concurrent_observed"], 4)
+
+    def test_close_and_open_at_the_same_instant_do_not_double_count(self):
+        # A/B/C open (3 concurrent); A closes exactly when D opens — a close frees the slot before
+        # the open reuses it, so concurrency never ticks up to 4
+        rows = [
+            trade("2024-01-02", "A", "Short", "2024-01-02T09:55:00+00:00", 1.0, exit_time="2024-01-02T10:00:00+00:00"),
+            trade("2024-01-02", "B", "Short", "2024-01-02T09:56:00+00:00", 1.0, exit_time="2024-01-02T10:05:00+00:00"),
+            trade("2024-01-02", "C", "Short", "2024-01-02T09:57:00+00:00", 1.0, exit_time="2024-01-02T10:05:00+00:00"),
+            trade("2024-01-02", "D", "Short", "2024-01-02T10:00:00+00:00", 1.0, exit_time="2024-01-02T10:05:00+00:00"),
+        ]
+        out = metrics.concurrency_exceedance(rows, cap=3)
+        self.assertEqual(out["max_concurrent_observed"], 3)
+        self.assertEqual(out["n_exceedance_days"], 0)
+
+    def test_separate_days_counted_independently(self):
+        rows = [
+            trade("2024-01-02", "A", "Short", "2024-01-02T10:00:00+00:00", 1.0, exit_time="2024-01-02T10:30:00+00:00"),
+            trade("2024-01-02", "B", "Short", "2024-01-02T10:05:00+00:00", 1.0, exit_time="2024-01-02T10:25:00+00:00"),
+            trade("2024-01-02", "C", "Short", "2024-01-02T10:10:00+00:00", 1.0, exit_time="2024-01-02T10:20:00+00:00"),
+            trade("2024-01-02", "D", "Short", "2024-01-02T10:12:00+00:00", 1.0, exit_time="2024-01-02T10:15:00+00:00"),
+            trade("2024-01-03", "E", "Short", "2024-01-03T10:00:00+00:00", 1.0, exit_time="2024-01-03T10:05:00+00:00"),
+        ]
+        out = metrics.concurrency_exceedance(rows, cap=3)
+        self.assertEqual(out["exceedance_days"], ["2024-01-02"])
+
+    def test_rows_missing_entry_or_exit_time_are_skipped_not_fatal(self):
+        rows = [trade("2024-01-02", "A", "Short", "2024-01-02T10:00:00+00:00", 1.0)]  # no exit_time
+        out = metrics.concurrency_exceedance(rows, cap=3)
+        self.assertEqual(out["max_concurrent_observed"], 0)
+        self.assertEqual(out["n_exceedance_days"], 0)
 
 
 class MaxPositionFraction(unittest.TestCase):

@@ -449,8 +449,15 @@ def candidate_tickers(cand: dict, prom: dict) -> list[str]:
     return list(blob["tickers"])
 
 
-def baseline_for(base_id: int, tickers: list[str], prom: dict) -> tuple[str, list[str] | None]:
-    """(tag, sweep args to produce it or None when the research baseline already covers it)."""
+def baseline_for(base_id: int, tickers: list[str], prom: dict, gate_name: str | None = None) -> tuple[str, list[str] | None]:
+    """(tag, sweep args to produce it or None when the research baseline already covers it).
+
+    additive-ticker is always judged against the live book as a whole ('iex_v18'), never against
+    a baseline swept on just the candidate's own (single, new) ticker — that is the point of the
+    gate: the candidate's marginal effect on the book, not its stand-alone record. every other
+    gate's baseline is the promoted config swept on the candidate's own ticker set."""
+    if gate_name == "additive-ticker":
+        return "iex_v18", None
     if base_id == prom["id"] and sorted(tickers) == sorted(prom["config_blob"]["tickers"]) and metrics.sweep_files_present("iex_v18"):
         args_file = DATA / "iex_v18.args"
         if not args_file.exists() or set(args_file.read_text().split()) == set(GATE_SWEEP_ARGS):
@@ -599,7 +606,7 @@ def run_backtest(cand: dict, actor: str = "pipeline", budget: list[int] | None =
     gate_name = gates.resolve(cand["gate"], cand["kind"])
     baseline_tag, baseline = None, None
     if gate_name in gates.NEEDS_BASELINE:
-        baseline_tag, bargs = baseline_for(base_id, tickers, prom)
+        baseline_tag, bargs = baseline_for(base_id, tickers, prom, gate_name=gate_name)
         if bargs:
             ensure_sweep(baseline_tag, bargs)
         baseline = metrics.full_metrics(baseline_tag)
@@ -931,7 +938,7 @@ def run_regate(cand: dict, new_gate_raw: str, actor: str = "pipeline") -> str:
 
     baseline_tag, baseline = None, None
     if new_gate in gates.NEEDS_BASELINE:
-        baseline_tag, bargs = baseline_for(base_id, tickers, prom)
+        baseline_tag, bargs = baseline_for(base_id, tickers, prom, gate_name=new_gate)
         if bargs:
             ensure_sweep(baseline_tag, bargs)
         baseline = metrics.full_metrics(baseline_tag)
@@ -1212,7 +1219,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.set_defaults(fn=cmd_backtest)
     p = sp.add_parser("regate", help="re-evaluate an existing backtest under a different gate (no new sweep)")
     p.add_argument("name")
-    p.add_argument("--gate", required=True, help="volume-config | quality-config | stress-mode | additive-config | default-ticker")
+    p.add_argument("--gate", required=True, help="volume-config | quality-config | stress-mode | additive-config | additive-ticker | default-ticker")
     p.set_defaults(fn=cmd_regate)
     p = sp.add_parser("evaluate", help="evaluate a shadow trial now")
     p.add_argument("name")

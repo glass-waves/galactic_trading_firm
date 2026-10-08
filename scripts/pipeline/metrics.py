@@ -251,10 +251,50 @@ def worst_day(rows: list[dict]) -> float:
     return round(min(d.values()), 2) if d else 0.0
 
 
+def concurrency_exceedance(rows: list[dict], cap: int = 3) -> dict:
+    """for a combined set of trade rows (each with entry_time/exit_time, ISO8601 UTC strings that
+    sort lexically in time order), the eastern dates on which the number of concurrently open
+    positions would exceed `cap` at any instant — the live engine's position cap. a close at the
+    same timestamp as an open is processed first (frees the slot before it is reused), so a
+    back-to-back flip is not double-counted. info only: this is never a pass/fail gate check (see
+    the additive-ticker gate — the replay runs each ticker set independently, so a straight
+    concatenation of two tags' trades is exact except for this cap)."""
+    by_day: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    for r in rows:
+        et, xt = r.get("entry_time"), r.get("exit_time")
+        if not et or not xt:
+            continue
+        by_day[r["date"]].append((et, xt))
+    bad_days = []
+    max_concurrent = 0
+    for d, intervals in by_day.items():
+        events = []
+        for et, xt in intervals:
+            events.append((et, 1))  # open
+            events.append((xt, 0))  # close — sorts before an open at the same timestamp
+        events.sort()
+        cur = 0
+        day_max = 0
+        for _, tag in events:
+            if tag == 0:
+                cur -= 1
+            else:
+                cur += 1
+                day_max = max(day_max, cur)
+        max_concurrent = max(max_concurrent, day_max)
+        if day_max > cap:
+            bad_days.append(d)
+    return {"cap": cap, "exceedance_days": sorted(bad_days), "n_exceedance_days": len(bad_days),
+            "max_concurrent_observed": max_concurrent}
+
+
 def marginal_metrics(tag: str, baseline_tag: str, data_dir: Path = DATA) -> dict:
     """split <tag>'s trades against <baseline_tag>'s trade set (see split_marginal()) and compute
     5y + per-year stats for both halves, plus the added half's worst single trade and worst day —
-    what the additive-config gate checks over."""
+    what the additive-config gate checks over. also computes 'combined' (baseline_rows + added_rows,
+    i.e. the book as if <tag> traded alongside the baseline — exact for a candidate whose trades
+    never share a trade_key() with the baseline's, e.g. a different ticker) and 'concurrency'
+    (concurrency_exceedance() over that combined set) — what the additive-ticker gate checks over."""
     rows = load_trades(tag, data_dir)
     baseline_rows = load_trades(baseline_tag, data_dir)
     base_rows, added_rows = split_marginal(rows, baseline_rows)
@@ -265,7 +305,11 @@ def marginal_metrics(tag: str, baseline_tag: str, data_dir: Path = DATA) -> dict
     added["worst_year_pnl"] = min(added["years"][y]["pnl"] for y in YEARS)
     added["worst_trade"] = worst_trade(added_rows)
     added["worst_day"] = worst_day(added_rows)
-    return {"baseline_tag": baseline_tag, "base": base, "added": added}
+    combined_rows = baseline_rows + added_rows
+    combined = stats(combined_rows)
+    combined["years"] = {y: stats([r for r in combined_rows if r["year"] == y]) for y in YEARS}
+    concurrency = concurrency_exceedance(combined_rows)
+    return {"baseline_tag": baseline_tag, "base": base, "added": added, "combined": combined, "concurrency": concurrency}
 
 
 def full_metrics(tag: str, tickers: list[str] | None = None, data_dir: Path = DATA,

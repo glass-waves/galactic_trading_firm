@@ -31,6 +31,21 @@ what pipeline_candidates.backtest_result stores. thresholds are stated at the re
                    tolerance for whole-share rounding and fill-vs-sizing-price drift, not a fixed 0.45:
                    a candidate that raises its own cap via _sweep_args is measured against that cap, not
                    the standard sweep's
+  additive-ticker: for a ticker candidate judged on its MARGINAL effect on the live book, not its own
+                   stand-alone five-year record (default-ticker's bar: PF >= 1.3, >= 4 of 5 years, >= 100
+                   trades — stricter for a newcomer than the incumbents ever had to clear). the candidate's
+                   sweep (--tickers T alone) is concatenated with the baseline book's trades (baseline tag
+                   'iex_v18', via metrics.marginal_metrics(): every candidate trade is 'added' since
+                   trade_key()'s ticker never matches one of the baseline's four names, so 'base' is always
+                   empty for this gate and is not checked). checks: added trades >= 40 (5y); added P&L > 0;
+                   added PF >= 1.15; combined PF (baseline_rows + added_rows) >= baseline PF - 0.02 (not
+                   dilutive); combined_years_not_worse: no year of the combined book more than 50 worse
+                   than the baseline's same year; added worst year >= -150. bar-cache coverage of the
+                   candidate's own ticker is enforced the same way as default-ticker, before the gate ever
+                   runs (pipeline.py's kind-level coverage check, not a metrics check here). the live
+                   3-position cap is reported as info (metrics.concurrency_exceedance() over the combined
+                   set) and never gated — the replay runs each ticker set independently so a straight
+                   concatenation is exact except for that cap
 """
 from __future__ import annotations
 
@@ -41,6 +56,11 @@ MIN_PF = 1.3
 MIN_YEARS_POSITIVE = 4
 STANDARD_MAX_POSITION_PCT = 0.36
 MAX_POSITION_FRACTION_TOLERANCE = 1.02
+ADDED_TICKER_MIN_TRADES = 40
+ADDED_TICKER_MIN_PF = 1.15
+ADDED_TICKER_WORST_YEAR_FLOOR = -150.0
+COMBINED_PF_TOLERANCE = 0.02
+COMBINED_YEAR_TOLERANCE = 50.0
 
 
 def check(name: str, value, threshold: str, ok: bool) -> dict:
@@ -162,6 +182,39 @@ def additive_config(m: dict, baseline: dict | None = None) -> dict:
     return _result("additive-config", checks)
 
 
+def additive_ticker(m: dict, baseline: dict | None = None) -> dict:
+    """for a ticker candidate judged on its marginal effect on the live book (plan: see module
+    docstring), not its own stand-alone five-year record (default_ticker()). needs metrics['marginal']
+    (metrics.marginal_metrics() against baseline_tag='iex_v18') for both the 'added' subset — which
+    is the candidate's whole trade set, since trade_key()'s ticker never matches the baseline's four
+    names — and 'combined' (baseline_rows + added_rows, the book as if the candidate traded alongside
+    the baseline). 'base' is not checked: there is nothing for this gate to leave unchanged."""
+    err = _need_baseline("additive-ticker", baseline)
+    if err:
+        return err
+    b = baseline
+    mg = m.get("marginal")
+    if not mg or "combined" not in mg:
+        return _result("additive-ticker", [check("marginal", None, "marginal split required (metrics.marginal_metrics against baseline_tag='iex_v18')", False)])
+    added, combined = mg["added"], mg["combined"]
+    need_pf = b["pf"] - COMBINED_PF_TOLERANCE
+    year_margins = {y: round(combined["years"][y]["pnl"] - b["years"][y]["pnl"], 2) for y in b["years"]}
+    worst_margin_year = min(year_margins, key=lambda y: year_margins[y])
+    conc = mg.get("concurrency") or {}
+    checks = [
+        check("added_trades", added["n"], f">= {ADDED_TICKER_MIN_TRADES} (5y)", added["n"] >= ADDED_TICKER_MIN_TRADES),
+        check("added_pnl", added["pnl"], "> 0", added["pnl"] > 0),
+        check("added_pf", added["pf"], f">= {ADDED_TICKER_MIN_PF}", added["pf"] >= ADDED_TICKER_MIN_PF),
+        check("combined_pf", combined["pf"], f">= {need_pf:.3f} (baseline {b['pf']:.3f} - {COMBINED_PF_TOLERANCE:g}, not dilutive)", combined["pf"] >= need_pf),
+        check("combined_years_not_worse", year_margins[worst_margin_year],
+              f">= -{COMBINED_YEAR_TOLERANCE:.0f} vs baseline per year (worst: {worst_margin_year})", year_margins[worst_margin_year] >= -COMBINED_YEAR_TOLERANCE),
+        check("added_worst_year", added["worst_year_pnl"], f">= {ADDED_TICKER_WORST_YEAR_FLOOR:+.0f} (36 % sizing)", added["worst_year_pnl"] >= ADDED_TICKER_WORST_YEAR_FLOOR),
+        check("concurrency_info", conc.get("n_exceedance_days", 0),
+              f"info only, not gated (cap {conc.get('cap', 3)}; max concurrent observed {conc.get('max_concurrent_observed', 0)})", True),
+    ]
+    return _result("additive-ticker", checks)
+
+
 def effective_max_position_pct(sweep_args_override: str | None, default: float = STANDARD_MAX_POSITION_PCT) -> float:
     """the candidate's own sizing cap: the value its _sweep_args passed to --max-position-pct (the
     flag the gate sweep actually ran with — see docs/pipeline.md's _sweep_args section and
@@ -227,10 +280,11 @@ GATES = {
     "stress-mode": stress_mode,
     "additive-config": additive_config,
     "sizing-config": sizing_config,
+    "additive-ticker": additive_ticker,
 }
 ALIASES = {"default-config": "volume-config", "default": None}
-NEEDS_BASELINE = {"volume-config", "quality-config", "stress-mode", "additive-config", "sizing-config"}
-NEEDS_MARGINAL = {"additive-config", "sizing-config"}
+NEEDS_BASELINE = {"volume-config", "quality-config", "stress-mode", "additive-config", "sizing-config", "additive-ticker"}
+NEEDS_MARGINAL = {"additive-config", "sizing-config", "additive-ticker"}
 
 
 def resolve(name: str, kind: str) -> str:
