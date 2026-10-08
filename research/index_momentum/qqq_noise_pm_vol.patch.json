@@ -1,0 +1,116 @@
+{
+ "disable": [
+  "window_5m_thrust_short",
+  "window_strong_core_short",
+  "reject_1m_noise",
+  "reject_1m_noise_short",
+  "breakeven",
+  "trailing_stop_atr"
+ ],
+ "indicators": [
+  {
+   "indicator_type": "noise_area",
+   "instance_id": "noise",
+   "timescale": "OneMinute",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "lookback_sessions": 14,
+    "band_mult": 1.0,
+    "decision_every_min": 30,
+    "decision_tolerance_min": 2,
+    "gap_adjust": true
+   }
+  }
+ ],
+ "actions": [
+  {
+   "instance_id": "window_im_long",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 30,
+   "enabled": true,
+   "params": {
+    "name": "im long",
+    "direction": "long",
+    "conditions": [
+     {
+      "type": "indicator_min",
+      "instance_id": "noise.decision",
+      "min_score": 0.5
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "noise.pos",
+      "min_score": 1.0
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "noise.vwap_pct",
+      "min_score": 0.0
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "noise.day_move_pct",
+      "min_score": 0.7
+     }
+    ],
+    "entry_after": "11:59",
+    "entry_before": "15:30",
+    "exit_overrides": {
+     "force_exit_by": "15:58",
+     "max_hold_ms": 25200000,
+     "score_exit_threshold": -1000000000.0
+    }
+   }
+  },
+  {
+   "instance_id": "window_im_short",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 31,
+   "enabled": true,
+   "params": {
+    "name": "im short",
+    "direction": "short",
+    "conditions": [
+     {
+      "type": "indicator_min",
+      "instance_id": "noise.decision",
+      "min_score": 0.5
+     },
+     {
+      "type": "indicator_max",
+      "instance_id": "noise.pos",
+      "max_score": -1.0
+     },
+     {
+      "type": "indicator_max",
+      "instance_id": "noise.vwap_pct",
+      "max_score": -0.0
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "noise.day_move_pct",
+      "min_score": 0.7
+     }
+    ],
+    "entry_after": "11:59",
+    "entry_before": "15:30",
+    "exit_overrides": {
+     "force_exit_by": "15:58",
+     "max_hold_ms": 25200000,
+     "score_exit_threshold": -1000000000.0
+    }
+   }
+  }
+ ],
+ "session": {
+  "no_new_entries_after": "15:30",
+  "force_exit_by": "15:58"
+ },
+ "tickers": [
+  "QQQ"
+ ],
+ "_sweep_args": "--lookback-days 22"
+}

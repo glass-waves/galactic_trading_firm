@@ -11,3 +11,4 @@ pub mod level_signals;
 pub mod cross_context;
 pub mod event_calendar;
 pub mod trigger_context;
+pub mod noise_area;
