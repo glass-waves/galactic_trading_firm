@@ -1,0 +1,10 @@
+[Unit]
+Description=stage-0 pretest at 21:15 America/Los_Angeles, weekdays (after the 20:30 pipeline job; shares logs/.research.lock)
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 21:15:00
+Unit=pretest.service
+Persistent=false
+
+[Install]
+WantedBy=timers.target

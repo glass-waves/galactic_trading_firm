@@ -1,0 +1,11 @@
+[Unit]
+Description=stage-0 edge pretest: run research/pretest/cells.py and refresh the summary/changelog (21:15 PT, after the 20:30 pipeline job)
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dylmet/Projects/galactic_trading_firm
+Environment=PATH=/home/dylmet/.local/bin:/home/dylmet/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+Environment=TZ=America/Los_Angeles
+ExecStart=/home/dylmet/Projects/galactic_trading_firm/scripts/pretest_nightly.sh
+TimeoutStartSec=1800

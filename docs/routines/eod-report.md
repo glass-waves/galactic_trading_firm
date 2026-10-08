@@ -128,6 +128,13 @@ candidate); otherwise one line: "no shadow books".
    configs, migrations or crates, and never touch `books` yourself — the human promotes
    (`docs/pipeline.md` §6).
 
+## 3c. Research signals (when present)
+
+Check `research/pretest/CHANGELOG.md`'s most recent dated lines (new since your last report)
+and `docs/ideation/<date>.md` for any date since your last report. Mention a verdict change or
+a new ideation proposal in one sentence each — this is background for the human, not something
+you act on; you never edit `research/pretest/cells.py` or `research/edge_matrix.md` yourself.
+
 ## 4. Decide — default is hold
 
 You recommend; you do not act. Only these patterns justify a recommendation:

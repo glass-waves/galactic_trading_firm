@@ -1,0 +1,17 @@
+[Unit]
+Description=claude check-in: weekly ideation — propose up to 3 new pretest cells from the edge catalog (Sunday 18:00 PT)
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dylmet/Projects/galactic_trading_firm
+EnvironmentFile=/home/dylmet/Projects/galactic_trading_firm/.env
+# run on the claude.ai login (subscription), not the API key: the key would take precedence
+UnsetEnvironment=ANTHROPIC_API_KEY
+Environment=PATH=/home/dylmet/.local/bin:/home/dylmet/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+Environment=TZ=America/Los_Angeles
+# headless: no TTY, no approvals possible. tools are pre-approved in .claude/settings.json;
+# anything else is denied rather than waited on. no push: the next nightly research/pipeline/
+# pretest job pushes this commit along with its own.
+ExecStart=/bin/sh -c 'git pull -q --ff-only 2>/dev/null; mkdir -p logs/checkins && /home/dylmet/.local/bin/claude -p "/ideate" --model sonnet --output-format json --max-turns 30 --max-budget-usd 1.00 --permission-mode dontAsk --disallowedTools "Bash(git push *)" "Bash(git push)" --permission-prompts none >> logs/checkins/ideate.jsonl'
+TimeoutStartSec=900

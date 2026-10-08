@@ -1,0 +1,10 @@
+[Unit]
+Description=weekly ideation check-in at 18:00 America/Los_Angeles, Sundays
+
+[Timer]
+OnCalendar=Sun *-*-* 18:00:00
+Unit=ideate.service
+Persistent=false
+
+[Install]
+WantedBy=timers.target

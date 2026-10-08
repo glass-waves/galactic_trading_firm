@@ -128,6 +128,33 @@ add a second section to the memo: the week's numbers vs the 20-day backtest base
 to consider over the weekend, each with the backtest command that would test it. do not
 apply any of them.
 
+## 7. monthly mechanics audit (first trading day of each month)
+
+before the usual review, on the first trading day of the month, audit the last month's
+**mechanics** — not the strategy — from data already committed under `data/live/<date>/`.
+`research/timefilter/diag.py`'s style of diagnosis needs a full-day `DUMP_TICKS=1` tick dump
+(`data/tf_am_<year>_ticks.csv`) from an engine sweep — too heavy to run monthly off the back of
+a fresh sweep. use the lighter daily exports that already exist instead:
+
+- **scope**: every `data/live/<date>/` directory from the previous calendar month
+  (`ls -d data/live/2026-MM-*` for last month's `MM`).
+- **block counts**: parse each day's `block_events.json` (`ts`, `ticker`, `kind`, `reason`);
+  group by half-hour of day (ET) and by ticker; which gate/near-miss reason dominates, and
+  whether that shifted from the prior month's audit.
+- **near-miss forward returns**: parse each day's `near_miss_replay.txt` (already computed
+  daily by `scripts/analysis/near_miss_replay.py` — the hypothetical short P&L per near-miss
+  bar, plus the day's sum line); aggregate the month's total and the per-filter-reason split.
+  a persistently positive sum (the filters costing more than they save) is the headline finding.
+- **trades per window**: parse each day's `trades.json` `entry_reason`; count by window and by
+  half-hour of entry.
+- **write** `docs/audits/<YYYY-MM>.md`: the three tables above, one paragraph of findings, and
+  at most three proposed follow-ups (e.g. "near-miss sum turned positive in September —
+  reconsider the VPIN floor"; "90 % of near-misses cluster 09:30–10:00, and pretest cell
+  c03_hks_halfhour already found nothing predictive there"). **proposals only** — same
+  restriction as the repo-hygiene pass (`docs/routines/eod-report.md` §8): never apply a
+  change here, never touch the config. a follow-up that needs validation goes in
+  `docs/research_queue.md` (§6 of the eod routine), never `update_config.sh` directly.
+
 ## shadow books and the pipeline (since 2026-09-26)
 
 everything above is about the primary (`trades.source='paper'`, `engine_state.book='primary'`).
