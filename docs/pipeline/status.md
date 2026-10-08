@@ -1,6 +1,6 @@
 # research pipeline — status
 
-generated 2026-10-08 04:41 UTC by `scripts/pipeline/pipeline.py report`. do not edit: regenerated nightly. lane: proposed → backtesting → backtest_passed → shadow → shadow_passed → promotion_proposed → promoted (human). failures: backtest_failed / shadow_failed (180 d cooldown), withdrawn (human).
+generated 2026-10-08 05:12 UTC by `scripts/pipeline/pipeline.py report`. do not edit: regenerated nightly. lane: proposed → backtesting → backtest_passed → shadow → shadow_passed → promotion_proposed → promoted (human). failures: backtest_failed / shadow_failed (180 d cooldown), withdrawn (human).
 
 - gate sweeps run at the research sizing (`--sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY`, IEX cache, 3 bps + $0.005); the per-year floor (no year < −300) is stated at 36 %. live and shadow books size at the blob's fraction; parity replays use no sizing override.
 - shadow-book creation: **enabled** (`PIPELINE_SHADOW_BOOKS=1`; while disabled `advance` only prints the books it would create).
@@ -20,27 +20,26 @@ none.
 
 | id | name | kind | gate | tickers | since | backtest (5y P&L / trades / PF · per year · gate) |
 |---:|---|---|---|---|---|---|
-| 47 | `qqq-noise-pm-vol` | config | quality-config | base | 0 m | — |
+| 47 | `qqq-noise-pm-vol` | config | quality-config | base | 31 m | — |
 
 ### backtesting (0)
 
 none.
 
-### backtest_passed (2)
+### backtest_passed (0)
 
-| id | name | kind | gate | tickers | since | backtest (5y P&L / trades / PF · per year · gate) |
-|---:|---|---|---|---|---|---|
-| 44 | `spy-sqrt-band` | config | volume-config | base | 1 h | +2195 / 460 / PF 1.46 · 22:+1144 23:+77 24:+116 25:+371 26:+486 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 |
-| 45 | `spy-sqrt-band-1h15` | config | quality-config | base | 1 h | +2044 / 309 / PF 1.70 · 22:+708 23:+125 24:+81 25:+428 26:+703 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 |
+none.
 
-### shadow (4)
+### shadow (6)
 
 | id | name | kind | gate | book | since | trial | backtest |
 |---:|---|---|---|---|---|---|---|
 | 4 | `vpin-0.26` | config | quality-config | shadow:vpin-0.26 | 7 d | 6 sessions / 0 trades / +0 · needs 14 more sessions and 15 more trades (or 54 sessions to the time limit) | +1646 / 324 / PF 1.48 · 22:+820 23:+42 24:+105 25:+210 26:+469 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 |
 | 6 | `stress-s15-core` | config | additive-config | shadow:stress-s15-core | 7 d | 6 sessions / 0 trades / +0 · needs 14 more sessions and 15 more trades (or 54 sessions to the time limit) | +2003 / 459 / PF 1.41 · 22:+1226 23:-3 24:-24 25:+376 26:+429 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 · added +274 / 23 / PF 3.32 (worst yr -4, worst day -44) |
-| 28 | `size-vpin26-x1.25` | config | sizing-config | shadow:size-vpin26-x1.25 | 4 d | 3 sessions / 0 trades / +0 · needs 17 more sessions and 15 more trades (or 57 sessions to the time limit) | +2155 / 436 / PF 1.40 · 22:+1194 23:+46 24:+10 25:+410 26:+496 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 · added +0 / 0 / PF 0.00 (worst yr +0, worst day +0) |
+| 28 | `size-vpin26-x1.25` | config | sizing-config | shadow:size-vpin26-x1.25 | 5 d | 3 sessions / 0 trades / +0 · needs 17 more sessions and 15 more trades (or 57 sessions to the time limit) | +2155 / 436 / PF 1.40 · 22:+1194 23:+46 24:+10 25:+410 26:+496 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 · added +0 / 0 / PF 0.00 (worst yr +0, worst day +0) |
 | 29 | `thrust-1h15` | config | quality-config | shadow:thrust-1h15 | 5 d | 3 sessions / 0 trades / +0 · needs 17 more sessions and 15 more trades (or 57 sessions to the time limit) | +1714 / 278 / PF 1.63 · 22:+644 23:+55 24:-56 25:+396 26:+676 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 |
+| 44 | `spy-sqrt-band` | config | volume-config | shadow:spy-sqrt-band | 0 m | 0 sessions / 0 trades / +0 · needs 20 more sessions and 15 more trades (or 60 sessions to the time limit) | +2195 / 460 / PF 1.46 · 22:+1144 23:+77 24:+116 25:+371 26:+486 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 |
+| 45 | `spy-sqrt-band-1h15` | config | quality-config | shadow:spy-sqrt-band-1h15 | 0 m | 0 sessions / 0 trades / +0 · needs 20 more sessions and 15 more trades (or 60 sessions to the time limit) | +2044 / 309 / PF 1.70 · 22:+708 23:+125 24:+81 25:+428 26:+703 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 |
 
 ### shadow_passed (0)
 
@@ -98,12 +97,14 @@ none.
 
 | id | name | kind | gate | tickers | since | backtest (5y P&L / trades / PF · per year · gate) |
 |---:|---|---|---|---|---|---|
-| 46 | `qqq-noise-pm-vol` | config | quality-config | base | 0 m | — |
+| 46 | `qqq-noise-pm-vol` | config | quality-config | base | 31 m | — |
 
 ## last 20 events
 
 | when (UTC) | candidate | transition | actor | detail |
 |---|---|---|---|---|
+| 2026-10-08 05:12 | `spy-sqrt-band-1h15` | backtest_passed → shadow | pipeline | shadow_start book=shadow:spy-sqrt-band-1h15 |
+| 2026-10-08 05:12 | `spy-sqrt-band` | backtest_passed → shadow | pipeline | shadow_start book=shadow:spy-sqrt-band |
 | 2026-10-08 04:41 | `qqq-noise-pm-vol` | ∅ → proposed | human | proposed |
 | 2026-10-08 04:41 | `qqq-noise-pm-vol` | proposed → withdrawn | human | withdrawn |
 | 2026-10-08 04:22 | `qqq-noise-pm-vol` | ∅ → proposed | human | proposed |
@@ -122,5 +123,3 @@ none.
 | 2026-10-08 03:19 | `ticker:COIN` | backtest_failed → backtest_failed | pipeline | regate pass=False |
 | 2026-10-08 03:19 | `ticker:NFLX` | backtest_failed → backtest_failed | pipeline | regate pass=False |
 | 2026-10-08 03:19 | `ticker:AVGO` | backtest_failed → backtest_failed | pipeline | regate pass=False |
-| 2026-10-08 03:19 | `ticker:TSLA` | backtest_failed → backtest_failed | pipeline | regate pass=False |
-| 2026-10-08 03:19 | `ticker:XLE` | backtest_failed → backtest_failed | pipeline | regate pass=False |
