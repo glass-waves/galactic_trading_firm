@@ -257,6 +257,95 @@ pub fn apply_limits(
     (kept, skipped)
 }
 
+/// calendar days of 1-minute history a book gets when its config does not set
+/// `session.warmup_days` — what every live day and every 8-day replay has used.
+pub const DEFAULT_WARMUP_DAYS: u32 = 8;
+
+/// one book's say in the warm-up: its name, role, tickers and `session.warmup_days`.
+#[derive(Debug, Clone, Copy)]
+pub struct WarmupInput<'a> {
+    pub book: &'a str,
+    pub is_primary: bool,
+    pub tickers: &'a [String],
+    pub warmup_days: Option<u32>,
+}
+
+impl<'a> WarmupInput<'a> {
+    pub fn from_book(b: &'a Book) -> Self {
+        Self {
+            book: b.name(),
+            is_primary: b.is_primary(),
+            tickers: b.tickers(),
+            warmup_days: b.config().session.warmup_days,
+        }
+    }
+
+    fn days(&self) -> u32 {
+        self.warmup_days.unwrap_or(DEFAULT_WARMUP_DAYS)
+    }
+}
+
+/// a symbol the primary trades whose warm-up another book (or the primary's own config)
+/// raised above [`DEFAULT_WARMUP_DAYS`]: the primary's windows for it no longer match the
+/// 8-day replays its record is built on.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WarmupRaise {
+    pub symbol: String,
+    pub days: u32,
+    pub book: String,
+}
+
+/// per-symbol warm-up, computed once at start-up (a hot-reloaded `warmup_days` applies at
+/// the next start).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct WarmupPlan {
+    /// every hosted ticker + the index → calendar days of history to load.
+    pub days: std::collections::BTreeMap<String, u32>,
+    /// primary-traded symbols raised above the default (one parity warning each).
+    pub raised: Vec<WarmupRaise>,
+}
+
+impl WarmupPlan {
+    pub fn days_for(&self, symbol: &str) -> u32 {
+        self.days.get(symbol).copied().unwrap_or(DEFAULT_WARMUP_DAYS)
+    }
+}
+
+/// the per-symbol max rule. a traded symbol gets the max over the books trading it of
+/// (`session.warmup_days` or 8); the index, when no book trades it, gets the max over all
+/// books (it only seeds the cross tracker, which reads today's session and the prior
+/// close, so its length changes nothing a book computes); a traded index follows the
+/// traded rule — its candle windows are what the books trading it read.
+pub fn warmup_plan(books: &[WarmupInput<'_>], index: &str) -> WarmupPlan {
+    // symbol → (days, book that set it); the earlier book wins a tie (the primary is first)
+    let mut traded: std::collections::BTreeMap<String, (u32, String)> = Default::default();
+    for b in books {
+        let d = b.days();
+        for t in b.tickers {
+            match traded.get(t) {
+                Some((cur, _)) if *cur >= d => {}
+                _ => {
+                    traded.insert(t.clone(), (d, b.book.to_string()));
+                }
+            }
+        }
+    }
+    let mut plan = WarmupPlan::default();
+    let primary_tickers: BTreeSet<&String> =
+        books.iter().filter(|b| b.is_primary).flat_map(|b| b.tickers.iter()).collect();
+    for (sym, (d, by)) in &traded {
+        plan.days.insert(sym.clone(), *d);
+        if *d > DEFAULT_WARMUP_DAYS && primary_tickers.contains(sym) {
+            plan.raised.push(WarmupRaise { symbol: sym.clone(), days: *d, book: by.clone() });
+        }
+    }
+    if !traded.contains_key(index) {
+        let d = books.iter().map(|b| b.days()).max().unwrap_or(DEFAULT_WARMUP_DAYS);
+        plan.days.insert(index.to_string(), d);
+    }
+    plan
+}
+
 /// a trade the replay harness collected instead of writing to postgres.
 #[derive(Debug, Clone)]
 pub struct ReplayTrade {
@@ -984,9 +1073,82 @@ mod tests {
                 entry_cooldown_ms: 0,
                 max_daily_loss_pct: None,
                 max_position_pct: None,
+                warmup_days: None,
             },
             ticker_overrides: HashMap::new(),
         }
+    }
+
+    fn strings(v: &[&str]) -> Vec<String> {
+        v.iter().map(|s| s.to_string()).collect()
+    }
+
+    #[test]
+    fn warmup_primary_only_keeps_eight_days() {
+        let names = strings(&["AAPL", "AMZN", "MSFT", "NVDA"]);
+        let books = [WarmupInput { book: "primary", is_primary: true, tickers: &names, warmup_days: None }];
+        let plan = warmup_plan(&books, "SPY");
+        for t in &names {
+            assert_eq!(plan.days_for(t), 8);
+        }
+        assert_eq!(plan.days_for("SPY"), 8);
+        assert_eq!(plan.days.len(), 5);
+        assert!(plan.raised.is_empty());
+    }
+
+    #[test]
+    fn warmup_qqq_book_raises_only_qqq_and_the_index() {
+        let names = strings(&["AAPL", "AMZN", "MSFT", "NVDA"]);
+        let qqq = strings(&["QQQ"]);
+        let books = [
+            WarmupInput { book: "primary", is_primary: true, tickers: &names, warmup_days: None },
+            WarmupInput { book: "qqq-noise-pm-vol", is_primary: false, tickers: &qqq, warmup_days: Some(22) },
+        ];
+        let plan = warmup_plan(&books, "SPY");
+        assert_eq!(plan.days_for("QQQ"), 22);
+        for t in &names {
+            assert_eq!(plan.days_for(t), 8, "{t} keeps the primary's 8 days");
+        }
+        // SPY is not traded: max over all books (it only seeds the cross tracker)
+        assert_eq!(plan.days_for("SPY"), 22);
+        assert!(plan.raised.is_empty(), "QQQ is not a primary name: no parity warning");
+    }
+
+    #[test]
+    fn warmup_book_on_a_primary_name_raises_it_with_a_parity_warning() {
+        let names = strings(&["AAPL", "AMZN", "MSFT", "NVDA"]);
+        let aapl = strings(&["AAPL"]);
+        let short = strings(&["NVDA"]);
+        let books = [
+            WarmupInput { book: "primary", is_primary: true, tickers: &names, warmup_days: None },
+            WarmupInput { book: "aapl-30", is_primary: false, tickers: &aapl, warmup_days: Some(30) },
+            // asking for less than the primary's 8 never shortens a shared window
+            WarmupInput { book: "nvda-3", is_primary: false, tickers: &short, warmup_days: Some(3) },
+        ];
+        let plan = warmup_plan(&books, "SPY");
+        assert_eq!(plan.days_for("AAPL"), 30);
+        assert_eq!(plan.days_for("NVDA"), 8);
+        assert_eq!(plan.days_for("MSFT"), 8);
+        assert_eq!(
+            plan.raised,
+            vec![WarmupRaise { symbol: "AAPL".into(), days: 30, book: "aapl-30".into() }]
+        );
+    }
+
+    #[test]
+    fn warmup_traded_index_follows_the_traded_rule() {
+        let names = strings(&["AAPL"]);
+        let spy = strings(&["SPY"]);
+        let books = [
+            WarmupInput { book: "primary", is_primary: true, tickers: &names, warmup_days: Some(30) },
+            WarmupInput { book: "spy", is_primary: false, tickers: &spy, warmup_days: Some(12) },
+        ];
+        let plan = warmup_plan(&books, "SPY");
+        assert_eq!(plan.days_for("SPY"), 12, "the SPY builder follows the books trading SPY");
+        assert_eq!(plan.days_for("AAPL"), 30);
+        // the primary's own config raised its name: still flagged (8-day replays no longer match)
+        assert_eq!(plan.raised.len(), 1);
+        assert_eq!(plan.raised[0].book, "primary");
     }
 
     fn replay_sink() -> Sink {

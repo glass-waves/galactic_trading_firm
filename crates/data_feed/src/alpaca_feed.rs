@@ -39,6 +39,9 @@ fn num_to_f64(n: &num_decimal::Num) -> f64 {
     n.to_f64().unwrap_or(0.0)
 }
 
+/// page cap of one historical bars request (10k bars per page).
+const MAX_HISTORY_PAGES: usize = 20;
+
 /// alpaca data feed using the apca crate for websocket bar streaming
 /// and REST historical bar fetching.
 pub struct AlpacaFeed {
@@ -225,7 +228,9 @@ impl AlpacaFeed {
 
         let mut candles: Vec<Candle> = Vec::new();
         let mut page_token: Option<String> = None;
-        for _page in 0..20 {
+        // 20 pages × 10k bars: a 30-day warm-up of 1-minute bars incl. extended hours is
+        // ~21 sessions × ≤960 bars ≈ 20k bars = 2–3 pages, so the cap is never the limit
+        for _page in 0..MAX_HISTORY_PAGES {
             let req = bars::ListReqInit {
                 limit: Some(10_000),
                 page_token: page_token.take(),
@@ -252,6 +257,9 @@ impl AlpacaFeed {
                 Some(tok) if !tok.is_empty() => page_token = Some(tok),
                 _ => break,
             }
+        }
+        if page_token.is_some() {
+            warn!(symbol, pages = MAX_HISTORY_PAGES, bars = candles.len(), "historical bars truncated at the page cap — the newest bars are missing");
         }
 
         candles.retain(|c| is_regular_hours(c.timestamp));

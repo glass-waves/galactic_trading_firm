@@ -29,15 +29,15 @@ use tracing_subscriber::{prelude::*, EnvFilter};
 use data_feed::account::resolve_capital;
 use data_feed::alpaca_feed::{AlpacaFeed, BarEvent};
 use data_feed::book::{
-    apply_limits, load_books, Book, BookPlan, BookSpec, Limits, ReplayLog, Sink, TickerShared,
-    SHADOW_SLIPPAGE_BPS,
+    apply_limits, load_books, warmup_plan, Book, BookPlan, BookSpec, Limits, ReplayLog, Sink,
+    TickerShared, WarmupInput, SHADOW_SLIPPAGE_BPS,
 };
 use data_feed::broker::{AlpacaBroker, Broker, SimulatedBroker};
 use data_feed::config_loader::{load_config, load_config_by_id};
 use data_feed::config_watcher::ConfigWatcher;
 use data_feed::cross_tracker::CrossTracker;
 use data_feed::market_state::MarketStateBuilder;
-use data_feed::replay_feed::{load_replay_bars, write_replay_trades, REPLAY_WARMUP_DAYS};
+use data_feed::replay_feed::{load_replay_bars, write_replay_trades};
 use data_feed::session_clock::{eastern_minutes, is_regular_hours, parse_hm};
 use data_feed::state_writer::delete_unhosted_engine_state;
 use data_feed::trade_writer::TradeWriter;
@@ -46,10 +46,9 @@ use types::action::ExitReason;
 #[cfg(feature = "tui")]
 use data_feed::tui::{DashboardState, PositionDisplay, TickerState, TradeLogEntry};
 
-/// calendar days of 1-minute history to fetch at startup. 8 calendar days
-/// covers ≥5 trading days even across a long weekend, enough to fill the
-/// hourly window (21+ hourly candles) for the hourly indicators.
-const WARMUP_LOOKBACK_DAYS: i64 = 8;
+// warm-up: calendar days of 1-minute history per symbol = `book::warmup_plan` — 8
+// (`DEFAULT_WARMUP_DAYS`: ≥5 trading days even across a long weekend, 21+ hourly candles)
+// unless a book trading the symbol sets `session.warmup_days`; the replay uses the same rule.
 /// no bar for this long during regular hours ⇒ the feed is considered stale.
 const FEED_STALE_AFTER_SECS: i64 = 180;
 /// index symbol streamed alongside the traded tickers to fill `MarketState.cross`.
@@ -471,6 +470,24 @@ async fn main() {
     stream_symbols.push(CROSS_INDEX_SYMBOL.to_string());
     info!(symbols = ?stream_symbols, "subscription set (union of books' tickers + index)");
 
+    // 8a. per-symbol warm-up: max over the books trading the symbol of (warmup_days or 8);
+    //     the untraded index gets the max over all books (cross tracker only — today's
+    //     session + prior close — so its length changes nothing any book computes)
+    let warmup = {
+        let inputs: Vec<WarmupInput> = rt.books.iter().map(WarmupInput::from_book).collect();
+        warmup_plan(&inputs, CROSS_INDEX_SYMBOL)
+    };
+    info!(days = ?warmup.days, "warm-up per symbol (calendar days)");
+    for r in &warmup.raised {
+        warn!(
+            symbol = %r.symbol,
+            days = r.days,
+            book = %r.book,
+            "symbol {} warm-up raised to {} days by book {} — primary parity with 8-day replays no longer holds for {}",
+            r.symbol, r.days, r.book, r.symbol
+        );
+    }
+
     // 8b. state rows of (book, ticker) pairs this process does not host go away now
     if !replay_mode {
         let hosted: Vec<(String, String)> = rt
@@ -490,17 +507,22 @@ async fn main() {
         Mode::Live => {
             let feed = AlpacaFeed::new(api_key.clone(), api_secret.clone(), tickers.clone());
             // the index feeds MarketState.cross only; seed it so a mid-session restart knows
-            // today's session open (the tracker filters by eastern date itself).
-            match feed.fetch_historical_bars(CROSS_INDEX_SYMBOL, 1).await {
-                Ok(candles) => {
-                    rt.cross.seed(CROSS_INDEX_SYMBOL, &candles);
-                    info!(symbol = CROSS_INDEX_SYMBOL, bars = candles.len(), "cross-context index seeded");
+            // today's session open (the tracker filters by eastern date itself). a traded
+            // index is fetched (and seeds the tracker) in the ticker loop below instead.
+            if !tickers.iter().any(|t| t == CROSS_INDEX_SYMBOL) {
+                let days = i64::from(warmup.days_for(CROSS_INDEX_SYMBOL));
+                match feed.fetch_historical_bars(CROSS_INDEX_SYMBOL, days).await {
+                    Ok(candles) => {
+                        rt.cross.seed(CROSS_INDEX_SYMBOL, &candles);
+                        info!(symbol = CROSS_INDEX_SYMBOL, days, bars = candles.len(), "cross-context index seeded");
+                    }
+                    Err(e) => warn!(symbol = CROSS_INDEX_SYMBOL, error = %e, "cross-context index seed failed — SPY-conditioned windows stay closed until live SPY bars arrive today"),
                 }
-                Err(e) => warn!(symbol = CROSS_INDEX_SYMBOL, error = %e, "cross-context index seed failed — SPY-conditioned windows stay closed until live SPY bars arrive today"),
             }
             for ticker in &tickers {
-                info!(ticker = %ticker, days = WARMUP_LOOKBACK_DAYS, "fetching historical bars for warmup");
-                match feed.fetch_historical_bars(ticker, WARMUP_LOOKBACK_DAYS).await {
+                let days = i64::from(warmup.days_for(ticker));
+                info!(ticker = %ticker, days, "fetching historical bars for warmup");
+                match feed.fetch_historical_bars(ticker, days).await {
                     Ok(candles) => {
                         let count = candles.len();
                         rt.cross.seed(ticker, &candles);
@@ -508,6 +530,7 @@ async fn main() {
                             builder.seed(candles);
                             info!(
                                 ticker = %ticker,
+                                days,
                                 one_minute_bars = count,
                                 windows = ?builder.window_sizes(),
                                 "warmup complete"
@@ -585,7 +608,9 @@ async fn main() {
         Mode::Replay => {
             let dir = replay_dir.clone().expect("replay dir checked above");
             let date = replay_date.expect("replay date checked above");
-            let bars = match load_replay_bars(&dir, &stream_symbols, CROSS_INDEX_SYMBOL, date, REPLAY_WARMUP_DAYS) {
+            let bars = match load_replay_bars(&dir, &stream_symbols, CROSS_INDEX_SYMBOL, date, |s| {
+                i64::from(warmup.days_for(s))
+            }) {
                 Ok(b) => b,
                 Err(e) => {
                     error!(error = %e, "replay: could not load bars");
@@ -596,9 +621,9 @@ async fn main() {
                 rt.cross.seed(sym, candles);
                 if let Some(builder) = rt.state_builders.get_mut(sym) {
                     builder.seed(candles.clone());
-                    info!(ticker = %sym, one_minute_bars = candles.len(), windows = ?builder.window_sizes(), "replay warmup complete");
+                    info!(ticker = %sym, days = warmup.days_for(sym), one_minute_bars = candles.len(), windows = ?builder.window_sizes(), "replay warmup complete");
                 } else {
-                    info!(symbol = %sym, one_minute_bars = candles.len(), "replay: cross-context symbol seeded");
+                    info!(symbol = %sym, days = warmup.days_for(sym), one_minute_bars = candles.len(), "replay: cross-context symbol seeded");
                 }
             }
             info!(date = %date, bars = bars.day.len(), symbols = ?stream_symbols, "replay: feeding the day's bars through the live loop");

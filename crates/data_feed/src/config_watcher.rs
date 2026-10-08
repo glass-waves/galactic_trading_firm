@@ -244,6 +244,7 @@ mod tests {
                 entry_cooldown_ms: 0,
                 max_daily_loss_pct: None,
                 max_position_pct: None,
+                warmup_days: None,
             },
             ticker_overrides: std::collections::HashMap::new(),
         };
@@ -303,6 +304,7 @@ mod tests {
                 entry_cooldown_ms: 0,
                 max_daily_loss_pct: None,
                 max_position_pct: None,
+                warmup_days: None,
             },
             ticker_overrides: std::collections::HashMap::new(),
         };

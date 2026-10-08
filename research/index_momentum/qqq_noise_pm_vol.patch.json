@@ -107,7 +107,8 @@
  ],
  "session": {
   "no_new_entries_after": "15:30",
-  "force_exit_by": "15:58"
+  "force_exit_by": "15:58",
+  "warmup_days": 30
  },
  "tickers": [
   "QQQ"

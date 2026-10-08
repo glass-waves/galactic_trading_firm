@@ -162,6 +162,14 @@ pub struct SessionConfig {
     /// available capital). this is a safety clamp, not a sizing knob.
     #[serde(default)]
     pub max_position_pct: Option<f64>,
+
+    /// calendar days of 1-minute history this config needs to warm its candle windows
+    /// (e.g. an hourly indicator that reads ~14 sessions needs ≥ 22). `None` = the
+    /// trader's default (8). the live trader warms each symbol with the max over the
+    /// books trading it; the backtest uses it when `--lookback-days` is absent.
+    /// absent from (and not written into) blobs that do not set it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub warmup_days: Option<u32>,
 }
 
 impl SessionConfig {
@@ -253,13 +261,34 @@ mod tests {
                 entry_cooldown_ms: 0,
                 max_daily_loss_pct: None,
                 max_position_pct: None,
+                warmup_days: None,
             },
             ticker_overrides: HashMap::new(),
         };
 
         let json = serde_json::to_string(&config).expect("serialize");
+        assert!(!json.contains("warmup_days"), "an unset warm-up is not written into the blob");
         let deserialized: StrategyConfig = serde_json::from_str(&json).expect("deserialize");
         assert_eq!(config, deserialized);
+
+        let mut with_warmup = config.clone();
+        with_warmup.session.warmup_days = Some(22);
+        let json = serde_json::to_string(&with_warmup).expect("serialize");
+        let back: StrategyConfig = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back.session.warmup_days, Some(22));
+        assert_eq!(with_warmup, back);
+    }
+
+    /// blobs written before `warmup_days` existed parse with `None`.
+    #[test]
+    fn test_session_warmup_days_defaults_to_none() {
+        let config: StrategyConfig = serde_json::from_str(V2_CONFIG_JSON).expect("parse v2 config");
+        assert_eq!(config.session.warmup_days, None);
+        let s: SessionConfig = serde_json::from_str(
+            r#"{"no_new_entries_after":"11:30","avoid_first_minutes":0,"max_concurrent_positions":1,"max_capital_deployed_pct":0.3,"warmup_days":30}"#,
+        )
+        .expect("parse session");
+        assert_eq!(s.warmup_days, Some(30));
     }
 
     #[test]

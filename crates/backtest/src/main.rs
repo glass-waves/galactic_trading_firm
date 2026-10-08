@@ -1026,9 +1026,9 @@ async fn main() {
     let output_trades_csv = args.iter().any(|a| a == "--output-trades-csv");
 
     if let Some(date_str) = get_arg(&args, "--date") {
-        let lookback_days: i64 = get_arg(&args, "--lookback-days")
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(5);
+        // None = the flag is absent: the config's session.warmup_days, else 5 (resolved
+        // once the config is loaded)
+        let lookback_days: Option<i64> = get_arg(&args, "--lookback-days").and_then(|s| s.parse().ok());
         let write_db = args.iter().any(|a| a == "--write-db");
         let bars_dir = get_arg(&args, "--bars-dir");
         let dump_ticks = get_arg(&args, "--dump-ticks");
@@ -1058,7 +1058,7 @@ async fn main() {
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capital: f64, cost_config: &Option<BacktestCostConfig>, verbose: bool, output_equity: bool, output_trades_csv: bool, overrides: &ConfigOverrides, bars_dir: Option<&str>, dump_ticks: Option<&str>, cross_index: Option<&str>, config_id: Option<i64>) {
+async fn run_date_mode(date_str: &str, lookback_days_flag: Option<i64>, write_db: bool, capital: f64, cost_config: &Option<BacktestCostConfig>, verbose: bool, output_equity: bool, output_trades_csv: bool, overrides: &ConfigOverrides, bars_dir: Option<&str>, dump_ticks: Option<&str>, cross_index: Option<&str>, config_id: Option<i64>) {
     dotenvy::dotenv().ok();
 
     // file + console layered logging
@@ -1150,6 +1150,14 @@ async fn run_date_mode(date_str: &str, lookback_days: i64, write_db: bool, capit
     }
     if let Some(ref time) = overrides.no_new_entries_after {
         config.session.no_new_entries_after = time.clone();
+    }
+
+    // warm-up: the CLI's --lookback-days when given (unchanged), else the config's own
+    // session.warmup_days after overrides / --patch-json
+    // (so a materialized row replays correctly with --config-id alone)
+    let lookback_days = resolve_lookback_days(lookback_days_flag, config.session.warmup_days);
+    if lookback_days_flag.is_none() && config.session.warmup_days.is_some() {
+        eprintln!("lookback: {lookback_days} days from the config's session.warmup_days (no --lookback-days)");
     }
 
     // alpaca credentials (not needed when replaying from the local bar cache)
@@ -1637,6 +1645,15 @@ fn parse_cost_config(args: &[String]) -> Option<BacktestCostConfig> {
     }
 }
 
+/// default `--lookback-days` when neither the flag nor the config sets it.
+const DEFAULT_LOOKBACK_DAYS: i64 = 5;
+
+/// `--lookback-days` wins when present; otherwise the config's `session.warmup_days`;
+/// otherwise [`DEFAULT_LOOKBACK_DAYS`].
+fn resolve_lookback_days(flag: Option<i64>, config_warmup_days: Option<u32>) -> i64 {
+    flag.or(config_warmup_days.map(i64::from)).unwrap_or(DEFAULT_LOOKBACK_DAYS)
+}
+
 fn get_arg(args: &[String], flag: &str) -> Option<String> {
     args.iter()
         .rposition(|a| a == flag)
@@ -1866,4 +1883,17 @@ fn build_cross_context(
         );
     }
     out
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_lookback_days;
+
+    #[test]
+    fn lookback_flag_wins_then_config_then_default() {
+        assert_eq!(resolve_lookback_days(Some(8), Some(30)), 8);
+        assert_eq!(resolve_lookback_days(Some(22), None), 22);
+        assert_eq!(resolve_lookback_days(None, Some(30)), 30);
+        assert_eq!(resolve_lookback_days(None, None), 5);
+    }
 }

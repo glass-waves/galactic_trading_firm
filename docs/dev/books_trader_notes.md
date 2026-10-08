@@ -44,11 +44,27 @@ or exceeds the limits is logged `shadow book NOT hosted` and writes no state row
 ## replay harness
 
 `paper_trader --replay-bars data/bars_iex --replay-date 2025-04-04 --replay-out out.csv [--replay-slippage-bps 0]`
-— same loop and books, bars from `<dir>/<SYMBOL>.csv` (unix-second ts,o,h,l,c,v; RTH), warm-up = the 8
-calendar days before the date, SPY first within each minute (backtest lag 0), simulated brokers for
+— same loop and books, bars from `<dir>/<SYMBOL>.csv` (unix-second ts,o,h,l,c,v; RTH), warm-up = the
+per-symbol calendar days before the date (see below; 8 unless a book asks for more), SPY first within each minute (backtest lag 0), simulated brokers for
 every book, **no database writes**, heartbeat / staleness / reload arms off, every `Utc::now()` stamp =
 bar time, flatten at the last bar, exit 0. output = the backtest `--output-trades-csv` trade rows
 (same quirk: one field fewer than the header) + `book`. log: `$LOG_DIR/replay_<date>.log`.
+
+## per-symbol warm-up (2026-10-07)
+
+`SessionConfig.warmup_days: Option<u32>` (serde default, not serialized when unset). at start-up
+`book::warmup_plan` gives each traded symbol max over the books trading it of (`warmup_days` or 8) and
+the untraded index (SPY) max over all books; a traded index follows the traded rule. live fetches and
+`--replay-bars` use the same per-symbol days; computed once per start (a reloaded value applies at the
+next start). the index only seeds the cross tracker (today's session + prior close), so its length
+changes nothing a book computes; live, its seed went from 1 day to that max (≥ 8). a primary name raised
+above 8 logs `symbol X warm-up raised to N days by book Y — primary parity with 8-day replays no longer
+holds for X`. backtest: `--lookback-days` when given, else the (patched) config's `warmup_days`, else 5.
+check 2026-10-07: shadow on promoted row 12 + `qqq_noise_pm_vol` patch (`warmup_days` 30) → log QQQ 30 /
+SPY 30 / primary names 8; primary (and every other shadow) trade rows byte-identical with and without the
+book on 2025-02-03/24/25/27/28 and 04-04 (6 primary trades); QQQ 2025-02-27 Short 16:59Z @ 509.90 →
+SessionClose 20:58Z, scores equal to `backtest --lookback-days 22|30 --config-id` (17:00Z @ 510.125, next-bar
+fill); with `--lookback-days 8` the backtest takes no trade.
 
 ## parity (2025-04-04, capital 10000, blob sizing 0.30, zero costs)
 

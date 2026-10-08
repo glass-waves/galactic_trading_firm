@@ -1,6 +1,6 @@
 # research pipeline — status
 
-generated 2026-10-08 04:25 UTC by `scripts/pipeline/pipeline.py report`. do not edit: regenerated nightly. lane: proposed → backtesting → backtest_passed → shadow → shadow_passed → promotion_proposed → promoted (human). failures: backtest_failed / shadow_failed (180 d cooldown), withdrawn (human).
+generated 2026-10-08 04:41 UTC by `scripts/pipeline/pipeline.py report`. do not edit: regenerated nightly. lane: proposed → backtesting → backtest_passed → shadow → shadow_passed → promotion_proposed → promoted (human). failures: backtest_failed / shadow_failed (180 d cooldown), withdrawn (human).
 
 - gate sweeps run at the research sizing (`--sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY`, IEX cache, 3 bps + $0.005); the per-year floor (no year < −300) is stated at 36 %. live and shadow books size at the blob's fraction; parity replays use no sizing override.
 - shadow-book creation: **enabled** (`PIPELINE_SHADOW_BOOKS=1`; while disabled `advance` only prints the books it would create).
@@ -20,7 +20,7 @@ none.
 
 | id | name | kind | gate | tickers | since | backtest (5y P&L / trades / PF · per year · gate) |
 |---:|---|---|---|---|---|---|
-| 46 | `qqq-noise-pm-vol` | config | quality-config | base | 3 m | — |
+| 47 | `qqq-noise-pm-vol` | config | quality-config | base | 0 m | — |
 
 ### backtesting (0)
 
@@ -30,8 +30,8 @@ none.
 
 | id | name | kind | gate | tickers | since | backtest (5y P&L / trades / PF · per year · gate) |
 |---:|---|---|---|---|---|---|
-| 44 | `spy-sqrt-band` | config | volume-config | base | 50 m | +2195 / 460 / PF 1.46 · 22:+1144 23:+77 24:+116 25:+371 26:+486 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 |
-| 45 | `spy-sqrt-band-1h15` | config | quality-config | base | 45 m | +2044 / 309 / PF 1.70 · 22:+708 23:+125 24:+81 25:+428 26:+703 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 |
+| 44 | `spy-sqrt-band` | config | volume-config | base | 1 h | +2195 / 460 / PF 1.46 · 22:+1144 23:+77 24:+116 25:+371 26:+486 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 |
+| 45 | `spy-sqrt-band-1h15` | config | quality-config | base | 1 h | +2044 / 309 / PF 1.70 · 22:+708 23:+125 24:+81 25:+428 26:+703 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 |
 
 ### shadow (4)
 
@@ -94,10 +94,18 @@ none.
 | 42 | `ticker:SHOP` | ticker | additive-ticker | SHOP | 1 h | +622 / 113 / PF 1.30 · 22:+708 23:-445 24:+4 25:+43 26:+312 · fail: combined_pf, combined_years_not_worse, added_worst_year · base iex_v18: +1728 / 436 / PF 1.37 · added +622 / 113 / PF 1.30 (worst yr -445, worst day -103) · cooldown to 2027-04-06 |
 | 43 | `ticker:UBER` | ticker | additive-ticker | UBER | 1 h | -305 / 84 / PF 0.79 · 22:-166 23:-164 24:+270 25:-33 26:-211 · fail: added_pnl, added_pf, combined_pf, combined_years_not_worse, added_worst_year · base iex_v18: +1728 / 436 / PF 1.37 · added -305 / 84 / PF 0.79 (worst yr -211, worst day -103) · cooldown to 2027-04-06 |
 
+### withdrawn (1)
+
+| id | name | kind | gate | tickers | since | backtest (5y P&L / trades / PF · per year · gate) |
+|---:|---|---|---|---|---|---|
+| 46 | `qqq-noise-pm-vol` | config | quality-config | base | 0 m | — |
+
 ## last 20 events
 
 | when (UTC) | candidate | transition | actor | detail |
 |---|---|---|---|---|
+| 2026-10-08 04:41 | `qqq-noise-pm-vol` | ∅ → proposed | human | proposed |
+| 2026-10-08 04:41 | `qqq-noise-pm-vol` | proposed → withdrawn | human | withdrawn |
 | 2026-10-08 04:22 | `qqq-noise-pm-vol` | ∅ → proposed | human | proposed |
 | 2026-10-08 03:40 | `spy-sqrt-band-1h15` | backtesting → backtest_passed | pipeline | gate tag=cand_45 pass=True |
 | 2026-10-08 03:40 | `spy-sqrt-band-1h15` | backtesting → backtesting | pipeline | sweep_done tag=cand_45 |
@@ -116,5 +124,3 @@ none.
 | 2026-10-08 03:19 | `ticker:AVGO` | backtest_failed → backtest_failed | pipeline | regate pass=False |
 | 2026-10-08 03:19 | `ticker:TSLA` | backtest_failed → backtest_failed | pipeline | regate pass=False |
 | 2026-10-08 03:19 | `ticker:XLE` | backtest_failed → backtest_failed | pipeline | regate pass=False |
-| 2026-10-08 03:18 | `ticker:IWM` | backtest_failed → backtest_failed | pipeline | regate pass=False |
-| 2026-10-08 03:18 | `ticker:XLF` | backtest_failed → backtest_failed | pipeline | regate pass=False |

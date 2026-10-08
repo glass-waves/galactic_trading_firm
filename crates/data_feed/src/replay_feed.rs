@@ -1,9 +1,10 @@
 //! replay harness input/output for `paper_trader --replay-bars <dir> --replay-date D --replay-out F`.
 //!
 //! bars come from `<dir>/<SYMBOL>.csv` (unix-second timestamp,open,high,low,close,volume;
-//! the backtest's `--fetch-bars` cache, RTH only). the eight calendar days before the
-//! replay date warm the candle windows and the cross tracker exactly as the live start-up
-//! does; the day's bars for every subscribed symbol are merged by timestamp — the index
+//! the backtest's `--fetch-bars` cache, RTH only). the calendar days before the replay
+//! date warm the candle windows and the cross tracker exactly as the live start-up does —
+//! per symbol, by the same rule (`book::warmup_plan`: 8 unless a book trading the symbol
+//! sets `session.warmup_days`); the day's bars for every subscribed symbol are merged by timestamp — the index
 //! first within a minute, so the cross context is the backtest's lag-0 view — and pushed
 //! through the same `BarEvent` channel the websocket feeds. trades are collected in
 //! memory and written once, in the backtest's `--output-trades-csv` trade-row format with
@@ -21,9 +22,6 @@ use types::market::Candle;
 use crate::alpaca_feed::BarEvent;
 use crate::book::ReplayTrade;
 use crate::session_clock::{eastern_date, is_regular_hours};
-
-/// calendar days of history before the replay date used for warm-up (= live start-up).
-pub const REPLAY_WARMUP_DAYS: i64 = 8;
 
 /// bars for one replay run.
 #[derive(Debug, Default)]
@@ -101,21 +99,22 @@ pub fn merge_day_bars(per_symbol: Vec<(String, Vec<Candle>)>, index: &str) -> Ve
 }
 
 /// load everything one replay needs. `symbols` = every subscribed symbol (union of the
-/// books' tickers + the index). a symbol without a csv or without bars on `date` is an
-/// error — a silent gap would make the parity check lie.
+/// books' tickers + the index); `warmup_days(symbol)` = calendar days of warm-up for it
+/// (the live start-up's per-symbol rule). a symbol without a csv or without bars on
+/// `date` is an error — a silent gap would make the parity check lie.
 pub fn load_replay_bars(
     dir: &str,
     symbols: &[String],
     index: &str,
     date: NaiveDate,
-    warmup_days: i64,
+    warmup_days: impl Fn(&str) -> i64,
 ) -> Result<ReplayBars, String> {
     let mut warmup = HashMap::new();
     let mut per_symbol = Vec::new();
     for sym in symbols {
         let path = Path::new(dir).join(format!("{sym}.csv"));
         let all = read_bars_csv(&path)?;
-        let (w, d) = split_for_date(all, date, warmup_days);
+        let (w, d) = split_for_date(all, date, warmup_days(sym));
         if d.is_empty() {
             return Err(format!("{}: no regular-hours bars on {date}", path.display()));
         }
@@ -244,6 +243,32 @@ mod tests {
         assert!((w[0].close - 2.0).abs() < f64::EPSILON);
         assert_eq!(day.len(), 1);
         assert!((day[0].close - 4.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn load_applies_each_symbols_own_warmup() {
+        let dir = std::env::temp_dir().join(format!("gtf_replay_warm_{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        // RTH bars (15:00 UTC = 10:00 EST) on the replay date and 6 / 20 calendar days before it
+        let rows = |closes: &[(u32, f64)]| -> String {
+            closes
+                .iter()
+                .map(|(day, c)| {
+                    let ts = Utc.with_ymd_and_hms(2025, 2, *day, 15, 0, 0).unwrap().timestamp();
+                    format!("{ts},{c},{c},{c},{c},100\n")
+                })
+                .collect()
+        };
+        let bars = rows(&[(7, 1.0), (21, 2.0), (27, 3.0)]);
+        fs::write(dir.join("AAPL.csv"), &bars).unwrap();
+        fs::write(dir.join("QQQ.csv"), &bars).unwrap();
+        let date = NaiveDate::from_ymd_opt(2025, 2, 27).unwrap();
+        let syms = vec!["AAPL".to_string(), "QQQ".to_string()];
+        let out = load_replay_bars(dir.to_str().unwrap(), &syms, "SPY", date, |s| if s == "QQQ" { 30 } else { 8 }).unwrap();
+        assert_eq!(out.warmup["AAPL"].len(), 1, "8 days: only 02-21");
+        assert_eq!(out.warmup["QQQ"].len(), 2, "30 days: 02-07 and 02-21");
+        assert_eq!(out.day.len(), 2);
+        let _ = fs::remove_dir_all(&dir);
     }
 
     #[test]
