@@ -8,6 +8,7 @@ statuses: pass-pretest (a tradable version clears the bar on one of the cell's i
 (only an overnight / multi-day version clears it), dead."""
 import csv
 import datetime as dt
+import os
 import re
 import warnings
 
@@ -16,6 +17,14 @@ import numpy as np
 from harness import ET, ROOT, YEARS, Order, bars, execute, kill, run_rule
 
 FOUR = "AAPL+AMZN+MSFT+NVDA"
+FOUR_NAMES = set(FOUR.split("+"))
+# the ~30 other large caps with 1m bars cached (data/bars_iex/*.csv), for the instrument-neighbourhood
+# scan on single-stock cells. excludes the index/sector ETFs also in that directory.
+OTHER_CAPS = sorted({"AAPL", "ABBV", "ADBE", "AMAT", "AMD", "AMZN", "AVGO", "CAT", "COIN", "COST", "CRM",
+                      "CVX", "GS", "HD", "JPM", "LLY", "MA", "META", "MRK", "MSFT", "MU", "NFLX", "NVDA",
+                      "ORCL", "PG", "PLTR", "QCOM", "SHOP", "TSLA", "TXN", "UBER", "UNH", "V", "XOM"} - FOUR_NAMES)
+ALL34 = "+".join(sorted(FOUR_NAMES | set(OTHER_CAPS)))
+INDEX3 = ["SPY", "QQQ", "IWM"]
 warnings.filterwarnings("ignore", "Mean of empty slice")   # half days: no half-hour has all names
 FOMC = {dt.date.fromisoformat(d) for d in re.findall(r'"(\d{4}-\d{2}-\d{2})"', open(
     f"{ROOT}/crates/indicators/src/custom/event_calendar.rs").read().split("FOMC_DECISION_DAYS")[1].split("];")[0])}
@@ -213,11 +222,14 @@ def orb(b, i, p):
 
 # ------------------------------------------------------------------ 5. earnings-day gap reversal (#15)
 def reaction_days(sym):
-    """8-K item 2.02 filing dates (both repo lists). all four names report after the close, so the
+    """8-K item 2.02 filing dates (both repo lists, where they exist -- 4 of the 34-stock scan
+    universe have no earnings file, e.g. COIN/PLTR/SHOP/UBER, and are treated as having no
+    exclusion, same as the index ETFs). all four home names report after the close, so the
     reaction session is the next session. NVDA 2022-08-08 is a pre-market preannouncement, not the
     scheduled report (that is 2022-08-24) -- dropped."""
     b, out = bars(sym), set()
-    files = [f"{ROOT}/research/swing/earnings/{sym}.txt", f"{ROOT}/research/entries/data/earnings_{sym}.txt"]
+    files = [f for f in (f"{ROOT}/research/swing/earnings/{sym}.txt", f"{ROOT}/research/entries/data/earnings_{sym}.txt")
+             if os.path.exists(f)]
     for d in {dt.date.fromisoformat(x) for f in files for x in open(f).read().split()} - {dt.date(2022, 8, 8)}:
         i = next((k for k, x in enumerate(b.dates) if x > d), None)
         if i is not None and d >= b.dates[0]:
@@ -235,6 +247,180 @@ def earn_gap(b, i, p):
     if gap == 0:
         return []
     return [Order(i, 0, int(np.sign(gap)) * (-1 if p["mode"] == "fade" else 1), i, p["exit"])]
+
+# ------------------------------------------------------------------ 6. size-dependent gap fade/fill (#16)
+def gap_fade_fill(b, i, p):
+    """|gap| < thresh -> fade (small/no-news gaps mean-revert); |gap| >= thresh -> continue (large,
+    news-driven gaps keep going -- the QQQ >2% continuation evidence in the catalog). excludes
+    earnings reaction days on the four mega-caps (no earnings calendar for SPY/QQQ, so no exclusion
+    needed there)."""
+    if i < 1:
+        return []
+    if b.sym in FOUR_NAMES:
+        if b.sym not in _EARN:
+            _EARN[b.sym] = reaction_days(b.sym)
+        if b.dates[i] in _EARN[b.sym]:
+            return []
+    gap = b.session_open(i) / b.session_close(i - 1) - 1
+    if not np.isfinite(gap) or gap == 0:
+        return []
+    side = np.sign(gap) if abs(gap) >= p["thresh"] else -np.sign(gap)
+    return [Order(i, 0, int(side), i, p["exit"])]
+
+# ------------------------------------------------------------------ 7. overnight-return decile lean (#7)
+_ON = {}
+def overnight_rets(b):
+    """close(i-1) -> open(i), one value per session (NaN for the first session or a missing bar)."""
+    if b.sym not in _ON:
+        r = np.full(len(b.dates), np.nan)
+        for i in range(1, len(b.dates)):
+            o, c = b.session_open(i), b.session_close(i - 1)
+            if np.isfinite(o) and np.isfinite(c):
+                r[i] = o / c - 1
+        _ON[b.sym] = r
+    return _ON[b.sym]
+
+
+def overnight_decile_lean(b, i, p):
+    """Lou-Polk-Skouras cross-predictability, signal-only: yesterday's overnight return's percentile
+    rank in a trailing window sets today's open->close lean. an overnight-winner day (top decile)
+    predicts an intraday loser next -> short lean; an overnight-loser day (bottom decile) -> long
+    lean. no position is carried overnight -- the signal is read off yesterday's already-closed
+    overnight return, today's trade is open->close only."""
+    R = overnight_rets(b)
+    if i < 2 or np.isnan(R[i - 1]):
+        return []
+    w = p.get("window", 60)
+    hist = R[max(1, i - 1 - w):i - 1]
+    hist = hist[~np.isnan(hist)]
+    if len(hist) < 20:
+        return []
+    rank = (hist < R[i - 1]).mean()
+    dec = p.get("decile", 0.1)
+    if rank >= 1 - dec:
+        side = -1
+    elif rank <= dec:
+        side = 1
+    else:
+        return []
+    return [Order(i, 0, side, i, 390)]
+
+# ------------------------------------------------------------------ 8. hedging-demand last-30-min momentum (#4)
+_RR = {}
+def session_range_proxy(b, i, t0, t1):
+    """realized-range proxy for dealer hedging flow we don't have the OI data for: (high-low)/price
+    over [t0, t1) minutes since the open. a bigger realized range stands in for a bigger hedging
+    flow that day (Baltussen-Da-Lammers-Martens use order/hedging flow directly; we only have bars)."""
+    if not b.has[i, t0:t1].any():
+        return np.nan
+    h = np.where(b.has[i, t0:t1], b.h[i, t0:t1], -np.inf)
+    l = np.where(b.has[i, t0:t1], b.l[i, t0:t1], np.inf)
+    p0 = b.entry_px(i, t0)[0]
+    return (np.nanmax(h) - np.nanmin(l)) / p0 if np.isfinite(p0) and p0 else np.nan
+
+
+def range_hist(b, t0, t1):
+    key = (b.sym, t0, t1)
+    if key not in _RR:
+        _RR[key] = np.array([session_range_proxy(b, i, t0, t1) for i in range(len(b.dates))])
+    return _RR[key]
+
+
+def hedging_momentum(b, i, p):
+    """last-N-min momentum (Baltussen et al., paper N=30): trade the sign of the 09:30->(390-hold)
+    return in the last `hold` minutes, gated on the day's realized range so far being above its
+    trailing-window percentile (the hedging-demand proxy). gate=None trades every day -- the
+    plain-momentum comparison (anomaly #3, already dead) that isolates what the gate adds."""
+    hold = p.get("hold", 30)
+    t = 390 - hold
+    if not b.full(i) or not b.has[i, :t].any():
+        return []
+    mom = b.exit_px(i, t) / b.session_open(i) - 1
+    if not np.isfinite(mom) or mom == 0:
+        return []
+    if p.get("gate") is not None:
+        RR, w = range_hist(b, 0, t), p.get("window", 60)
+        if i < w or np.isnan(RR[i]):
+            return []
+        hist = RR[max(0, i - w):i]
+        hist = hist[~np.isnan(hist)]
+        if len(hist) < 20 or RR[i] < np.nanpercentile(hist, p["gate"]):
+            return []
+    return [Order(i, t, int(np.sign(mom)), i, 390)]
+
+# ------------------------------------------------------------- 9/10. FOMC / monthly-OpEx range compression (#10, #19)
+# time-of-day neighbourhood around the task's 10:30-14:00 window: 1h earlier start, 30min later end.
+WINDOWS = {"10:30-14:00": (60, 270), "10:00-14:00": (30, 270), "10:30-14:30": (60, 300)}
+
+
+def third_friday(year, month):
+    d = dt.date(year, month, 1)
+    d += dt.timedelta(days=(4 - d.weekday()) % 7)
+    return d + dt.timedelta(days=14)
+
+
+OPEX_DAYS = {third_friday(y, m) for y in range(2021, 2028) for m in range(1, 13)}
+
+
+def no_trade(b, i, p):
+    return []
+
+
+def compression_stats(is_event, syms=INDEX3, windows=WINDOWS):
+    """Welch-style comparison of the realized-range proxy on event days vs all other full sessions
+    (half days excluded from both groups) across every (instrument x time-of-day window) cell."""
+    def f():
+        out = {}
+        for sym in syms:
+            b = bars(sym)
+            out[sym] = {}
+            for wlabel, (t0, t1) in windows.items():
+                ev, ot = [], []
+                for i in range(len(b.dates)):
+                    if not b.full(i):
+                        continue
+                    rr = session_range_proxy(b, i, t0, t1)
+                    if np.isnan(rr):
+                        continue
+                    (ev if is_event(b.dates[i]) else ot).append(rr)
+                ev, ot = np.array(ev), np.array(ot)
+                if len(ev) < 5 or len(ot) < 5:
+                    out[sym][wlabel] = {"n_event": len(ev), "n_other": len(ot), "z": 0.0, "compression_pct": 0.0}
+                    continue
+                me, mo = float(ev.mean()), float(ot.mean())
+                se = float(np.sqrt(ev.var(ddof=1) / len(ev) + ot.var(ddof=1) / len(ot)))
+                out[sym][wlabel] = {"n_event": len(ev), "n_other": len(ot), "event_range_pct": round(me * 100, 3),
+                                     "other_range_pct": round(mo * 100, 3), "compression_pct": round((mo - me) / mo * 100, 1),
+                                     "z": round((me - mo) / se, 2) if se > 0 else 0.0}
+        return out
+    return f
+
+
+def regime_verdict(z_bar, pct_bar, action):
+    """pre-registered: a regime 'passes' (worth gating an existing window on) only if some
+    (instrument x time-of-day window) cell's realized range is >= pct_bar % tighter than non-event
+    sessions at |z| >= z_bar; otherwise it is dead -- discarded as a filter candidate, not a P&L
+    verdict. scans every instrument x window cell and reports the number scanned, the best cell,
+    and whether any other cell is within half the bar (a 'near miss' worth flagging)."""
+    def f(res):
+        ex = res["extra"]
+        cells = [(s, w, d) for s, ws in ex.items() for w, d in ws.items()]
+        n = len(cells)
+        hit = [(s, w, d) for s, w, d in cells if d.get("n_event", 0) >= 5 and d["z"] <= -z_bar and d["compression_pct"] >= pct_bar]
+        best = max(cells, key=lambda t: abs(t[2].get("z", 0)))
+        near = [(s, w, d) for s, w, d in cells if (s, w, d) not in hit and d.get("n_event", 0) >= 5
+                and d["z"] <= -z_bar / 2 and d["compression_pct"] >= pct_bar / 2]
+        near_txt = f"; near-miss: {near[0][0]} {near[0][1]} z={near[0][2]['z']}, {near[0][2]['compression_pct']}%" if near and not hit else ""
+        if hit:
+            s, w, d = hit[0]
+            return "pass-pretest", (f"{n} cells scanned ({len(ex)} instruments x {len(WINDOWS)} windows); "
+                                     f"{s} {w} compressed {d['compression_pct']}% vs non-event sessions "
+                                     f"(z={d['z']}, n={d['n_event']}) -> measurable, worth gating {action}")
+        s, w, d = best
+        return "dead", (f"{n} cells scanned ({len(ex)} instruments x {len(WINDOWS)} windows); "
+                         f"no cell clears |z|>={z_bar} and {pct_bar}% compression "
+                         f"(best {s} {w}: z={d.get('z')}, {d.get('compression_pct')}%){near_txt} -> discard as a regime gate")
+    return f
 
 # ------------------------------------------------------------------ registry
 K45 = "net positive in >= 4/5 years and PF > 1.3 (3 bps + $0.005/sh per leg, 36 % of $10k)"
@@ -277,4 +463,68 @@ CELLS = [
          {"name": "fade the gap from the open", "rule": earn_gap, "grid": [{"mode": "fade", "exit": 120}, {"mode": "fade", "exit": 390}]},
          {"name": "continue the gap from the open", "rule": earn_gap, "grid": [{"mode": "cont", "exit": 120}, {"mode": "cont", "exit": 390}]}],
      "verdict_fn": standard_verdict(3, 1.3), "verdict": cell_verdict},
+    {"id": "c06_gap_fade_fill", "anomaly": "#16 gap fade/fill, size-dependent (practitioner-tier sourcing)",
+     "instruments": [FOUR, "SPY", "QQQ", "IWM", ALL34],
+     "kill_text": K45 + " -- low prior given the practitioner-only sourcing, so the bar is strict; "
+                  "expected ~30-50 trades/yr/name (any gap >= 1%); earnings reaction days excluded where we have "
+                  "an earnings calendar. pre-registered neighbourhood: threshold in {1,1.5,2}%, exit in "
+                  "{10:30,11:30,close}, instruments = home (4 names) + SPY/QQQ + IWM + the other ~30 large caps",
+     "variants": [
+         {"name": "fade/continue, exit 10:30", "rule": gap_fade_fill,
+          "grid": [{"thresh": 0.02, "exit": 60}, {"thresh": 0.015, "exit": 60}, {"thresh": 0.01, "exit": 60}]},
+         {"name": "fade/continue, exit 11:30", "rule": gap_fade_fill,
+          "grid": [{"thresh": 0.02, "exit": 120}, {"thresh": 0.015, "exit": 120}, {"thresh": 0.01, "exit": 120}]},
+         {"name": "fade/continue, exit close", "rule": gap_fade_fill,
+          "grid": [{"thresh": 0.02, "exit": 390}, {"thresh": 0.015, "exit": 390}, {"thresh": 0.01, "exit": 390}]}],
+     "verdict_fn": standard_verdict(4, 1.3), "verdict": cell_verdict},
+    {"id": "c07_overnight_decile", "anomaly": "#7 overnight-return decile as an intraday lean (Lou-Polk-Skouras), signal-only",
+     "instruments": [FOUR, ALL34],
+     "kill_text": "next-session intraday alpha must be net positive in >= 4/5 years and PF > 1.3; discard if not "
+                  "cleanly separable from PEAD (#14). expected signal frequency: daily. pre-registered "
+                  "neighbourhood: trailing window in {20,60,120} sessions, cut in {5,10,20}% (decile/ventile/quintile), "
+                  "instruments = home (4 names) + the other ~30 large caps",
+     "variants": [
+         {"name": "top/bottom 5% (ventile) lean, trailing window", "rule": overnight_decile_lean,
+          "grid": [{"window": 60, "decile": 0.05}, {"window": 20, "decile": 0.05}, {"window": 120, "decile": 0.05}]},
+         {"name": "top/bottom decile lean, trailing window", "rule": overnight_decile_lean,
+          "grid": [{"window": 60, "decile": 0.1}, {"window": 20, "decile": 0.1}, {"window": 120, "decile": 0.1}]},
+         {"name": "top/bottom quintile lean (wider), trailing window", "rule": overnight_decile_lean,
+          "grid": [{"window": 60, "decile": 0.2}, {"window": 20, "decile": 0.2}, {"window": 120, "decile": 0.2}]}],
+     "verdict_fn": standard_verdict(4, 1.3), "verdict": cell_verdict},
+    {"id": "c08_hedging_momentum", "anomaly": "#4 hedging-demand last-30-min momentum (Baltussen-Da-Lammers-Martens), realized-range proxy",
+     "instruments": INDEX3,
+     "kill_text": K45 + "; discard without an options-data upgrade if the realized-range proxy does not beat "
+                  "plain last-N-min momentum (#3, already dead). proxy: (high-low)/open over 09:30->(390-hold). "
+                  "pre-registered neighbourhood: gate percentile in {50,60,70}, holding window in {20,30,45} min, "
+                  "instruments SPY+QQQ+IWM",
+     "variants": [
+         {"name": "gated on realized-range proxy (trailing percentile), hold=30 (paper)", "rule": hedging_momentum,
+          "grid": [{"gate": 50, "window": 60, "hold": 30}, {"gate": 60, "window": 60, "hold": 30}, {"gate": 70, "window": 60, "hold": 30}]},
+         {"name": "ungated (plain momentum, #3 comparison), holding-window neighbourhood", "rule": hedging_momentum,
+          "grid": [{"gate": None, "hold": 30}, {"gate": None, "hold": 20}, {"gate": None, "hold": 45}]}],
+     "verdict_fn": standard_verdict(4, 1.3), "verdict": cell_verdict},
+    {"id": "c09_fomc_compression", "anomaly": "#10 FOMC-day intraday range compression 10:30-14:00 (crude realized-range proxy, regime filter)",
+     "instruments": INDEX3,
+     "kill_text": "regime-filter candidate, not a standalone trade: realized range 10:30-14:00 ET must be "
+                  "measurably tighter on FOMC days than other full sessions (>= 10% compression, Welch z <= -2) "
+                  "to be worth gating an existing window on; otherwise discard. 38 FOMC days in-sample. "
+                  "pre-registered neighbourhood: time-of-day window in {10:00-14:00, 10:30-14:00, 10:30-14:30}, "
+                  "instruments SPY+QQQ+IWM",
+     "variants": [{"name": "no-trade regime probe (diagnostics only, see extra)", "rule": no_trade,
+                   "flag": "diagnostic only, not a trade"}],
+     "verdict_fn": lambda row: (False, "diagnostic only -- see cell verdict / extra"),
+     "verdict": regime_verdict(2.0, 10.0, "the FOMC-day windows in c01_pre_fomc"),
+     "extra": compression_stats(lambda d: d in FOMC)},
+    {"id": "c10_opex_compression", "anomaly": "#19 0DTE/gamma pinning via days-to-monthly-OpEx 10:30-14:00 (crude proxy, no options data, regime filter)",
+     "instruments": INDEX3,
+     "kill_text": "same regime-filter bar as c09_fomc_compression: realized range 10:30-14:00 ET on the monthly "
+                  "OpEx session (3rd Friday) must be measurably tighter than other full sessions (>= 10% "
+                  "compression, Welch z <= -2) to be worth building; otherwise discard without options data. "
+                  "pre-registered neighbourhood: time-of-day window in {10:00-14:00, 10:30-14:00, 10:30-14:30}, "
+                  "instruments SPY+QQQ+IWM",
+     "variants": [{"name": "no-trade regime probe (diagnostics only, see extra)", "rule": no_trade,
+                   "flag": "diagnostic only, not a trade"}],
+     "verdict_fn": lambda row: (False, "diagnostic only -- see cell verdict / extra"),
+     "verdict": regime_verdict(2.0, 10.0, "an existing SPY/QQQ window on OpEx day"),
+     "extra": compression_stats(lambda d: d in OPEX_DAYS)},
 ]

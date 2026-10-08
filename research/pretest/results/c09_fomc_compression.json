@@ -1,0 +1,164 @@
+{
+ "id": "c09_fomc_compression",
+ "anomaly": "#10 FOMC-day intraday range compression 10:30-14:00 (crude realized-range proxy, regime filter)",
+ "kill": "regime-filter candidate, not a standalone trade: realized range 10:30-14:00 ET must be measurably tighter on FOMC days than other full sessions (>= 10% compression, Welch z <= -2) to be worth gating an existing window on; otherwise discard. 38 FOMC days in-sample. pre-registered neighbourhood: time-of-day window in {10:00-14:00, 10:30-14:00, 10:30-14:30}, instruments SPY+QQQ+IWM",
+ "variants": [
+  {
+   "variant": "no-trade regime probe (diagnostics only, see extra)",
+   "instrument": "SPY",
+   "flag": "diagnostic only, not a trade",
+   "tradable": false,
+   "primary": {
+    "n": 0,
+    "pnl": 0.0,
+    "pf": 0.0,
+    "years_pos": 0,
+    "per_year": {}
+   },
+   "grid": {
+    "paper": {
+     "n": 0,
+     "pnl": 0.0,
+     "pf": 0.0,
+     "years_pos": 0,
+     "per_year": {}
+    }
+   },
+   "daily_pnl": {},
+   "pass": false,
+   "why": "diagnostic only -- see cell verdict / extra"
+  },
+  {
+   "variant": "no-trade regime probe (diagnostics only, see extra)",
+   "instrument": "QQQ",
+   "flag": "diagnostic only, not a trade",
+   "tradable": false,
+   "primary": {
+    "n": 0,
+    "pnl": 0.0,
+    "pf": 0.0,
+    "years_pos": 0,
+    "per_year": {}
+   },
+   "grid": {
+    "paper": {
+     "n": 0,
+     "pnl": 0.0,
+     "pf": 0.0,
+     "years_pos": 0,
+     "per_year": {}
+    }
+   },
+   "daily_pnl": {},
+   "pass": false,
+   "why": "diagnostic only -- see cell verdict / extra"
+  },
+  {
+   "variant": "no-trade regime probe (diagnostics only, see extra)",
+   "instrument": "IWM",
+   "flag": "diagnostic only, not a trade",
+   "tradable": false,
+   "primary": {
+    "n": 0,
+    "pnl": 0.0,
+    "pf": 0.0,
+    "years_pos": 0,
+    "per_year": {}
+   },
+   "grid": {
+    "paper": {
+     "n": 0,
+     "pnl": 0.0,
+     "pf": 0.0,
+     "years_pos": 0,
+     "per_year": {}
+    }
+   },
+   "daily_pnl": {},
+   "pass": false,
+   "why": "diagnostic only -- see cell verdict / extra"
+  }
+ ],
+ "extra": {
+  "SPY": {
+   "10:30-14:00": {
+    "n_event": 38,
+    "n_other": 1146,
+    "event_range_pct": 0.485,
+    "other_range_pct": 0.766,
+    "compression_pct": 36.6,
+    "z": -6.88
+   },
+   "10:00-14:00": {
+    "n_event": 38,
+    "n_other": 1146,
+    "event_range_pct": 0.531,
+    "other_range_pct": 0.875,
+    "compression_pct": 39.3,
+    "z": -7.63
+   },
+   "10:30-14:30": {
+    "n_event": 38,
+    "n_other": 1146,
+    "event_range_pct": 0.846,
+    "other_range_pct": 0.812,
+    "compression_pct": -4.1,
+    "z": 0.43
+   }
+  },
+  "QQQ": {
+   "10:30-14:00": {
+    "n_event": 38,
+    "n_other": 1146,
+    "event_range_pct": 0.689,
+    "other_range_pct": 1.024,
+    "compression_pct": 32.7,
+    "z": -5.31
+   },
+   "10:00-14:00": {
+    "n_event": 38,
+    "n_other": 1146,
+    "event_range_pct": 0.742,
+    "other_range_pct": 1.186,
+    "compression_pct": 37.5,
+    "z": -6.99
+   },
+   "10:30-14:30": {
+    "n_event": 38,
+    "n_other": 1146,
+    "event_range_pct": 1.112,
+    "other_range_pct": 1.079,
+    "compression_pct": -3.0,
+    "z": 0.3
+   }
+  },
+  "IWM": {
+   "10:30-14:00": {
+    "n_event": 38,
+    "n_other": 1146,
+    "event_range_pct": 0.762,
+    "other_range_pct": 1.072,
+    "compression_pct": 28.9,
+    "z": -7.83
+   },
+   "10:00-14:00": {
+    "n_event": 38,
+    "n_other": 1146,
+    "event_range_pct": 0.87,
+    "other_range_pct": 1.266,
+    "compression_pct": 31.3,
+    "z": -9.01
+   },
+   "10:30-14:30": {
+    "n_event": 38,
+    "n_other": 1146,
+    "event_range_pct": 1.325,
+    "other_range_pct": 1.127,
+    "compression_pct": -17.6,
+    "z": 2.07
+   }
+  }
+ },
+ "verdict": "pass-pretest",
+ "verdict_text": "9 cells scanned (3 instruments x 3 windows); SPY 10:30-14:00 compressed 36.6% vs non-event sessions (z=-6.88, n=38) -> measurable, worth gating the FOMC-day windows in c01_pre_fomc"
+}

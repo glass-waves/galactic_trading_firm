@@ -6,7 +6,7 @@ pre-registered kill criterion here earns an engine study; a cell that fails is m
 matrix with the number that killed it. Nothing here proposes anything to `scripts/pipeline/`.
 
 ```
-python3 research/pretest/harness.py                 # every cell in cells.py (~8 s)
+python3 research/pretest/harness.py                 # every cell in cells.py (~20 s)
 python3 research/pretest/harness.py c02_turn_of_month c05_earnings_gap
 ```
 
@@ -45,3 +45,9 @@ matrix *before* running it, run `harness.py <id>`, and record the verdict in the
 ## rounds
 - `2026-10-08_pretest_round1.md` — matrix top-5: pre-FOMC, turn-of-month, HKS half-hour, 5-min ORB,
   earnings-day gap fade.
+- `2026-10-08_pretest_round2.md` — matrix items 6-10: gap fade/fill, overnight-decile lean,
+  hedging-demand momentum, FOMC-day and OpEx-day range compression. Each cell scans a small
+  pre-registered neighbourhood (threshold/decile/window, 2-3 values; home-class instruments —
+  SPY+QQQ+IWM for index cells, the 4 names + the other ~30 large caps in `data/bars_iex` for
+  single-stock cells) rather than one grid point, and uses finer verdicts (`dead` / `sub-cost` /
+  `decayed` / `fragile` / `pass`) alongside the matrix's `pass-pretest`/`needs-product`/`dead`.

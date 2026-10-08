@@ -1,0 +1,164 @@
+{
+ "id": "c10_opex_compression",
+ "anomaly": "#19 0DTE/gamma pinning via days-to-monthly-OpEx 10:30-14:00 (crude proxy, no options data, regime filter)",
+ "kill": "same regime-filter bar as c09_fomc_compression: realized range 10:30-14:00 ET on the monthly OpEx session (3rd Friday) must be measurably tighter than other full sessions (>= 10% compression, Welch z <= -2) to be worth building; otherwise discard without options data. pre-registered neighbourhood: time-of-day window in {10:00-14:00, 10:30-14:00, 10:30-14:30}, instruments SPY+QQQ+IWM",
+ "variants": [
+  {
+   "variant": "no-trade regime probe (diagnostics only, see extra)",
+   "instrument": "SPY",
+   "flag": "diagnostic only, not a trade",
+   "tradable": false,
+   "primary": {
+    "n": 0,
+    "pnl": 0.0,
+    "pf": 0.0,
+    "years_pos": 0,
+    "per_year": {}
+   },
+   "grid": {
+    "paper": {
+     "n": 0,
+     "pnl": 0.0,
+     "pf": 0.0,
+     "years_pos": 0,
+     "per_year": {}
+    }
+   },
+   "daily_pnl": {},
+   "pass": false,
+   "why": "diagnostic only -- see cell verdict / extra"
+  },
+  {
+   "variant": "no-trade regime probe (diagnostics only, see extra)",
+   "instrument": "QQQ",
+   "flag": "diagnostic only, not a trade",
+   "tradable": false,
+   "primary": {
+    "n": 0,
+    "pnl": 0.0,
+    "pf": 0.0,
+    "years_pos": 0,
+    "per_year": {}
+   },
+   "grid": {
+    "paper": {
+     "n": 0,
+     "pnl": 0.0,
+     "pf": 0.0,
+     "years_pos": 0,
+     "per_year": {}
+    }
+   },
+   "daily_pnl": {},
+   "pass": false,
+   "why": "diagnostic only -- see cell verdict / extra"
+  },
+  {
+   "variant": "no-trade regime probe (diagnostics only, see extra)",
+   "instrument": "IWM",
+   "flag": "diagnostic only, not a trade",
+   "tradable": false,
+   "primary": {
+    "n": 0,
+    "pnl": 0.0,
+    "pf": 0.0,
+    "years_pos": 0,
+    "per_year": {}
+   },
+   "grid": {
+    "paper": {
+     "n": 0,
+     "pnl": 0.0,
+     "pf": 0.0,
+     "years_pos": 0,
+     "per_year": {}
+    }
+   },
+   "daily_pnl": {},
+   "pass": false,
+   "why": "diagnostic only -- see cell verdict / extra"
+  }
+ ],
+ "extra": {
+  "SPY": {
+   "10:30-14:00": {
+    "n_event": 54,
+    "n_other": 1130,
+    "event_range_pct": 0.745,
+    "other_range_pct": 0.757,
+    "compression_pct": 1.7,
+    "z": -0.19
+   },
+   "10:00-14:00": {
+    "n_event": 54,
+    "n_other": 1130,
+    "event_range_pct": 0.856,
+    "other_range_pct": 0.864,
+    "compression_pct": 1.0,
+    "z": -0.11
+   },
+   "10:30-14:30": {
+    "n_event": 54,
+    "n_other": 1130,
+    "event_range_pct": 0.784,
+    "other_range_pct": 0.815,
+    "compression_pct": 3.8,
+    "z": -0.45
+   }
+  },
+  "QQQ": {
+   "10:30-14:00": {
+    "n_event": 54,
+    "n_other": 1130,
+    "event_range_pct": 0.994,
+    "other_range_pct": 1.014,
+    "compression_pct": 2.0,
+    "z": -0.24
+   },
+   "10:00-14:00": {
+    "n_event": 54,
+    "n_other": 1130,
+    "event_range_pct": 1.158,
+    "other_range_pct": 1.173,
+    "compression_pct": 1.3,
+    "z": -0.15
+   },
+   "10:30-14:30": {
+    "n_event": 54,
+    "n_other": 1130,
+    "event_range_pct": 1.042,
+    "other_range_pct": 1.082,
+    "compression_pct": 3.7,
+    "z": -0.45
+   }
+  },
+  "IWM": {
+   "10:30-14:00": {
+    "n_event": 54,
+    "n_other": 1130,
+    "event_range_pct": 1.035,
+    "other_range_pct": 1.064,
+    "compression_pct": 2.7,
+    "z": -0.36
+   },
+   "10:00-14:00": {
+    "n_event": 54,
+    "n_other": 1130,
+    "event_range_pct": 1.242,
+    "other_range_pct": 1.254,
+    "compression_pct": 1.0,
+    "z": -0.14
+   },
+   "10:30-14:30": {
+    "n_event": 54,
+    "n_other": 1130,
+    "event_range_pct": 1.077,
+    "other_range_pct": 1.136,
+    "compression_pct": 5.1,
+    "z": -0.72
+   }
+  }
+ },
+ "verdict": "dead",
+ "verdict_text": "9 cells scanned (3 instruments x 3 windows); no cell clears |z|>=2.0 and 10.0% compression (best IWM 10:30-14:30: z=-0.72, 5.1%) -> discard as a regime gate"
+}
