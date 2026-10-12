@@ -1,0 +1,9 @@
+near-miss bars on 2026-10-12: 7
+  NVDA  09:31 ET  short would have made +0.95% (max_hold at 11:02)   filtered by: 5m thrust short: FiveMinute -0.39 not lagging by 0.10, FiveMinute -0.39>-0.50
+  NVDA  09:36 ET  short would have made +0.58% (max_hold at 11:07)   filtered by: 5m thrust short: FiveMinute -0.47 not lagging by 0.10, FiveMinute -0.47>-0.50
+  NVDA  09:41 ET  short would have made +0.78% (max_hold at 11:12)   filtered by: 5m thrust short: FiveMinute -0.44 not lagging by 0.10, FiveMinute -0.44>-0.50
+  NVDA  09:47 ET  short would have made +0.66% (max_hold at 11:18)   filtered by: 5m thrust short: FiveMinute -0.44>-0.50
+  NVDA  09:52 ET  short would have made +0.70% (max_hold at 11:23)   filtered by: 5m thrust short: FiveMinute -0.39 not lagging by 0.10, FiveMinute -0.39>-0.50
+  NVDA  09:58 ET  short would have made +0.57% (max_hold at 11:29)   filtered by: 5m thrust short: FiveMinute -0.42 not lagging by 0.10, FiveMinute -0.42>-0.50, vpin_1m.raw
+  NVDA  10:03 ET  short would have made +0.53% (max_hold at 11:34)   filtered by: 5m thrust short: FiveMinute -0.42 not lagging by 0.10, FiveMinute -0.42>-0.50, vpin_1m.raw
+sum of hypothetical short returns: +4.77%  (positive = the filters cost us; negative = they saved us)
