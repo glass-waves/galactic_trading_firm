@@ -413,6 +413,7 @@ fn default_session() -> types::config::SessionConfig {
         entry_cooldown_ms: 0,
         max_daily_loss_pct: None,
         max_position_pct: None,
+        warmup_days: None,
     }
 }
 
