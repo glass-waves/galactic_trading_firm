@@ -55,6 +55,33 @@ cargo run -p backtest -- --date 2025-10-06 --lookback-days 5 --write-db
 
 output goes to stdout (summary table) and `logs/backtest_2025-10-06.log` (structured JSON). the `LOG_DIR` env var overrides the log directory.
 
+### replaying from the local bar cache (`--bars-dir`)
+
+`--bars-dir DIR` replays from a local 1-minute cache built by `--fetch-bars` (see below) instead of
+calling alpaca — no rate limits, safe to run many replays in parallel (`scripts/backtest_cached_range.sh`,
+`scripts/run_cached_sweep.sh`). `--cross-index SPY` (cross-ticker context for research indicators)
+requires `--bars-dir` and loads the index through the same cache.
+
+the cache is split-adjusted (rebased to the current share count for every historical bar), which is
+*not* what the live trader saw before a split — see `docs/research/2026-10-14_split_adjustment.md`.
+`--bars-dir` therefore replays **point-in-time** by default: for a replay date D, if a cached ticker
+has a split dated after D (it hasn't happened yet, as of D), its bars are loaded from the *raw*
+cache instead of the adjusted one — the literal, unadjusted prints, exactly what the live trader saw
+that day — otherwise from the adjusted cache, which already equals raw once a ticker's most recent
+split is behind it. `--cross-index`'s symbol goes through the same rule. the raw cache directory
+defaults to `<bars-dir>_raw` when it exists (e.g. `data/bars_iex` → `data/bars_iex_raw`, kept current
+daily by `scripts/export_day.sh`); `--raw-bars-dir DIR` points at a different one, and
+`--raw-bars-dir none` disables it. the split list comes from `data/splits.csv` (`ticker,date,ratio`,
+ratio = new shares per old share) and is picked up by default whenever `--bars-dir` is given and
+that file exists; `--splits FILE` points at a different file, and `--splits none` disables point-in-
+time replay entirely (plain replay of the adjusted cache). without a raw cache (or a raw cache
+missing that ticker's file), point-in-time falls back to an approximate ratio reconstruction
+(price × ratio, volume ÷ ratio on the adjusted cache) — exact only up to Alpaca's own independent
+rounding between its raw and adjusted series, so prefer keeping the raw cache around. which path ran
+is logged per ticker per run at `debug` level (`RUST_LOG=debug`). `scripts/analysis/find_splits.py`
+scans a cache directory for candidate split dates/ratios (day-over-day jumps, or an exact
+raw-vs-adjusted cross-check when both caches are present) to help keep `data/splits.csv` current.
+
 ### legacy mode
 
 uses local files instead of Alpaca + postgres. useful for offline testing with CSV data.

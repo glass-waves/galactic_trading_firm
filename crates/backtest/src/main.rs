@@ -7,6 +7,7 @@ use tracing_subscriber::{prelude::*, EnvFilter};
 use backtest::alpaca_loader::{build_backtest_data, fetch_bars_range, market_hours_utc};
 use backtest::config_loader::{load_config_by_id, load_promoted_config_with_id, write_backtest_trades};
 use backtest::replay::{BacktestConfig, BacktestCostConfig, BacktestData};
+use backtest::splits::{load_splits_csv, unadjust_to_date, SplitRecord};
 use backtest::{compute_metrics, load_candles_from_csv, run_backtest, to_json};
 use types::scoring::TimescaleScores;
 use chrono::{Duration, NaiveDate};
@@ -1010,6 +1011,65 @@ fn parse_ticker_overrides(args: &[String]) -> HashMap<String, types::config::Tic
     result
 }
 
+/// default splits file consulted when `--bars-dir` is given and `--splits` is not.
+const DEFAULT_SPLITS_PATH: &str = "data/splits.csv";
+
+/// resolve the `--splits` flag into a loaded split list: explicit `FILE` loads it (process
+/// exits on a parse error — a cache replay should not silently run unadjusted because of a
+/// typo), `none` disables point-in-time un-adjustment, and with no flag at all the default
+/// `data/splits.csv` is used automatically whenever `--bars-dir` is set and the file exists
+/// (so every cache-backed sweep is point-in-time by default, with nothing to remember to
+/// pass). without `--bars-dir` there is no cache to rebase, so the default never loads.
+fn resolve_splits(bars_dir: Option<&str>, splits_arg: Option<&str>) -> Vec<SplitRecord> {
+    match splits_arg {
+        Some("none") => Vec::new(),
+        Some(path) => match load_splits_csv(path) {
+            Ok(s) => s,
+            Err(e) => {
+                eprintln!("error: --splits {path}: {e}");
+                process::exit(1);
+            }
+        },
+        None => {
+            if bars_dir.is_some() && std::path::Path::new(DEFAULT_SPLITS_PATH).exists() {
+                match load_splits_csv(DEFAULT_SPLITS_PATH) {
+                    Ok(s) => s,
+                    Err(e) => {
+                        eprintln!(
+                            "warning: failed to load default splits file {DEFAULT_SPLITS_PATH}: {e} — replaying without point-in-time un-adjustment"
+                        );
+                        Vec::new()
+                    }
+                }
+            } else {
+                Vec::new()
+            }
+        }
+    }
+}
+
+/// resolve the `--raw-bars-dir` flag: explicit `DIR` is used as given, `none` disables it
+/// (point-in-time falls back to ratio reconstruction for tickers with a split still ahead),
+/// and with no flag at all it defaults to `<bars_dir>_raw` when that directory exists — e.g.
+/// `data/bars_iex` → `data/bars_iex_raw`, `data/bars` → `data/bars_raw` (the dirs
+/// `scripts/export_day.sh` keeps current daily via `--fetch-bars --adjustment raw`). without
+/// `--bars-dir` there is no adjusted cache to pair it with, so this never defaults.
+fn resolve_raw_bars_dir(bars_dir: Option<&str>, raw_arg: Option<&str>) -> Option<String> {
+    match raw_arg {
+        Some("none") => None,
+        Some(path) => Some(path.to_string()),
+        None => {
+            let bd = bars_dir?;
+            let default = format!("{}_raw", bd.trim_end_matches('/'));
+            if std::path::Path::new(&default).is_dir() {
+                Some(default)
+            } else {
+                None
+            }
+        }
+    }
+}
+
 #[tokio::main]
 async fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -1040,7 +1100,11 @@ async fn main() {
             std::env::set_var("BACKTEST_DUMP_WINDOW_ONLY", "1");
         }
         let config_id: Option<i64> = get_arg(&args, "--config-id").and_then(|s| s.parse().ok());
-        run_date_mode(&date_str, lookback_days, write_db, capital, &cost_config, verbose, output_equity, output_trades_csv, &overrides, bars_dir.as_deref(), dump_ticks.as_deref(), cross_index.as_deref(), config_id).await;
+        let splits_arg = get_arg(&args, "--splits");
+        let splits = resolve_splits(bars_dir.as_deref(), splits_arg.as_deref());
+        let raw_bars_arg = get_arg(&args, "--raw-bars-dir");
+        let raw_bars_dir = resolve_raw_bars_dir(bars_dir.as_deref(), raw_bars_arg.as_deref());
+        run_date_mode(&date_str, lookback_days, write_db, capital, &cost_config, verbose, output_equity, output_trades_csv, &overrides, bars_dir.as_deref(), dump_ticks.as_deref(), cross_index.as_deref(), config_id, &splits, raw_bars_dir.as_deref()).await;
     } else if let Some(dir) = get_arg(&args, "--fetch-bars") {
         // build / extend the local 1-minute bar cache used by `--bars-dir`
         let start = get_arg(&args, "--start").expect("--fetch-bars needs --start YYYY-MM-DD");
@@ -1068,7 +1132,7 @@ async fn main() {
 }
 
 #[allow(clippy::too_many_arguments)]
-async fn run_date_mode(date_str: &str, lookback_days_flag: Option<i64>, write_db: bool, capital: f64, cost_config: &Option<BacktestCostConfig>, verbose: bool, output_equity: bool, output_trades_csv: bool, overrides: &ConfigOverrides, bars_dir: Option<&str>, dump_ticks: Option<&str>, cross_index: Option<&str>, config_id: Option<i64>) {
+async fn run_date_mode(date_str: &str, lookback_days_flag: Option<i64>, write_db: bool, capital: f64, cost_config: &Option<BacktestCostConfig>, verbose: bool, output_equity: bool, output_trades_csv: bool, overrides: &ConfigOverrides, bars_dir: Option<&str>, dump_ticks: Option<&str>, cross_index: Option<&str>, config_id: Option<i64>, splits: &[SplitRecord], raw_bars_dir: Option<&str>) {
     dotenvy::dotenv().ok();
 
     // file + console layered logging
@@ -1224,7 +1288,7 @@ async fn run_date_mode(date_str: &str, lookback_days_flag: Option<i64>, write_db
             let mut syms: Vec<String> = config.tickers.clone();
             syms.push(index.to_string());
             for sym in syms {
-                match load_cached_bars(dir, &sym, lookback_start, date) {
+                match load_cached_bars(dir, &sym, lookback_start, date, splits, raw_bars_dir) {
                     Ok(c) => {
                         m.insert(sym, session_points(&c));
                     }
@@ -1246,7 +1310,7 @@ async fn run_date_mode(date_str: &str, lookback_days_flag: Option<i64>, write_db
 
     for ticker in &config.tickers {
         let loaded = match bars_dir {
-            Some(dir) => load_cached_bars(dir, ticker, lookback_start, date),
+            Some(dir) => load_cached_bars(dir, ticker, lookback_start, date, splits, raw_bars_dir),
             None => fetch_bars_range(&api_key, &api_secret, ticker, lookback_start, date).await,
         };
         let candles = match loaded {
@@ -1672,9 +1736,10 @@ fn get_arg(args: &[String], flag: &str) -> Option<String> {
 }
 
 
-/// load 1-minute RTH candles for `[start_date, end_date]` from `<dir>/<TICKER>.csv`
-/// (the file written by `--fetch-bars`; same layout as `load_candles_from_csv`).
-fn load_cached_bars(dir: &str, ticker: &str, start_date: NaiveDate, end_date: NaiveDate) -> Result<Vec<types::market::Candle>, String> {
+/// read + filter + sort/dedupe 1-minute RTH candles for `[start_date, end_date]` from
+/// `<dir>/<TICKER>.csv` (the file written by `--fetch-bars`; same layout as
+/// `load_candles_from_csv`). no split handling — see `load_cached_bars`.
+fn load_bars_csv(dir: &str, ticker: &str, start_date: NaiveDate, end_date: NaiveDate) -> Result<Vec<types::market::Candle>, String> {
     let path = format!("{}/{}.csv", dir.trim_end_matches('/'), ticker);
     let file = fs::File::open(&path).map_err(|e| format!("open {path}: {e}"))?;
     let (start_utc, _) = market_hours_utc(start_date)?;
@@ -1686,6 +1751,72 @@ fn load_cached_bars(dir: &str, ticker: &str, start_date: NaiveDate, end_date: Na
         .collect();
     out.sort_by_key(|c| c.timestamp);
     out.dedup_by_key(|c| c.timestamp);
+    Ok(out)
+}
+
+/// true when `ticker` has a split in `splits` dated strictly after `replay_date` — i.e. the
+/// split has not happened yet as of that replay day, so the live/raw basis for every bar in
+/// this window differs from the (fully, currently) split-adjusted cache's basis.
+fn has_future_split(ticker: &str, replay_date: NaiveDate, splits: &[SplitRecord]) -> bool {
+    splits.iter().any(|s| s.ticker == ticker && s.date > replay_date)
+}
+
+/// load 1-minute RTH candles for `[start_date, end_date]`, on the price basis that was live on
+/// `end_date` (the replay date). this also covers the cross-index symbol (e.g. SPY): it's
+/// loaded through this same function.
+///
+/// selection rule, exact when `raw_dir` is available: if `ticker` has a split in `splits`
+/// dated after `end_date` (it hasn't happened yet, as of that day), load straight from
+/// `raw_dir` — the literal, unadjusted historical prints, exactly what the live trader saw
+/// that day, no scaling. otherwise (no split ahead, or no split for this ticker at all) load
+/// from `dir`, the split-adjusted cache — which already equals raw once a ticker's most
+/// recent split is behind it. `raw_dir` being `None` (`--raw-bars-dir none`, or no raw cache
+/// present) or missing the ticker's file falls back to the older, approximate method: load
+/// from `dir` and un-apply the qualifying splits by ratio (`backtest::splits::unadjust_to_date`)
+/// — exact up to Alpaca's own independent rounding between its raw and adjusted series (see
+/// docs/research/2026-10-14_split_adjustment.md). `splits` empty (`--splits none`, or no
+/// splits file) disables all of this — the adjusted cache is used as-is.
+fn load_cached_bars(dir: &str, ticker: &str, start_date: NaiveDate, end_date: NaiveDate, splits: &[SplitRecord], raw_dir: Option<&str>) -> Result<Vec<types::market::Candle>, String> {
+    if splits.is_empty() {
+        return load_bars_csv(dir, ticker, start_date, end_date);
+    }
+    let needs_pit = has_future_split(ticker, end_date, splits);
+    if needs_pit {
+        if let Some(rd) = raw_dir {
+            match load_bars_csv(rd, ticker, start_date, end_date) {
+                Ok(bars) => {
+                    tracing::debug!(
+                        ticker,
+                        replay_date = %end_date,
+                        raw_dir = rd,
+                        "point-in-time: loaded exact raw cache (split still ahead of replay date)"
+                    );
+                    return Ok(bars);
+                }
+                Err(e) => {
+                    tracing::debug!(
+                        ticker,
+                        replay_date = %end_date,
+                        raw_dir = rd,
+                        error = %e,
+                        "point-in-time: raw cache unavailable for this ticker, falling back to ratio reconstruction"
+                    );
+                }
+            }
+        }
+    }
+    let mut out = load_bars_csv(dir, ticker, start_date, end_date)?;
+    if needs_pit {
+        let applied = unadjust_to_date(&mut out, ticker, end_date, splits);
+        if !applied.is_empty() {
+            tracing::debug!(
+                ticker,
+                replay_date = %end_date,
+                splits = ?applied,
+                "point-in-time: ratio reconstruction applied (no raw cache available)"
+            );
+        }
+    }
     Ok(out)
 }
 
@@ -1935,8 +2066,39 @@ fn build_cross_context(
 
 #[cfg(test)]
 mod tests {
-    use super::{resolve_lookback_days, session_close_jumps};
+    use super::{
+        has_future_split, load_cached_bars, resolve_lookback_days, resolve_raw_bars_dir,
+        session_close_jumps,
+    };
+    use backtest::splits::SplitRecord;
     use chrono::NaiveDate;
+
+    /// a throwaway cache dir under the system temp dir, unique per test run.
+    fn temp_cache_dir(name: &str) -> std::path::PathBuf {
+        let dir = std::env::temp_dir().join(format!(
+            "backtest_pit_test_{name}_{}_{}",
+            std::process::id(),
+            name.len() // trivial extra entropy; name is already unique per test
+        ));
+        let _ = std::fs::remove_dir_all(&dir);
+        std::fs::create_dir_all(&dir).unwrap();
+        dir
+    }
+
+    /// write a minimal `<dir>/<ticker>.csv` with one bar at 2024-05-20T14:30:00Z (inside RTH)
+    /// at the given close price, so tests can tell which dir a load came from.
+    fn write_one_bar(dir: &std::path::Path, ticker: &str, date: NaiveDate, close: f64) {
+        let path = dir.join(format!("{ticker}.csv"));
+        // 14:30 UTC is inside RTH year-round (09:30-16:00 ET covers both EST and EDT).
+        let ts = date.and_hms_opt(14, 30, 0).unwrap().and_utc().timestamp();
+        std::fs::write(
+            &path,
+            format!("timestamp,open,high,low,close,volume\n{ts},{close},{close},{close},{close},1000\n"),
+        )
+        .unwrap();
+    }
+
+    use chrono::TimeZone;
 
     #[test]
     fn lookback_flag_wins_then_config_then_default() {
@@ -1948,7 +2110,6 @@ mod tests {
 
     #[test]
     fn session_close_jumps_flags_only_split_sized_moves() {
-        use chrono::TimeZone;
         let mut m = std::collections::BTreeMap::new();
         // last bar of five sessions (15:59 ET = 19:59 UTC in June): 1200 → 1208 → 121.9 (10:1) → 125
         // → 63.5 (a 2:1 split on a +1.6 % day: ratio 0.508, inside the too-wide [0.5, 2])
@@ -1960,5 +2121,182 @@ mod tests {
         assert_eq!(jumps.len(), 2);
         assert_eq!(jumps[0].0, NaiveDate::from_ymd_opt(2024, 6, 10).unwrap());
         assert_eq!(jumps[1].0, NaiveDate::from_ymd_opt(2024, 6, 12).unwrap());
+    }
+
+    fn nvda_split() -> Vec<SplitRecord> {
+        vec![SplitRecord { ticker: "NVDA".into(), date: NaiveDate::from_ymd_opt(2024, 6, 10).unwrap(), ratio: 10.0 }]
+    }
+
+    #[test]
+    fn has_future_split_true_before_ex_date_false_after() {
+        let splits = nvda_split();
+        let before = NaiveDate::from_ymd_opt(2024, 5, 20).unwrap();
+        let on = NaiveDate::from_ymd_opt(2024, 6, 10).unwrap();
+        let after = NaiveDate::from_ymd_opt(2024, 7, 1).unwrap();
+        assert!(has_future_split("NVDA", before, &splits));
+        assert!(!has_future_split("NVDA", on, &splits)); // strict: on the ex-date, already happened
+        assert!(!has_future_split("NVDA", after, &splits));
+        assert!(!has_future_split("SPY", before, &splits)); // different ticker, untouched
+    }
+
+    #[test]
+    fn resolve_raw_bars_dir_none_flag_disables() {
+        assert_eq!(resolve_raw_bars_dir(Some("data/bars"), Some("none")), None);
+    }
+
+    #[test]
+    fn resolve_raw_bars_dir_explicit_flag_used_verbatim() {
+        assert_eq!(
+            resolve_raw_bars_dir(Some("data/bars"), Some("/custom/raw")),
+            Some("/custom/raw".to_string())
+        );
+    }
+
+    #[test]
+    fn resolve_raw_bars_dir_defaults_to_suffixed_dir_when_it_exists() {
+        let dir = temp_cache_dir("default_raw_exists");
+        let bars_dir = dir.join("bars");
+        let raw_dir = dir.join("bars_raw");
+        std::fs::create_dir_all(&bars_dir).unwrap();
+        std::fs::create_dir_all(&raw_dir).unwrap();
+        let resolved = resolve_raw_bars_dir(Some(bars_dir.to_str().unwrap()), None);
+        assert_eq!(resolved, Some(raw_dir.to_str().unwrap().to_string()));
+    }
+
+    #[test]
+    fn resolve_raw_bars_dir_none_when_default_does_not_exist() {
+        let dir = temp_cache_dir("default_raw_missing");
+        let bars_dir = dir.join("bars");
+        std::fs::create_dir_all(&bars_dir).unwrap();
+        // no bars_raw sibling created
+        let resolved = resolve_raw_bars_dir(Some(bars_dir.to_str().unwrap()), None);
+        assert_eq!(resolved, None);
+    }
+
+    #[test]
+    fn resolve_raw_bars_dir_none_without_bars_dir() {
+        assert_eq!(resolve_raw_bars_dir(None, None), None);
+    }
+
+    #[test]
+    fn load_cached_bars_uses_raw_dir_exactly_when_split_still_ahead() {
+        let dir = temp_cache_dir("selection_raw_exact");
+        let adjusted = dir.join("adj");
+        let raw = dir.join("raw");
+        std::fs::create_dir_all(&adjusted).unwrap();
+        std::fs::create_dir_all(&raw).unwrap();
+        let replay_date = NaiveDate::from_ymd_opt(2024, 5, 20).unwrap(); // before the split
+        // adjusted cache shows the post-split (rebased) price; raw shows what was really live.
+        write_one_bar(&adjusted, "NVDA", replay_date, 95.0);
+        write_one_bar(&raw, "NVDA", replay_date, 950.0);
+
+        let bars = load_cached_bars(
+            adjusted.to_str().unwrap(),
+            "NVDA",
+            replay_date,
+            replay_date,
+            &nvda_split(),
+            Some(raw.to_str().unwrap()),
+        )
+        .unwrap();
+        assert_eq!(bars.len(), 1);
+        // exact raw value, not the adjusted cache's 95.0 nor a ratio-reconstructed ~950.0 from it
+        assert!((bars[0].close - 950.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn load_cached_bars_uses_adjusted_dir_when_no_split_ahead() {
+        let dir = temp_cache_dir("selection_adjusted_no_split");
+        let adjusted = dir.join("adj");
+        let raw = dir.join("raw");
+        std::fs::create_dir_all(&adjusted).unwrap();
+        std::fs::create_dir_all(&raw).unwrap();
+        let replay_date = NaiveDate::from_ymd_opt(2024, 7, 1).unwrap(); // after the split
+        write_one_bar(&adjusted, "NVDA", replay_date, 95.0);
+        write_one_bar(&raw, "NVDA", replay_date, 950.0);
+
+        let bars = load_cached_bars(
+            adjusted.to_str().unwrap(),
+            "NVDA",
+            replay_date,
+            replay_date,
+            &nvda_split(),
+            Some(raw.to_str().unwrap()),
+        )
+        .unwrap();
+        assert_eq!(bars.len(), 1);
+        assert!((bars[0].close - 95.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn load_cached_bars_falls_back_to_ratio_reconstruction_without_raw_dir() {
+        let dir = temp_cache_dir("selection_fallback_no_raw_dir");
+        let adjusted = dir.join("adj");
+        std::fs::create_dir_all(&adjusted).unwrap();
+        let replay_date = NaiveDate::from_ymd_opt(2024, 5, 20).unwrap(); // before the split
+        write_one_bar(&adjusted, "NVDA", replay_date, 95.0);
+
+        let bars = load_cached_bars(
+            adjusted.to_str().unwrap(),
+            "NVDA",
+            replay_date,
+            replay_date,
+            &nvda_split(),
+            None, // no raw dir at all
+        )
+        .unwrap();
+        assert_eq!(bars.len(), 1);
+        // ratio reconstruction: 95.0 * 10 == 950.0
+        assert!((bars[0].close - 950.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn load_cached_bars_falls_back_to_ratio_reconstruction_when_raw_dir_missing_ticker() {
+        let dir = temp_cache_dir("selection_fallback_missing_ticker");
+        let adjusted = dir.join("adj");
+        let raw = dir.join("raw");
+        std::fs::create_dir_all(&adjusted).unwrap();
+        std::fs::create_dir_all(&raw).unwrap();
+        let replay_date = NaiveDate::from_ymd_opt(2024, 5, 20).unwrap();
+        write_one_bar(&adjusted, "NVDA", replay_date, 95.0);
+        // raw dir exists but has no NVDA.csv (e.g. a ticker added to the universe after the
+        // raw dir was last backfilled)
+
+        let bars = load_cached_bars(
+            adjusted.to_str().unwrap(),
+            "NVDA",
+            replay_date,
+            replay_date,
+            &nvda_split(),
+            Some(raw.to_str().unwrap()),
+        )
+        .unwrap();
+        assert_eq!(bars.len(), 1);
+        assert!((bars[0].close - 950.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn load_cached_bars_ignores_raw_dir_when_splits_empty() {
+        let dir = temp_cache_dir("selection_splits_disabled");
+        let adjusted = dir.join("adj");
+        let raw = dir.join("raw");
+        std::fs::create_dir_all(&adjusted).unwrap();
+        std::fs::create_dir_all(&raw).unwrap();
+        let replay_date = NaiveDate::from_ymd_opt(2024, 5, 20).unwrap();
+        write_one_bar(&adjusted, "NVDA", replay_date, 95.0);
+        write_one_bar(&raw, "NVDA", replay_date, 950.0);
+
+        let bars = load_cached_bars(
+            adjusted.to_str().unwrap(),
+            "NVDA",
+            replay_date,
+            replay_date,
+            &[], // --splits none
+            Some(raw.to_str().unwrap()),
+        )
+        .unwrap();
+        assert_eq!(bars.len(), 1);
+        // splits disabled entirely: plain adjusted cache value, untouched
+        assert!((bars[0].close - 95.0).abs() < f64::EPSILON);
     }
 }

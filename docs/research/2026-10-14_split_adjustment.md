@@ -39,12 +39,17 @@ Volume scales inversely; no other symbol differs on any bar.
   catches 3:2 and 2:1 splits. Unit test: `session_close_jumps_flags_only_split_sized_moves`.
 - `crates/data_feed/src/alpaca_feed.rs`: the live warm-up (`fetch_bars_paged`) requests `split`.
 - `scripts/export_day.sh`: no flag needed (default is split); append warnings, formerly sent to
-  /dev/null, now land in `data/live/<date>/bar_cache_warnings.log` + `notify.sh warning`.
+  /dev/null, now land in `data/live/<date>/bar_cache_warnings.log` + `notify.sh warning`. Since
+  2026-10-13 it also fetches `data/bars_raw` / `data/bars_iex_raw` daily (`--adjustment raw`) — see
+  "Point-in-time rebasing, automated" below; these are permanent inputs, not a one-off backup.
 - Caches were refetched 2022-01-01 → 2026-10-13. Every symbol has the same session count over the
   old range, no day-over-day ratio outside [0.5, 2], and identical prices on every post-split day.
-  The old caches are kept as `data/bars_iex_raw` and `data/bars_raw` until 2026-10-21. Side findings
-  (not split-related, after the 2026-09-10 sweep end; the refetch fixed both): IEX QQQ was missing
-  2026-10-09; SIP days appended since 2026-09-14 held pre-revision prints (cents on a few bars).
+  The old (unadjusted) caches from that refetch became `data/bars_iex_raw` and `data/bars_raw` —
+  originally kept "until 2026-10-21 if a revert is wanted", now kept permanently and refreshed daily
+  as the exact point-in-time source for any ticker ahead of a future split (see below). Side
+  findings (not split-related, after the 2026-09-10 sweep end; the refetch fixed both): IEX QQQ was
+  missing 2026-10-09; SIP days appended since 2026-09-14 held pre-revision prints (cents on a few
+  bars).
 
 ## Restated numbers (5y IEX, 36 % sizing, 3 bps + $0.005; P&L / trades / PF · 2022 23 24 25 26)
 
@@ -105,16 +110,68 @@ The daily warm-up of the 5m/1h windows is now split-adjusted: the stream's basis
 in time for the day it runs. Before, the sessions after the next AAPL/AMZN/MSFT/NVDA split would
 have started with a 1h window reading as a crash.
 
-## Open item (decision needed)
+## Open item (resolved — see below)
 
 Plain replays of the adjusted caches give **adj**, not **pit**, on any day before a name's last
 split (NVDA < 2024-06, AMZN < 2022-06). The pipeline stays consistent (candidates and `iex_v18` share
-a basis), but the 2022–24 record is understated by ~500 on v18. Two fixes:
+a basis), but the 2022–24 record is understated by ~500 on v18. Two fixes considered:
 
-1. **Point-in-time rebasing in `load_cached_bars`.** Keep a `splits.csv` per cache dir, derived from
-   raw-vs-split daily bars, and multiply bars by the product of later split ratios. This reproduces
-   pit exactly, with the composites above as the test oracle.
+1. **Point-in-time rebasing in `load_cached_bars`.** Select each ticker's bars from a raw or
+   adjusted cache depending on the replay date, rather than reconstructing one from the other. This
+   reproduces pit exactly, with the composites above as the test oracle. **Implemented — see below.**
 2. **Make MACD scale-free.** Divide the histogram by price. This is a strategy change and needs its
-   own validation.
+   own validation; still open.
 
-Until then, quote pit. The raw caches stay until 2026-10-21 if a revert is wanted.
+## Point-in-time rebasing, automated (2026-10-13, selection rule 2026-10-13)
+
+`data/splits.csv` (`ticker,date,ratio`, the ten splits in the table above) plus
+`crates/backtest/src/splits.rs` (`SplitRecord`, `load_splits_csv`, `unadjust_to_date`) give
+`--bars-dir` automatic point-in-time replay. First cut (same day): for a replay date D, every split
+dated after D got un-applied (price × ratio, volume ÷ ratio) on the single adjusted cache. That
+reconstruction turned out not to be exact — Alpaca's own raw/adjusted ratio carries independent
+per-bar rounding (measured 9.9964–10.0041 for NVDA's 10:1 split, not a clean 10.0000), so a handful
+of borderline entries flipped on or off across the whole pre-split window (iex composite P&L 6%
+low, sip 9.5% low vs. the canonical composites). Not a bug — the precision floor of reconstructing a
+price from a ratio instead of reading the ticks Alpaca actually printed that day.
+
+**The fix: select, don't reconstruct.** `data/bars_iex_raw` and `data/bars_raw` — built when the
+2026-10-14 bug was found and originally kept only "until 2026-10-21 if a revert is wanted" — are now
+permanent inputs to every replay, not a temporary backup: `--raw-bars-dir DIR` (default
+`<bars-dir>_raw` when that directory exists, e.g. `data/bars_iex` → `data/bars_iex_raw`; `none`
+disables it). For ticker T and replay date D, `load_cached_bars` now picks a *source directory*
+instead of a transform: if `data/splits.csv` has a split for T dated after D (it hasn't happened
+yet, as of D), load T's bars straight from the raw dir — the literal, unadjusted prints, exactly what
+the live trader saw that day, no scaling — otherwise load from the adjusted dir, which already
+equals raw once T's most recent split is behind it. The cross-index symbol goes through the same
+rule. Ratio reconstruction (`unadjust_to_date`) is now only the fallback when no raw dir is
+configured, or the raw dir has no file for that ticker; which path ran is logged per ticker at
+`debug` level. `scripts/export_day.sh` now fetches the raw dirs daily too
+(`--fetch-bars data/bars_raw/data/bars_iex_raw ... --adjustment raw`, same day/symbols as the
+adjusted fetch) — the dirs need to be *current*, not just present from 2026-10-14, so that whichever
+split comes next already has raw history in place. Post-split days fetch identically into both
+dirs, so this is a no-op for a name once its most recent split is behind it.
+
+**Verification.** Re-ran `iex_v18_pitcheck` (5y, IEX cache, `--sizing-fraction 0.36
+--max-position-pct 0.36 --cross-index SPY`) and `sip_v18_pitcheck` (same flags, SIP cache) against
+the canonical composites, keyed on date/ticker/direction/entry_time:
+
+| check | canonical | automatic pit (raw-dir selection) | diff |
+|---|---|---|---|
+| iex_v18 | +1829 / 434 / PF 1.40 | +1829 / 434 / PF 1.40 | **0 — trade-for-trade identical** |
+| sip_v18_vwapfix | +2835 / 510 / PF 1.57 | +2835 / 510 / PF 1.57 | **0 — trade-for-trade identical** |
+
+Every field (entry/exit price, size, pnl, exit reason, scores) matches on all 434 and all 510
+trades respectively; no residual difference of any kind, on split tickers (AMZN, NVDA) or otherwise.
+Selecting the actual historical series removes the rounding-noise floor the ratio-reconstruction
+approach had.
+
+**Price-scale demonstration** (`--dump-ticks`, NVDA 2024-05-20, before the 2024-06-10 10:1 split):
+default (point-in-time) shows the 09:30 ET bar at open=937.50 close=937.70 volume=624,613 (read
+straight from `data/bars_iex_raw/NVDA.csv`); `--splits none` (plain adjusted replay) shows the same
+bar at open=93.75 close=93.77 volume=6,246,130 — exactly the 10× price / 10× (inverse) volume split
+factor, confirming the live basis is restored.
+
+Net read: the automated point-in-time path (raw/adjusted selection, ratio reconstruction only as a
+fallback) is exact and is the record of account going forward — `iex_v18` / `sip_v18_vwapfix` are no
+longer a special one-off composite, just what any `--bars-dir` sweep reproduces by default. New
+sweeps (the pipeline's included) need no special handling to be point-in-time correct.
