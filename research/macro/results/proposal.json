@@ -1,0 +1,2983 @@
+{
+ "A_recession_12m": {
+  "chosen": "A5 curve2+hyrise+permits",
+  "weights": {
+   "curve_avg63": 2,
+   "hy_rise_1y": 1,
+   "permits_yoy": 1
+  },
+  "warn": 5,
+  "crit": 6,
+  "design_ranking_train": [
+   {
+    "design": "A5 curve2+hyrise+permits",
+    "k": 5,
+    "train_objective": 1.0
+   },
+   {
+    "design": "A2 curve2+labor+claims",
+    "k": 4,
+    "train_objective": 1.0
+   },
+   {
+    "design": "A5 curve2+hyrise+permits",
+    "k": 6,
+    "train_objective": 1.0
+   },
+   {
+    "design": "A1 curve2+hyrise+labor",
+    "k": 5,
+    "train_objective": 1.0
+   },
+   {
+    "design": "A3 curve2+credit(live)+labor",
+    "k": 5,
+    "train_objective": 1.0
+   },
+   {
+    "design": "A1 curve2+hyrise+labor",
+    "k": 6,
+    "train_objective": 1.0
+   },
+   {
+    "design": "A4 live curve2+credit+labor",
+    "k": 5,
+    "train_objective": 1.0
+   },
+   {
+    "design": "A3 curve2+credit(live)+labor",
+    "k": 6,
+    "train_objective": 1.0
+   },
+   {
+    "design": "A4 live curve2+credit+labor",
+    "k": 6,
+    "train_objective": 1.0
+   },
+   {
+    "design": "A4 live curve2+credit+labor",
+    "k": 4,
+    "train_objective": 0.666667
+   },
+   {
+    "design": "A3 curve2+credit(live)+labor",
+    "k": 4,
+    "train_objective": 0.666667
+   },
+   {
+    "design": "A5 curve2+hyrise+permits",
+    "k": 4,
+    "train_objective": 0.666667
+   }
+  ],
+  "by_threshold": {
+   "2": {
+    "A_recession_12m_train": {
+     "day_precision": 0.35987748851454826,
+     "day_recall": 0.9362549800796812,
+     "alarm_day_share": 0.3866583019657047,
+     "events": 2,
+     "events_detected": [
+      "2001-04",
+      "2008-01"
+     ],
+     "detected_before_peak": [
+      "2001-04",
+      "2008-01"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      363,
+      363
+     ],
+     "lead_days_to_peak": [
+      363,
+      363
+     ],
+     "median_lead_days": 363.0,
+     "true_episodes": 2,
+     "false_episodes": 10,
+     "late_episodes": 0,
+     "episode_precision": 0.16666666666666666,
+     "false_episode_list": [
+      [
+       "1998-01-14",
+       "1998-01-14"
+      ],
+      [
+       "1998-02-18",
+       "1998-02-18"
+      ],
+      [
+       "1998-06-16",
+       "1998-06-16"
+      ],
+      [
+       "1998-08-25",
+       "1999-04-30"
+      ],
+      [
+       "2002-06-27",
+       "2003-01-02"
+      ],
+      [
+       "2011-08-09",
+       "2012-02-03"
+      ],
+      [
+       "2014-12-15",
+       "2015-01-22"
+      ],
+      [
+       "2015-08-13",
+       "2015-08-25"
+      ],
+      [
+       "2015-09-29",
+       "2015-10-15"
+      ],
+      [
+       "2015-11-25",
+       "2015-12-31"
+      ]
+     ]
+    },
+    "A_recession_12m_test": {
+     "day_precision": 0.19299610894941635,
+     "day_recall": 0.9880478087649402,
+     "alarm_day_share": 0.5904059040590406,
+     "events": 1,
+     "events_detected": [
+      "2020-03"
+     ],
+     "detected_before_peak": [
+      "2020-03"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      360
+     ],
+     "lead_days_to_peak": [
+      360
+     ],
+     "median_lead_days": 360.0,
+     "true_episodes": 1,
+     "false_episodes": 2,
+     "late_episodes": 0,
+     "episode_precision": 0.3333333333333333,
+     "false_episode_list": [
+      [
+       "2016-01-04",
+       "2016-05-11"
+      ],
+      [
+       "2022-06-17",
+       "2026-09-30"
+      ]
+     ]
+    },
+    "A_recession_12m_full": {
+     "day_precision": 0.27711308375144733,
+     "day_recall": 0.953519256308101,
+     "alarm_day_share": 0.46035771489588895,
+     "events": 3,
+     "events_detected": [
+      "2001-04",
+      "2008-01",
+      "2020-03"
+     ],
+     "detected_before_peak": [
+      "2001-04",
+      "2008-01",
+      "2020-03"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      363,
+      363,
+      360
+     ],
+     "lead_days_to_peak": [
+      363,
+      363,
+      360
+     ],
+     "median_lead_days": 363.0,
+     "true_episodes": 3,
+     "false_episodes": 11,
+     "late_episodes": 0,
+     "episode_precision": 0.21428571428571427,
+     "false_episode_list": [
+      [
+       "1998-01-14",
+       "1998-01-14"
+      ],
+      [
+       "1998-02-18",
+       "1998-02-18"
+      ],
+      [
+       "1998-06-16",
+       "1998-06-16"
+      ],
+      [
+       "1998-08-25",
+       "1999-04-30"
+      ],
+      [
+       "2002-06-27",
+       "2003-01-02"
+      ],
+      [
+       "2011-08-09",
+       "2012-02-03"
+      ],
+      [
+       "2014-12-15",
+       "2015-01-22"
+      ],
+      [
+       "2015-08-13",
+       "2015-08-25"
+      ],
+      [
+       "2015-09-29",
+       "2015-10-15"
+      ],
+      [
+       "2015-11-25",
+       "2016-05-11"
+      ],
+      [
+       "2022-06-17",
+       "2026-09-30"
+      ]
+     ]
+    }
+   },
+   "3": {
+    "A_recession_12m_train": {
+     "day_precision": 0.6438356164383562,
+     "day_recall": 0.9362549800796812,
+     "alarm_day_share": 0.26620660811375996,
+     "events": 2,
+     "events_detected": [
+      "2001-04",
+      "2008-01"
+     ],
+     "detected_before_peak": [
+      "2001-04",
+      "2008-01"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      363,
+      363
+     ],
+     "lead_days_to_peak": [
+      363,
+      363
+     ],
+     "median_lead_days": 363.0,
+     "true_episodes": 2,
+     "false_episodes": 2,
+     "late_episodes": 0,
+     "episode_precision": 0.5,
+     "false_episode_list": [
+      [
+       "1998-08-25",
+       "1999-02-02"
+      ],
+      [
+       "2006-01-04",
+       "2006-01-04"
+      ]
+     ]
+    },
+    "A_recession_12m_test": {
+     "day_precision": 0.17721518987341772,
+     "day_recall": 0.7808764940239044,
+     "alarm_day_share": 0.5243542435424354,
+     "events": 1,
+     "events_detected": [
+      "2020-03"
+     ],
+     "detected_before_peak": [
+      "2020-03"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      356
+     ],
+     "lead_days_to_peak": [
+      356
+     ],
+     "median_lead_days": 356.0,
+     "true_episodes": 2,
+     "false_episodes": 1,
+     "late_episodes": 0,
+     "episode_precision": 0.6666666666666666,
+     "false_episode_list": [
+      [
+       "2022-07-26",
+       "2026-09-30"
+      ]
+     ]
+    },
+    "A_recession_12m_full": {
+     "day_precision": 0.3627450980392157,
+     "day_recall": 0.8844621513944223,
+     "alarm_day_share": 0.3595835557928457,
+     "events": 3,
+     "events_detected": [
+      "2001-04",
+      "2008-01",
+      "2020-03"
+     ],
+     "detected_before_peak": [
+      "2001-04",
+      "2008-01",
+      "2020-03"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      363,
+      363,
+      356
+     ],
+     "lead_days_to_peak": [
+      363,
+      363,
+      356
+     ],
+     "median_lead_days": 363.0,
+     "true_episodes": 4,
+     "false_episodes": 3,
+     "late_episodes": 0,
+     "episode_precision": 0.5714285714285714,
+     "false_episode_list": [
+      [
+       "1998-08-25",
+       "1999-02-02"
+      ],
+      [
+       "2006-01-04",
+       "2006-01-04"
+      ],
+      [
+       "2022-07-26",
+       "2026-09-30"
+      ]
+     ]
+    }
+   },
+   "4": {
+    "A_recession_12m_train": {
+     "day_precision": 0.6267496111975117,
+     "day_recall": 0.8027888446215139,
+     "alarm_day_share": 0.2436219155165203,
+     "events": 2,
+     "events_detected": [
+      "2001-04",
+      "2008-01"
+     ],
+     "detected_before_peak": [
+      "2001-04",
+      "2008-01"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      221,
+      363
+     ],
+     "lead_days_to_peak": [
+      221,
+      363
+     ],
+     "median_lead_days": 292.0,
+     "true_episodes": 2,
+     "false_episodes": 1,
+     "late_episodes": 1,
+     "episode_precision": 0.6666666666666666,
+     "false_episode_list": [
+      [
+       "1998-08-28",
+       "1999-02-02"
+      ]
+     ]
+    },
+    "A_recession_12m_test": {
+     "day_precision": 0.17221135029354206,
+     "day_recall": 0.701195219123506,
+     "alarm_day_share": 0.4933579335793358,
+     "events": 1,
+     "events_detected": [
+      "2020-03"
+     ],
+     "detected_before_peak": [
+      "2020-03"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      256
+     ],
+     "lead_days_to_peak": [
+      256
+     ],
+     "median_lead_days": 256.0,
+     "true_episodes": 1,
+     "false_episodes": 4,
+     "late_episodes": 0,
+     "episode_precision": 0.2,
+     "false_episode_list": [
+      [
+       "2019-01-02",
+       "2019-01-04"
+      ],
+      [
+       "2022-09-01",
+       "2022-09-01"
+      ],
+      [
+       "2022-10-04",
+       "2022-10-18"
+      ],
+      [
+       "2022-12-02",
+       "2026-09-30"
+      ]
+     ]
+    },
+    "A_recession_12m_full": {
+     "day_precision": 0.34774774774774775,
+     "day_recall": 0.7689243027888446,
+     "alarm_day_share": 0.3339562199679658,
+     "events": 3,
+     "events_detected": [
+      "2001-04",
+      "2008-01",
+      "2020-03"
+     ],
+     "detected_before_peak": [
+      "2001-04",
+      "2008-01",
+      "2020-03"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      221,
+      363,
+      256
+     ],
+     "lead_days_to_peak": [
+      221,
+      363,
+      256
+     ],
+     "median_lead_days": 256.0,
+     "true_episodes": 3,
+     "false_episodes": 5,
+     "late_episodes": 1,
+     "episode_precision": 0.375,
+     "false_episode_list": [
+      [
+       "1998-08-28",
+       "1999-02-02"
+      ],
+      [
+       "2019-01-02",
+       "2019-01-04"
+      ],
+      [
+       "2022-09-01",
+       "2022-09-01"
+      ],
+      [
+       "2022-10-04",
+       "2022-10-18"
+      ],
+      [
+       "2022-12-02",
+       "2026-09-30"
+      ]
+     ]
+    }
+   },
+   "5": {
+    "A_recession_12m_train": {
+     "day_precision": 0.8191056910569106,
+     "day_recall": 0.8027888446215139,
+     "alarm_day_share": 0.16290255123379338,
+     "events": 2,
+     "events_detected": [
+      "2001-04",
+      "2008-01"
+     ],
+     "detected_before_peak": [
+      "2001-04",
+      "2008-01"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      221,
+      363
+     ],
+     "lead_days_to_peak": [
+      221,
+      363
+     ],
+     "median_lead_days": 292.0,
+     "true_episodes": 2,
+     "false_episodes": 0,
+     "late_episodes": 0,
+     "episode_precision": 1.0,
+     "false_episode_list": []
+    },
+    "A_recession_12m_test": {
+     "day_precision": 0.06744868035190615,
+     "day_recall": 0.09163346613545817,
+     "alarm_day_share": 0.14169741697416974,
+     "events": 1,
+     "events_detected": [
+      "2020-03"
+     ],
+     "detected_before_peak": [
+      "2020-03"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      255
+     ],
+     "lead_days_to_peak": [
+      255
+     ],
+     "median_lead_days": 255.0,
+     "true_episodes": 3,
+     "false_episodes": 3,
+     "late_episodes": 0,
+     "episode_precision": 0.5,
+     "false_episode_list": [
+      [
+       "2022-12-02",
+       "2023-06-16"
+      ],
+      [
+       "2023-07-20",
+       "2023-08-18"
+      ],
+      [
+       "2025-04-04",
+       "2025-05-08"
+      ]
+     ]
+    },
+    "A_recession_12m_full": {
+     "day_precision": 0.5114045618247299,
+     "day_recall": 0.5657370517928287,
+     "alarm_day_share": 0.155232247730913,
+     "events": 3,
+     "events_detected": [
+      "2001-04",
+      "2008-01",
+      "2020-03"
+     ],
+     "detected_before_peak": [
+      "2001-04",
+      "2008-01",
+      "2020-03"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      221,
+      363,
+      255
+     ],
+     "lead_days_to_peak": [
+      221,
+      363,
+      255
+     ],
+     "median_lead_days": 255.0,
+     "true_episodes": 5,
+     "false_episodes": 3,
+     "late_episodes": 0,
+     "episode_precision": 0.625,
+     "false_episode_list": [
+      [
+       "2022-12-02",
+       "2023-06-16"
+      ],
+      [
+       "2023-07-20",
+       "2023-08-18"
+      ],
+      [
+       "2025-04-04",
+       "2025-05-08"
+      ]
+     ]
+    }
+   },
+   "6": {
+    "A_recession_12m_train": {
+     "day_precision": 0.8635097493036211,
+     "day_recall": 0.6175298804780877,
+     "alarm_day_share": 0.12149728147218737,
+     "events": 2,
+     "events_detected": [
+      "2001-04",
+      "2008-01"
+     ],
+     "detected_before_peak": [
+      "2001-04",
+      "2008-01"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      184,
+      363
+     ],
+     "lead_days_to_peak": [
+      184,
+      363
+     ],
+     "median_lead_days": 273.5,
+     "true_episodes": 5,
+     "false_episodes": 0,
+     "late_episodes": 2,
+     "episode_precision": 1.0,
+     "false_episode_list": []
+    },
+    "A_recession_12m_test": {
+     "day_precision": 0.0,
+     "day_recall": 0.0,
+     "alarm_day_share": 0.06088560885608856,
+     "events": 1,
+     "events_detected": [],
+     "detected_before_peak": [],
+     "event_recall": 0.0,
+     "lead_days_to_event": [],
+     "lead_days_to_peak": [],
+     "median_lead_days": null,
+     "true_episodes": 0,
+     "false_episodes": 4,
+     "late_episodes": 1,
+     "episode_precision": 0.0,
+     "false_episode_list": [
+      [
+       "2020-09-22",
+       "2020-10-05"
+      ],
+      [
+       "2022-12-20",
+       "2023-03-21"
+      ],
+      [
+       "2023-05-05",
+       "2023-05-05"
+      ],
+      [
+       "2025-04-08",
+       "2025-04-08"
+      ]
+     ]
+    },
+    "A_recession_12m_full": {
+     "day_precision": 0.6378600823045267,
+     "day_recall": 0.4116865869853918,
+     "alarm_day_share": 0.09957287773625201,
+     "events": 3,
+     "events_detected": [
+      "2001-04",
+      "2008-01"
+     ],
+     "detected_before_peak": [
+      "2001-04",
+      "2008-01"
+     ],
+     "event_recall": 0.6666666666666666,
+     "lead_days_to_event": [
+      184,
+      363
+     ],
+     "lead_days_to_peak": [
+      184,
+      363
+     ],
+     "median_lead_days": 273.5,
+     "true_episodes": 5,
+     "false_episodes": 4,
+     "late_episodes": 3,
+     "episode_precision": 0.5555555555555556,
+     "false_episode_list": [
+      [
+       "2020-09-22",
+       "2020-10-05"
+      ],
+      [
+       "2022-12-20",
+       "2023-03-21"
+      ],
+      [
+       "2023-05-05",
+       "2023-05-05"
+      ],
+      [
+       "2025-04-08",
+       "2025-04-08"
+      ]
+     ]
+    }
+   },
+   "7": {
+    "A_recession_12m_train": {
+     "day_precision": 1.0,
+     "day_recall": 0.12151394422310757,
+     "alarm_day_share": 0.039523212045169384,
+     "events": 2,
+     "events_detected": [
+      "2008-01"
+     ],
+     "detected_before_peak": [
+      "2008-01"
+     ],
+     "event_recall": 0.5,
+     "lead_days_to_event": [
+      137
+     ],
+     "lead_days_to_peak": [
+      137
+     ],
+     "median_lead_days": 137.0,
+     "true_episodes": 2,
+     "false_episodes": 0,
+     "late_episodes": 0,
+     "episode_precision": 1.0,
+     "false_episode_list": []
+    },
+    "A_recession_12m_test": {
+     "day_precision": 0.0,
+     "day_recall": 0.0,
+     "alarm_day_share": 0.014391143911439114,
+     "events": 1,
+     "events_detected": [],
+     "detected_before_peak": [],
+     "event_recall": 0.0,
+     "lead_days_to_event": [],
+     "lead_days_to_peak": [],
+     "median_lead_days": null,
+     "true_episodes": 0,
+     "false_episodes": 2,
+     "late_episodes": 0,
+     "episode_precision": 0.0,
+     "false_episode_list": [
+      [
+       "2020-05-20",
+       "2020-06-18"
+      ],
+      [
+       "2023-01-20",
+       "2023-03-21"
+      ]
+     ]
+    },
+    "A_recession_12m_full": {
+     "day_precision": 0.61,
+     "day_recall": 0.08100929614873838,
+     "alarm_day_share": 0.030432461292044848,
+     "events": 3,
+     "events_detected": [
+      "2008-01"
+     ],
+     "detected_before_peak": [
+      "2008-01"
+     ],
+     "event_recall": 0.3333333333333333,
+     "lead_days_to_event": [
+      137
+     ],
+     "lead_days_to_peak": [
+      137
+     ],
+     "median_lead_days": 137.0,
+     "true_episodes": 2,
+     "false_episodes": 2,
+     "late_episodes": 0,
+     "episode_precision": 0.5,
+     "false_episode_list": [
+      [
+       "2020-05-20",
+       "2020-06-18"
+      ],
+      [
+       "2023-01-20",
+       "2023-03-21"
+      ]
+     ]
+    }
+   },
+   "8": {
+    "A_recession_12m_train": {
+     "day_precision": null,
+     "day_recall": 0.0,
+     "alarm_day_share": 0.024048515265579256,
+     "events": 2,
+     "events_detected": [],
+     "detected_before_peak": [],
+     "event_recall": 0.0,
+     "lead_days_to_event": [],
+     "lead_days_to_peak": [],
+     "median_lead_days": null,
+     "true_episodes": 0,
+     "false_episodes": 0,
+     "late_episodes": 1,
+     "episode_precision": null,
+     "false_episode_list": []
+    },
+    "A_recession_12m_test": {
+     "day_precision": null,
+     "day_recall": 0.0,
+     "alarm_day_share": 0.0,
+     "events": 1,
+     "events_detected": [],
+     "detected_before_peak": [],
+     "event_recall": 0.0,
+     "lead_days_to_event": [],
+     "lead_days_to_peak": [],
+     "median_lead_days": null,
+     "true_episodes": 0,
+     "false_episodes": 0,
+     "late_episodes": 0,
+     "episode_precision": null,
+     "false_episode_list": []
+    },
+    "A_recession_12m_full": {
+     "day_precision": null,
+     "day_recall": 0.0,
+     "alarm_day_share": 0.015349706353443673,
+     "events": 3,
+     "events_detected": [],
+     "detected_before_peak": [],
+     "event_recall": 0.0,
+     "lead_days_to_event": [],
+     "lead_days_to_peak": [],
+     "median_lead_days": null,
+     "true_episodes": 0,
+     "false_episodes": 0,
+     "late_episodes": 1,
+     "episode_precision": null,
+     "false_episode_list": []
+    }
+   }
+  },
+  "_raw": null,
+  "daily_last": 0
+ },
+ "B15_drawdown_6m": {
+  "chosen": "B3 ret21+rv20+hyrise+stlfsi",
+  "weights": {
+   "spx_ret21": 1,
+   "rv20": 1,
+   "hy_rise_1y": 1,
+   "stlfsi": 1
+  },
+  "warn": 2,
+  "crit": 5,
+  "design_ranking_train": [
+   {
+    "design": "B3 ret21+rv20+hyrise+stlfsi",
+    "k": 2,
+    "train_objective": 0.692308
+   },
+   {
+    "design": "B3 ret21+rv20+hyrise+stlfsi",
+    "k": 5,
+    "train_objective": 0.685714
+   },
+   {
+    "design": "B6 ret21+rv20+hyrise+equity(live)",
+    "k": 5,
+    "train_objective": 0.64
+   },
+   {
+    "design": "B2 equity(live)+hyrise+ret21+curve",
+    "k": 4,
+    "train_objective": 0.622222
+   },
+   {
+    "design": "B5 ret21+rv20+hyrise+curve",
+    "k": 4,
+    "train_objective": 0.622222
+   },
+   {
+    "design": "B5 ret21+rv20+hyrise+curve",
+    "k": 5,
+    "train_objective": 0.6
+   },
+   {
+    "design": "B6 ret21+rv20+hyrise+equity(live)",
+    "k": 3,
+    "train_objective": 0.6
+   },
+   {
+    "design": "B1 ret21+rv20+hychg+curve",
+    "k": 5,
+    "train_objective": 0.6
+   },
+   {
+    "design": "B1 ret21+rv20+hychg+curve",
+    "k": 6,
+    "train_objective": 0.6
+   },
+   {
+    "design": "B6 ret21+rv20+hyrise+equity(live)",
+    "k": 2,
+    "train_objective": 0.590909
+   },
+   {
+    "design": "B1 ret21+rv20+hychg+curve",
+    "k": 3,
+    "train_objective": 0.581818
+   },
+   {
+    "design": "B2 equity(live)+hyrise+ret21+curve",
+    "k": 3,
+    "train_objective": 0.533333
+   }
+  ],
+  "by_threshold": {
+   "2": {
+    "B15_drawdown_6m_train": {
+     "day_precision": 0.4382591093117409,
+     "day_recall": 0.41957364341085274,
+     "alarm_day_share": 0.41426181514010874,
+     "events": 5,
+     "events_detected": [
+      "1998-07",
+      "2000-03",
+      "2007-10",
+      "2010-04",
+      "2011-04"
+     ],
+     "detected_before_peak": [
+      "1998-07",
+      "2000-03",
+      "2007-10",
+      "2010-04"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      223,
+      453,
+      168,
+      243,
+      52
+     ],
+     "lead_days_to_peak": [
+      178,
+      182,
+      67,
+      175,
+      -49
+     ],
+     "median_lead_days": 223.0,
+     "true_episodes": 9,
+     "false_episodes": 4,
+     "late_episodes": 2,
+     "episode_precision": 0.6923076923076923,
+     "false_episode_list": [
+      [
+       "1997-10-27",
+       "1997-11-25"
+      ],
+      [
+       "2014-10-13",
+       "2014-10-29"
+      ],
+      [
+       "2014-12-15",
+       "2015-02-11"
+      ],
+      [
+       "2015-07-09",
+       "2015-12-31"
+      ]
+     ]
+    },
+    "B15_drawdown_6m_test": {
+     "day_precision": 0.2541436464088398,
+     "day_recall": 0.13256484149855907,
+     "alarm_day_share": 0.2118081180811808,
+     "events": 4,
+     "events_detected": [
+      "2018-09",
+      "2020-02",
+      "2022-01",
+      "2025-02"
+     ],
+     "detected_before_peak": [
+      "2018-09",
+      "2020-02"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      268,
+      201,
+      87,
+      18
+     ],
+     "lead_days_to_peak": [
+      177,
+      182,
+      -39,
+      -26
+     ],
+     "median_lead_days": 144.0,
+     "true_episodes": 7,
+     "false_episodes": 4,
+     "late_episodes": 1,
+     "episode_precision": 0.6363636363636364,
+     "false_episode_list": [
+      [
+       "2016-01-04",
+       "2016-07-11"
+      ],
+      [
+       "2019-05-29",
+       "2019-06-03"
+      ],
+      [
+       "2020-09-09",
+       "2020-11-24"
+      ],
+      [
+       "2024-08-06",
+       "2024-08-08"
+      ]
+     ]
+    },
+    "B15_drawdown_6m_full": {
+     "day_precision": 0.3888888888888889,
+     "day_recall": 0.3041714947856315,
+     "alarm_day_share": 0.34103043246129205,
+     "events": 9,
+     "events_detected": [
+      "1998-07",
+      "2000-03",
+      "2007-10",
+      "2010-04",
+      "2011-04",
+      "2018-09",
+      "2020-02",
+      "2022-01",
+      "2025-02"
+     ],
+     "detected_before_peak": [
+      "1998-07",
+      "2000-03",
+      "2007-10",
+      "2010-04",
+      "2018-09",
+      "2020-02"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      223,
+      453,
+      168,
+      243,
+      52,
+      268,
+      201,
+      87,
+      18
+     ],
+     "lead_days_to_peak": [
+      178,
+      182,
+      67,
+      175,
+      -49,
+      177,
+      182,
+      -39,
+      -26
+     ],
+     "median_lead_days": 201.0,
+     "true_episodes": 16,
+     "false_episodes": 7,
+     "late_episodes": 3,
+     "episode_precision": 0.6956521739130435,
+     "false_episode_list": [
+      [
+       "1997-10-27",
+       "1997-11-25"
+      ],
+      [
+       "2014-10-13",
+       "2014-10-29"
+      ],
+      [
+       "2014-12-15",
+       "2015-02-11"
+      ],
+      [
+       "2015-07-09",
+       "2016-07-11"
+      ],
+      [
+       "2019-05-29",
+       "2019-06-03"
+      ],
+      [
+       "2020-09-09",
+       "2020-11-24"
+      ],
+      [
+       "2024-08-06",
+       "2024-08-08"
+      ]
+     ]
+    },
+    "B20_drawdown_6m_train": {
+     "day_precision": 0.4059561128526646,
+     "day_recall": 0.7584187408491947,
+     "alarm_day_share": 0.41426181514010874,
+     "events": 2,
+     "events_detected": [
+      "2000-03",
+      "2007-10"
+     ],
+     "detected_before_peak": [
+      "2000-03",
+      "2007-10"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      535,
+      341
+     ],
+     "lead_days_to_peak": [
+      182,
+      67
+     ],
+     "median_lead_days": 438.0,
+     "true_episodes": 3,
+     "false_episodes": 10,
+     "late_episodes": 2,
+     "episode_precision": 0.23076923076923078,
+     "false_episode_list": [
+      [
+       "1997-10-27",
+       "1997-11-25"
+      ],
+      [
+       "1998-01-20",
+       "1998-01-21"
+      ],
+      [
+       "2009-10-30",
+       "2009-11-24"
+      ],
+      [
+       "2010-02-04",
+       "2010-02-18"
+      ],
+      [
+       "2010-05-07",
+       "2010-09-10"
+      ],
+      [
+       "2011-06-17",
+       "2011-06-17"
+      ],
+      [
+       "2011-08-02",
+       "2012-07-13"
+      ],
+      [
+       "2014-10-13",
+       "2014-10-29"
+      ],
+      [
+       "2014-12-15",
+       "2015-02-11"
+      ],
+      [
+       "2015-07-09",
+       "2015-12-31"
+      ]
+     ]
+    },
+    "B20_drawdown_6m_test": {
+     "day_precision": 0.15681818181818183,
+     "day_recall": 0.1830238726790451,
+     "alarm_day_share": 0.2118081180811808,
+     "events": 2,
+     "events_detected": [
+      "2020-02",
+      "2022-01"
+     ],
+     "detected_before_peak": [
+      "2020-02"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      204,
+      122
+     ],
+     "lead_days_to_peak": [
+      182,
+      -39
+     ],
+     "median_lead_days": 163.0,
+     "true_episodes": 4,
+     "false_episodes": 8,
+     "late_episodes": 0,
+     "episode_precision": 0.3333333333333333,
+     "false_episode_list": [
+      [
+       "2016-01-04",
+       "2016-07-11"
+      ],
+      [
+       "2018-02-08",
+       "2018-04-23"
+      ],
+      [
+       "2018-10-24",
+       "2019-01-24"
+      ],
+      [
+       "2019-05-29",
+       "2019-06-03"
+      ],
+      [
+       "2020-09-09",
+       "2020-11-24"
+      ],
+      [
+       "2023-03-13",
+       "2023-04-05"
+      ],
+      [
+       "2024-08-06",
+       "2024-08-08"
+      ],
+      [
+       "2025-03-17",
+       "2025-05-08"
+      ]
+     ]
+    },
+    "B20_drawdown_6m_full": {
+     "day_precision": 0.34207459207459207,
+     "day_recall": 0.5537735849056604,
+     "alarm_day_share": 0.34103043246129205,
+     "events": 4,
+     "events_detected": [
+      "2000-03",
+      "2007-10",
+      "2020-02",
+      "2022-01"
+     ],
+     "detected_before_peak": [
+      "2000-03",
+      "2007-10",
+      "2020-02"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      535,
+      341,
+      204,
+      122
+     ],
+     "lead_days_to_peak": [
+      182,
+      67,
+      182,
+      -39
+     ],
+     "median_lead_days": 272.5,
+     "true_episodes": 7,
+     "false_episodes": 17,
+     "late_episodes": 2,
+     "episode_precision": 0.2916666666666667,
+     "false_episode_list": [
+      [
+       "1997-10-27",
+       "1997-11-25"
+      ],
+      [
+       "1998-01-20",
+       "1998-01-21"
+      ],
+      [
+       "2009-10-30",
+       "2009-11-24"
+      ],
+      [
+       "2010-02-04",
+       "2010-02-18"
+      ],
+      [
+       "2010-05-07",
+       "2010-09-10"
+      ],
+      [
+       "2011-06-17",
+       "2011-06-17"
+      ],
+      [
+       "2011-08-02",
+       "2012-07-13"
+      ],
+      [
+       "2014-10-13",
+       "2014-10-29"
+      ],
+      [
+       "2014-12-15",
+       "2015-02-11"
+      ],
+      [
+       "2015-07-09",
+       "2016-07-11"
+      ],
+      [
+       "2018-02-08",
+       "2018-04-23"
+      ],
+      [
+       "2018-10-24",
+       "2019-01-24"
+      ],
+      [
+       "2019-05-29",
+       "2019-06-03"
+      ],
+      [
+       "2020-09-09",
+       "2020-11-24"
+      ],
+      [
+       "2023-03-13",
+       "2023-04-05"
+      ],
+      [
+       "2024-08-06",
+       "2024-08-08"
+      ],
+      [
+       "2025-03-17",
+       "2025-05-08"
+      ]
+     ]
+    }
+   },
+   "3": {
+    "B15_drawdown_6m_train": {
+     "day_precision": 0.4690909090909091,
+     "day_recall": 0.25,
+     "alarm_day_share": 0.2961104140526976,
+     "events": 5,
+     "events_detected": [
+      "1998-07",
+      "2000-03",
+      "2007-10",
+      "2010-04"
+     ],
+     "detected_before_peak": [
+      "2000-03",
+      "2007-10",
+      "2010-04"
+     ],
+     "event_recall": 0.8,
+     "lead_days_to_event": [
+      26,
+      432,
+      162,
+      141
+     ],
+     "lead_days_to_peak": [
+      -19,
+      161,
+      61,
+      73
+     ],
+     "median_lead_days": 151.5,
+     "true_episodes": 9,
+     "false_episodes": 5,
+     "late_episodes": 3,
+     "episode_precision": 0.6428571428571429,
+     "false_episode_list": [
+      [
+       "1997-10-30",
+       "1997-11-21"
+      ],
+      [
+       "2012-05-17",
+       "2012-06-25"
+      ],
+      [
+       "2014-12-18",
+       "2015-01-22"
+      ],
+      [
+       "2015-08-24",
+       "2015-10-15"
+      ],
+      [
+       "2015-11-25",
+       "2015-12-31"
+      ]
+     ]
+    },
+    "B15_drawdown_6m_test": {
+     "day_precision": 0.16113744075829384,
+     "day_recall": 0.04899135446685879,
+     "alarm_day_share": 0.13911439114391144,
+     "events": 4,
+     "events_detected": [
+      "2018-09",
+      "2020-02",
+      "2022-01"
+     ],
+     "detected_before_peak": [
+      "2018-09",
+      "2020-02"
+     ],
+     "event_recall": 0.75,
+     "lead_days_to_event": [
+      253,
+      201,
+      66
+     ],
+     "lead_days_to_peak": [
+      162,
+      182,
+      -60
+     ],
+     "median_lead_days": 201.0,
+     "true_episodes": 6,
+     "false_episodes": 3,
+     "late_episodes": 3,
+     "episode_precision": 0.6666666666666666,
+     "false_episode_list": [
+      [
+       "2016-01-04",
+       "2016-05-11"
+      ],
+      [
+       "2020-09-17",
+       "2020-11-09"
+      ],
+      [
+       "2023-03-23",
+       "2023-03-29"
+      ]
+     ]
+    },
+    "B15_drawdown_6m_full": {
+     "day_precision": 0.38370565045992117,
+     "day_recall": 0.16917728852838934,
+     "alarm_day_share": 0.23932194340630006,
+     "events": 9,
+     "events_detected": [
+      "1998-07",
+      "2000-03",
+      "2007-10",
+      "2010-04",
+      "2018-09",
+      "2020-02",
+      "2022-01"
+     ],
+     "detected_before_peak": [
+      "2000-03",
+      "2007-10",
+      "2010-04",
+      "2018-09",
+      "2020-02"
+     ],
+     "event_recall": 0.7777777777777778,
+     "lead_days_to_event": [
+      26,
+      432,
+      162,
+      141,
+      253,
+      201,
+      66
+     ],
+     "lead_days_to_peak": [
+      -19,
+      161,
+      61,
+      73,
+      162,
+      182,
+      -60
+     ],
+     "median_lead_days": 162.0,
+     "true_episodes": 15,
+     "false_episodes": 7,
+     "late_episodes": 6,
+     "episode_precision": 0.6818181818181818,
+     "false_episode_list": [
+      [
+       "1997-10-30",
+       "1997-11-21"
+      ],
+      [
+       "2012-05-17",
+       "2012-06-25"
+      ],
+      [
+       "2014-12-18",
+       "2015-01-22"
+      ],
+      [
+       "2015-08-24",
+       "2015-10-15"
+      ],
+      [
+       "2015-11-25",
+       "2016-05-11"
+      ],
+      [
+       "2020-09-17",
+       "2020-11-09"
+      ],
+      [
+       "2023-03-23",
+       "2023-03-29"
+      ]
+     ]
+    },
+    "B20_drawdown_6m_train": {
+     "day_precision": 0.45215311004784686,
+     "day_recall": 0.5534407027818448,
+     "alarm_day_share": 0.2961104140526976,
+     "events": 2,
+     "events_detected": [
+      "2000-03",
+      "2007-10"
+     ],
+     "detected_before_peak": [
+      "2000-03",
+      "2007-10"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      514,
+      335
+     ],
+     "lead_days_to_peak": [
+      161,
+      61
+     ],
+     "median_lead_days": 424.5,
+     "true_episodes": 5,
+     "false_episodes": 9,
+     "late_episodes": 3,
+     "episode_precision": 0.35714285714285715,
+     "false_episode_list": [
+      [
+       "1997-10-30",
+       "1997-11-21"
+      ],
+      [
+       "1998-08-05",
+       "1999-06-14"
+      ],
+      [
+       "2010-02-09",
+       "2010-02-10"
+      ],
+      [
+       "2010-05-14",
+       "2010-09-08"
+      ],
+      [
+       "2011-08-04",
+       "2012-02-03"
+      ],
+      [
+       "2012-05-17",
+       "2012-06-25"
+      ],
+      [
+       "2014-12-18",
+       "2015-01-22"
+      ],
+      [
+       "2015-08-24",
+       "2015-10-15"
+      ],
+      [
+       "2015-11-25",
+       "2015-12-31"
+      ]
+     ]
+    },
+    "B20_drawdown_6m_test": {
+     "day_precision": 0.176056338028169,
+     "day_recall": 0.13262599469496023,
+     "alarm_day_share": 0.13911439114391144,
+     "events": 2,
+     "events_detected": [
+      "2020-02",
+      "2022-01"
+     ],
+     "detected_before_peak": [
+      "2020-02"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      204,
+      101
+     ],
+     "lead_days_to_peak": [
+      182,
+      -60
+     ],
+     "median_lead_days": 152.5,
+     "true_episodes": 4,
+     "false_episodes": 6,
+     "late_episodes": 2,
+     "episode_precision": 0.4,
+     "false_episode_list": [
+      [
+       "2016-01-04",
+       "2016-05-11"
+      ],
+      [
+       "2018-04-11",
+       "2018-04-11"
+      ],
+      [
+       "2018-12-04",
+       "2019-01-16"
+      ],
+      [
+       "2020-09-17",
+       "2020-11-09"
+      ],
+      [
+       "2023-03-23",
+       "2023-03-29"
+      ],
+      [
+       "2025-04-04",
+       "2025-05-07"
+      ]
+     ]
+    },
+    "B20_drawdown_6m_full": {
+     "day_precision": 0.3821428571428571,
+     "day_recall": 0.4037735849056604,
+     "alarm_day_share": 0.23932194340630006,
+     "events": 4,
+     "events_detected": [
+      "2000-03",
+      "2007-10",
+      "2020-02",
+      "2022-01"
+     ],
+     "detected_before_peak": [
+      "2000-03",
+      "2007-10",
+      "2020-02"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      514,
+      335,
+      204,
+      101
+     ],
+     "lead_days_to_peak": [
+      161,
+      61,
+      182,
+      -60
+     ],
+     "median_lead_days": 269.5,
+     "true_episodes": 9,
+     "false_episodes": 14,
+     "late_episodes": 5,
+     "episode_precision": 0.391304347826087,
+     "false_episode_list": [
+      [
+       "1997-10-30",
+       "1997-11-21"
+      ],
+      [
+       "1998-08-05",
+       "1999-06-14"
+      ],
+      [
+       "2010-02-09",
+       "2010-02-10"
+      ],
+      [
+       "2010-05-14",
+       "2010-09-08"
+      ],
+      [
+       "2011-08-04",
+       "2012-02-03"
+      ],
+      [
+       "2012-05-17",
+       "2012-06-25"
+      ],
+      [
+       "2014-12-18",
+       "2015-01-22"
+      ],
+      [
+       "2015-08-24",
+       "2015-10-15"
+      ],
+      [
+       "2015-11-25",
+       "2016-05-11"
+      ],
+      [
+       "2018-04-11",
+       "2018-04-11"
+      ],
+      [
+       "2018-12-04",
+       "2019-01-16"
+      ],
+      [
+       "2020-09-17",
+       "2020-11-09"
+      ],
+      [
+       "2023-03-23",
+       "2023-03-29"
+      ],
+      [
+       "2025-04-04",
+       "2025-05-07"
+      ]
+     ]
+    }
+   },
+   "4": {
+    "B15_drawdown_6m_train": {
+     "day_precision": 0.6212624584717608,
+     "day_recall": 0.1812015503875969,
+     "alarm_day_share": 0.21978251777498956,
+     "events": 5,
+     "events_detected": [
+      "1998-07",
+      "2000-03",
+      "2007-10",
+      "2010-04"
+     ],
+     "detected_before_peak": [
+      "2007-10"
+     ],
+     "event_recall": 0.8,
+     "lead_days_to_event": [
+      18,
+      250,
+      161,
+      42
+     ],
+     "lead_days_to_peak": [
+      -27,
+      -21,
+      60,
+      -26
+     ],
+     "median_lead_days": 101.5,
+     "true_episodes": 7,
+     "false_episodes": 4,
+     "late_episodes": 3,
+     "episode_precision": 0.6363636363636364,
+     "false_episode_list": [
+      [
+       "1997-11-12",
+       "1997-11-12"
+      ],
+      [
+       "1998-12-14",
+       "1999-03-11"
+      ],
+      [
+       "1999-04-14",
+       "1999-04-23"
+      ],
+      [
+       "2015-08-24",
+       "2015-10-05"
+      ]
+     ]
+    },
+    "B15_drawdown_6m_test": {
+     "day_precision": 0.1368421052631579,
+     "day_recall": 0.018731988472622477,
+     "alarm_day_share": 0.08339483394833948,
+     "events": 4,
+     "events_detected": [
+      "2020-02",
+      "2022-01"
+     ],
+     "detected_before_peak": [
+      "2020-02"
+     ],
+     "event_recall": 0.5,
+     "lead_days_to_event": [
+      199,
+      62
+     ],
+     "lead_days_to_peak": [
+      180,
+      -64
+     ],
+     "median_lead_days": 130.5,
+     "true_episodes": 5,
+     "false_episodes": 2,
+     "late_episodes": 2,
+     "episode_precision": 0.7142857142857143,
+     "false_episode_list": [
+      [
+       "2016-01-07",
+       "2016-03-01"
+      ],
+      [
+       "2020-09-22",
+       "2020-10-05"
+      ]
+     ]
+    },
+    "B15_drawdown_6m_full": {
+     "day_precision": 0.5050505050505051,
+     "day_recall": 0.11587485515643106,
+     "alarm_day_share": 0.1704484783769354,
+     "events": 9,
+     "events_detected": [
+      "1998-07",
+      "2000-03",
+      "2007-10",
+      "2010-04",
+      "2020-02",
+      "2022-01"
+     ],
+     "detected_before_peak": [
+      "2007-10",
+      "2020-02"
+     ],
+     "event_recall": 0.6666666666666666,
+     "lead_days_to_event": [
+      18,
+      250,
+      161,
+      42,
+      199,
+      62
+     ],
+     "lead_days_to_peak": [
+      -27,
+      -21,
+      60,
+      -26,
+      180,
+      -64
+     ],
+     "median_lead_days": 111.5,
+     "true_episodes": 12,
+     "false_episodes": 6,
+     "late_episodes": 5,
+     "episode_precision": 0.6666666666666666,
+     "false_episode_list": [
+      [
+       "1997-11-12",
+       "1997-11-12"
+      ],
+      [
+       "1998-12-14",
+       "1999-03-11"
+      ],
+      [
+       "1999-04-14",
+       "1999-04-23"
+      ],
+      [
+       "2015-08-24",
+       "2015-10-05"
+      ],
+      [
+       "2016-01-07",
+       "2016-03-01"
+      ],
+      [
+       "2020-09-22",
+       "2020-10-05"
+      ]
+     ]
+    },
+    "B20_drawdown_6m_train": {
+     "day_precision": 0.5409252669039146,
+     "day_recall": 0.445095168374817,
+     "alarm_day_share": 0.21978251777498956,
+     "events": 2,
+     "events_detected": [
+      "2000-03",
+      "2007-10"
+     ],
+     "detected_before_peak": [
+      "2007-10"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      332,
+      334
+     ],
+     "lead_days_to_peak": [
+      -21,
+      60
+     ],
+     "median_lead_days": 333.0,
+     "true_episodes": 4,
+     "false_episodes": 7,
+     "late_episodes": 3,
+     "episode_precision": 0.36363636363636365,
+     "false_episode_list": [
+      [
+       "1997-11-12",
+       "1997-11-12"
+      ],
+      [
+       "1998-08-13",
+       "1998-11-03"
+      ],
+      [
+       "1998-12-14",
+       "1999-03-11"
+      ],
+      [
+       "1999-04-14",
+       "1999-04-23"
+      ],
+      [
+       "2010-05-19",
+       "2010-07-02"
+      ],
+      [
+       "2011-08-04",
+       "2011-12-28"
+      ],
+      [
+       "2015-08-24",
+       "2015-10-05"
+      ]
+     ]
+    },
+    "B20_drawdown_6m_test": {
+     "day_precision": 0.19135802469135801,
+     "day_recall": 0.08222811671087533,
+     "alarm_day_share": 0.08339483394833948,
+     "events": 2,
+     "events_detected": [
+      "2020-02",
+      "2022-01"
+     ],
+     "detected_before_peak": [
+      "2020-02"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      202,
+      97
+     ],
+     "lead_days_to_peak": [
+      180,
+      -64
+     ],
+     "median_lead_days": 149.5,
+     "true_episodes": 4,
+     "false_episodes": 4,
+     "late_episodes": 1,
+     "episode_precision": 0.5,
+     "false_episode_list": [
+      [
+       "2016-01-07",
+       "2016-03-01"
+      ],
+      [
+       "2018-12-17",
+       "2019-01-14"
+      ],
+      [
+       "2020-09-22",
+       "2020-10-05"
+      ],
+      [
+       "2025-04-04",
+       "2025-04-24"
+      ]
+     ]
+    },
+    "B20_drawdown_6m_full": {
+     "day_precision": 0.462707182320442,
+     "day_recall": 0.3160377358490566,
+     "alarm_day_share": 0.1704484783769354,
+     "events": 4,
+     "events_detected": [
+      "2000-03",
+      "2007-10",
+      "2020-02",
+      "2022-01"
+     ],
+     "detected_before_peak": [
+      "2007-10",
+      "2020-02"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      332,
+      334,
+      202,
+      97
+     ],
+     "lead_days_to_peak": [
+      -21,
+      60,
+      180,
+      -64
+     ],
+     "median_lead_days": 267.0,
+     "true_episodes": 8,
+     "false_episodes": 11,
+     "late_episodes": 4,
+     "episode_precision": 0.42105263157894735,
+     "false_episode_list": [
+      [
+       "1997-11-12",
+       "1997-11-12"
+      ],
+      [
+       "1998-08-13",
+       "1998-11-03"
+      ],
+      [
+       "1998-12-14",
+       "1999-03-11"
+      ],
+      [
+       "1999-04-14",
+       "1999-04-23"
+      ],
+      [
+       "2010-05-19",
+       "2010-07-02"
+      ],
+      [
+       "2011-08-04",
+       "2011-12-28"
+      ],
+      [
+       "2015-08-24",
+       "2015-10-05"
+      ],
+      [
+       "2016-01-07",
+       "2016-03-01"
+      ],
+      [
+       "2018-12-17",
+       "2019-01-14"
+      ],
+      [
+       "2020-09-22",
+       "2020-10-05"
+      ],
+      [
+       "2025-04-04",
+       "2025-04-24"
+      ]
+     ]
+    }
+   },
+   "5": {
+    "B15_drawdown_6m_train": {
+     "day_precision": 0.7280701754385965,
+     "day_recall": 0.08042635658914729,
+     "alarm_day_share": 0.14533667921371812,
+     "events": 5,
+     "events_detected": [
+      "1998-07",
+      "2000-03",
+      "2007-10",
+      "2010-04"
+     ],
+     "detected_before_peak": [
+      "2007-10"
+     ],
+     "event_recall": 0.8,
+     "lead_days_to_event": [
+      17,
+      240,
+      154,
+      41
+     ],
+     "lead_days_to_peak": [
+      -28,
+      -31,
+      53,
+      -27
+     ],
+     "median_lead_days": 97.5,
+     "true_episodes": 6,
+     "false_episodes": 1,
+     "late_episodes": 5,
+     "episode_precision": 0.8571428571428571,
+     "false_episode_list": [
+      [
+       "2015-09-02",
+       "2015-09-29"
+      ]
+     ]
+    },
+    "B15_drawdown_6m_test": {
+     "day_precision": 0.06451612903225806,
+     "day_recall": 0.002881844380403458,
+     "alarm_day_share": 0.047232472324723246,
+     "events": 4,
+     "events_detected": [],
+     "detected_before_peak": [],
+     "event_recall": 0.0,
+     "lead_days_to_event": [],
+     "lead_days_to_peak": [],
+     "median_lead_days": null,
+     "true_episodes": 1,
+     "false_episodes": 3,
+     "late_episodes": 4,
+     "episode_precision": 0.25,
+     "false_episode_list": [
+      [
+       "2016-01-15",
+       "2016-02-24"
+      ],
+      [
+       "2020-06-26",
+       "2020-07-02"
+      ],
+      [
+       "2020-09-23",
+       "2020-09-23"
+      ]
+     ]
+    },
+    "B15_drawdown_6m_full": {
+     "day_precision": 0.5862068965517241,
+     "day_recall": 0.0492468134414832,
+     "alarm_day_share": 0.1098505072076882,
+     "events": 9,
+     "events_detected": [
+      "1998-07",
+      "2000-03",
+      "2007-10",
+      "2010-04"
+     ],
+     "detected_before_peak": [
+      "2007-10"
+     ],
+     "event_recall": 0.4444444444444444,
+     "lead_days_to_event": [
+      17,
+      240,
+      154,
+      41
+     ],
+     "lead_days_to_peak": [
+      -28,
+      -31,
+      53,
+      -27
+     ],
+     "median_lead_days": 97.5,
+     "true_episodes": 7,
+     "false_episodes": 4,
+     "late_episodes": 9,
+     "episode_precision": 0.6363636363636364,
+     "false_episode_list": [
+      [
+       "2015-09-02",
+       "2015-09-29"
+      ],
+      [
+       "2016-01-15",
+       "2016-02-24"
+      ],
+      [
+       "2020-06-26",
+       "2020-07-02"
+      ],
+      [
+       "2020-09-23",
+       "2020-09-23"
+      ]
+     ]
+    },
+    "B20_drawdown_6m_train": {
+     "day_precision": 0.5201465201465202,
+     "day_recall": 0.20790629575402636,
+     "alarm_day_share": 0.14533667921371812,
+     "events": 2,
+     "events_detected": [
+      "2000-03",
+      "2007-10"
+     ],
+     "detected_before_peak": [
+      "2007-10"
+     ],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      322,
+      327
+     ],
+     "lead_days_to_peak": [
+      -31,
+      53
+     ],
+     "median_lead_days": 324.5,
+     "true_episodes": 5,
+     "false_episodes": 4,
+     "late_episodes": 3,
+     "episode_precision": 0.5555555555555556,
+     "false_episode_list": [
+      [
+       "1998-08-14",
+       "1998-10-28"
+      ],
+      [
+       "2010-05-20",
+       "2010-06-11"
+      ],
+      [
+       "2011-08-08",
+       "2011-12-07"
+      ],
+      [
+       "2015-09-02",
+       "2015-09-29"
+      ]
+     ]
+    },
+    "B20_drawdown_6m_test": {
+     "day_precision": 0.2,
+     "day_recall": 0.04509283819628647,
+     "alarm_day_share": 0.047232472324723246,
+     "events": 2,
+     "events_detected": [
+      "2022-01"
+     ],
+     "detected_before_peak": [],
+     "event_recall": 0.5,
+     "lead_days_to_event": [
+      35
+     ],
+     "lead_days_to_peak": [
+      -126
+     ],
+     "median_lead_days": 35.0,
+     "true_episodes": 2,
+     "false_episodes": 5,
+     "late_episodes": 1,
+     "episode_precision": 0.2857142857142857,
+     "false_episode_list": [
+      [
+       "2016-01-15",
+       "2016-02-24"
+      ],
+      [
+       "2018-12-24",
+       "2019-01-07"
+      ],
+      [
+       "2020-06-26",
+       "2020-07-02"
+      ],
+      [
+       "2020-09-23",
+       "2020-09-23"
+      ],
+      [
+       "2025-04-04",
+       "2025-04-23"
+      ]
+     ]
+    },
+    "B20_drawdown_6m_full": {
+     "day_precision": 0.4441340782122905,
+     "day_recall": 0.15,
+     "alarm_day_share": 0.1098505072076882,
+     "events": 4,
+     "events_detected": [
+      "2000-03",
+      "2007-10",
+      "2022-01"
+     ],
+     "detected_before_peak": [
+      "2007-10"
+     ],
+     "event_recall": 0.75,
+     "lead_days_to_event": [
+      322,
+      327,
+      35
+     ],
+     "lead_days_to_peak": [
+      -31,
+      53,
+      -126
+     ],
+     "median_lead_days": 322.0,
+     "true_episodes": 7,
+     "false_episodes": 9,
+     "late_episodes": 4,
+     "episode_precision": 0.4375,
+     "false_episode_list": [
+      [
+       "1998-08-14",
+       "1998-10-28"
+      ],
+      [
+       "2010-05-20",
+       "2010-06-11"
+      ],
+      [
+       "2011-08-08",
+       "2011-12-07"
+      ],
+      [
+       "2015-09-02",
+       "2015-09-29"
+      ],
+      [
+       "2016-01-15",
+       "2016-02-24"
+      ],
+      [
+       "2018-12-24",
+       "2019-01-07"
+      ],
+      [
+       "2020-06-26",
+       "2020-07-02"
+      ],
+      [
+       "2020-09-23",
+       "2020-09-23"
+      ],
+      [
+       "2025-04-04",
+       "2025-04-23"
+      ]
+     ]
+    }
+   },
+   "6": {
+    "B15_drawdown_6m_train": {
+     "day_precision": 0.7307692307692307,
+     "day_recall": 0.018410852713178296,
+     "alarm_day_share": 0.07737348389795065,
+     "events": 5,
+     "events_detected": [
+      "2007-10",
+      "2010-04"
+     ],
+     "detected_before_peak": [],
+     "event_recall": 0.4,
+     "lead_days_to_event": [
+      64,
+      41
+     ],
+     "lead_days_to_peak": [
+      -37,
+      -27
+     ],
+     "median_lead_days": 52.5,
+     "true_episodes": 4,
+     "false_episodes": 0,
+     "late_episodes": 11,
+     "episode_precision": 1.0,
+     "false_episode_list": []
+    },
+    "B15_drawdown_6m_test": {
+     "day_precision": 0.16666666666666666,
+     "day_recall": 0.001440922190201729,
+     "alarm_day_share": 0.023985239852398525,
+     "events": 4,
+     "events_detected": [],
+     "detected_before_peak": [],
+     "event_recall": 0.0,
+     "lead_days_to_event": [],
+     "lead_days_to_peak": [],
+     "median_lead_days": null,
+     "true_episodes": 1,
+     "false_episodes": 1,
+     "late_episodes": 5,
+     "episode_precision": 0.5,
+     "false_episode_list": [
+      [
+       "2016-01-28",
+       "2016-02-02"
+      ]
+     ]
+    },
+    "B15_drawdown_6m_full": {
+     "day_precision": 0.625,
+     "day_recall": 0.011587485515643106,
+     "alarm_day_share": 0.05806193272824346,
+     "events": 9,
+     "events_detected": [
+      "2007-10",
+      "2010-04"
+     ],
+     "detected_before_peak": [],
+     "event_recall": 0.2222222222222222,
+     "lead_days_to_event": [
+      64,
+      41
+     ],
+     "lead_days_to_peak": [
+      -37,
+      -27
+     ],
+     "median_lead_days": 52.5,
+     "true_episodes": 5,
+     "false_episodes": 1,
+     "late_episodes": 16,
+     "episode_precision": 0.8333333333333334,
+     "false_episode_list": [
+      [
+       "2016-01-28",
+       "2016-02-02"
+      ]
+     ]
+    },
+    "B20_drawdown_6m_train": {
+     "day_precision": 0.336734693877551,
+     "day_recall": 0.048316251830161056,
+     "alarm_day_share": 0.07737348389795065,
+     "events": 2,
+     "events_detected": [
+      "2000-03",
+      "2007-10"
+     ],
+     "detected_before_peak": [],
+     "event_recall": 1.0,
+     "lead_days_to_event": [
+      66,
+      237
+     ],
+     "lead_days_to_peak": [
+      -287,
+      -37
+     ],
+     "median_lead_days": 151.5,
+     "true_episodes": 5,
+     "false_episodes": 5,
+     "late_episodes": 5,
+     "episode_precision": 0.5,
+     "false_episode_list": [
+      [
+       "1998-08-28",
+       "1998-10-20"
+      ],
+      [
+       "2010-05-20",
+       "2010-06-07"
+      ],
+      [
+       "2011-08-09",
+       "2011-08-30"
+      ],
+      [
+       "2011-09-30",
+       "2011-10-19"
+      ],
+      [
+       "2011-11-25",
+       "2011-11-30"
+      ]
+     ]
+    },
+    "B20_drawdown_6m_test": {
+     "day_precision": 0.2682926829268293,
+     "day_recall": 0.029177718832891247,
+     "alarm_day_share": 0.023985239852398525,
+     "events": 2,
+     "events_detected": [
+      "2022-01"
+     ],
+     "detected_before_peak": [],
+     "event_recall": 0.5,
+     "lead_days_to_event": [
+      35
+     ],
+     "lead_days_to_peak": [
+      -126
+     ],
+     "median_lead_days": 35.0,
+     "true_episodes": 2,
+     "false_episodes": 3,
+     "late_episodes": 2,
+     "episode_precision": 0.4,
+     "false_episode_list": [
+      [
+       "2016-01-28",
+       "2016-02-02"
+      ],
+      [
+       "2018-12-24",
+       "2019-01-04"
+      ],
+      [
+       "2025-04-08",
+       "2025-04-08"
+      ]
+     ]
+    },
+    "B20_drawdown_6m_full": {
+     "day_precision": 0.31654676258992803,
+     "day_recall": 0.04150943396226415,
+     "alarm_day_share": 0.05806193272824346,
+     "events": 4,
+     "events_detected": [
+      "2000-03",
+      "2007-10",
+      "2022-01"
+     ],
+     "detected_before_peak": [],
+     "event_recall": 0.75,
+     "lead_days_to_event": [
+      66,
+      237,
+      35
+     ],
+     "lead_days_to_peak": [
+      -287,
+      -37,
+      -126
+     ],
+     "median_lead_days": 66.0,
+     "true_episodes": 7,
+     "false_episodes": 8,
+     "late_episodes": 7,
+     "episode_precision": 0.4666666666666667,
+     "false_episode_list": [
+      [
+       "1998-08-28",
+       "1998-10-20"
+      ],
+      [
+       "2010-05-20",
+       "2010-06-07"
+      ],
+      [
+       "2011-08-09",
+       "2011-08-30"
+      ],
+      [
+       "2011-09-30",
+       "2011-10-19"
+      ],
+      [
+       "2011-11-25",
+       "2011-11-30"
+      ],
+      [
+       "2016-01-28",
+       "2016-02-02"
+      ],
+      [
+       "2018-12-24",
+       "2019-01-04"
+      ],
+      [
+       "2025-04-08",
+       "2025-04-08"
+      ]
+     ]
+    }
+   },
+   "7": {
+    "B15_drawdown_6m_train": {
+     "day_precision": null,
+     "day_recall": 0.0,
+     "alarm_day_share": 0.028021748222501044,
+     "events": 5,
+     "events_detected": [],
+     "detected_before_peak": [],
+     "event_recall": 0.0,
+     "lead_days_to_event": [],
+     "lead_days_to_peak": [],
+     "median_lead_days": null,
+     "true_episodes": 0,
+     "false_episodes": 0,
+     "late_episodes": 9,
+     "episode_precision": null,
+     "false_episode_list": []
+    },
+    "B15_drawdown_6m_test": {
+     "day_precision": null,
+     "day_recall": 0.0,
+     "alarm_day_share": 0.007749077490774908,
+     "events": 4,
+     "events_detected": [],
+     "detected_before_peak": [],
+     "event_recall": 0.0,
+     "lead_days_to_event": [],
+     "lead_days_to_peak": [],
+     "median_lead_days": null,
+     "true_episodes": 0,
+     "false_episodes": 0,
+     "late_episodes": 1,
+     "episode_precision": null,
+     "false_episode_list": []
+    },
+    "B15_drawdown_6m_full": {
+     "day_precision": null,
+     "day_recall": 0.0,
+     "alarm_day_share": 0.020688734650293646,
+     "events": 9,
+     "events_detected": [],
+     "detected_before_peak": [],
+     "event_recall": 0.0,
+     "lead_days_to_event": [],
+     "lead_days_to_peak": [],
+     "median_lead_days": null,
+     "true_episodes": 0,
+     "false_episodes": 0,
+     "late_episodes": 10,
+     "episode_precision": null,
+     "false_episode_list": []
+    },
+    "B20_drawdown_6m_train": {
+     "day_precision": 0.0,
+     "day_recall": 0.0,
+     "alarm_day_share": 0.028021748222501044,
+     "events": 2,
+     "events_detected": [],
+     "detected_before_peak": [],
+     "event_recall": 0.0,
+     "lead_days_to_event": [],
+     "lead_days_to_peak": [],
+     "median_lead_days": null,
+     "true_episodes": 0,
+     "false_episodes": 3,
+     "late_episodes": 6,
+     "episode_precision": 0.0,
+     "false_episode_list": [
+      [
+       "1998-08-31",
+       "1998-09-11"
+      ],
+      [
+       "2011-08-11",
+       "2011-08-25"
+      ],
+      [
+       "2011-10-03",
+       "2011-10-03"
+      ]
+     ]
+    },
+    "B20_drawdown_6m_test": {
+     "day_precision": 1.0,
+     "day_recall": 0.007957559681697613,
+     "alarm_day_share": 0.007749077490774908,
+     "events": 2,
+     "events_detected": [],
+     "detected_before_peak": [],
+     "event_recall": 0.0,
+     "lead_days_to_event": [],
+     "lead_days_to_peak": [],
+     "median_lead_days": null,
+     "true_episodes": 1,
+     "false_episodes": 0,
+     "late_episodes": 0,
+     "episode_precision": 1.0,
+     "false_episode_list": []
+    },
+    "B20_drawdown_6m_full": {
+     "day_precision": 0.17647058823529413,
+     "day_recall": 0.002830188679245283,
+     "alarm_day_share": 0.020688734650293646,
+     "events": 4,
+     "events_detected": [],
+     "detected_before_peak": [],
+     "event_recall": 0.0,
+     "lead_days_to_event": [],
+     "lead_days_to_peak": [],
+     "median_lead_days": null,
+     "true_episodes": 1,
+     "false_episodes": 3,
+     "late_episodes": 6,
+     "episode_precision": 0.25,
+     "false_episode_list": [
+      [
+       "1998-08-31",
+       "1998-09-11"
+      ],
+      [
+       "2011-08-11",
+       "2011-08-25"
+      ],
+      [
+       "2011-10-03",
+       "2011-10-03"
+      ]
+     ]
+    }
+   },
+   "8": {
+    "B15_drawdown_6m_train": {
+     "day_precision": null,
+     "day_recall": 0.0,
+     "alarm_day_share": 0.014219991635299039,
+     "events": 5,
+     "events_detected": [],
+     "detected_before_peak": [],
+     "event_recall": 0.0,
+     "lead_days_to_event": [],
+     "lead_days_to_peak": [],
+     "median_lead_days": null,
+     "true_episodes": 0,
+     "false_episodes": 0,
+     "late_episodes": 7,
+     "episode_precision": null,
+     "false_episode_list": []
+    },
+    "B15_drawdown_6m_test": {
+     "day_precision": null,
+     "day_recall": 0.0,
+     "alarm_day_share": 0.006642066420664207,
+     "events": 4,
+     "events_detected": [],
+     "detected_before_peak": [],
+     "event_recall": 0.0,
+     "lead_days_to_event": [],
+     "lead_days_to_peak": [],
+     "median_lead_days": null,
+     "true_episodes": 0,
+     "false_episodes": 0,
+     "late_episodes": 1,
+     "episode_precision": null,
+     "false_episode_list": []
+    },
+    "B15_drawdown_6m_full": {
+     "day_precision": null,
+     "day_recall": 0.0,
+     "alarm_day_share": 0.011478910838227442,
+     "events": 9,
+     "events_detected": [],
+     "detected_before_peak": [],
+     "event_recall": 0.0,
+     "lead_days_to_event": [],
+     "lead_days_to_peak": [],
+     "median_lead_days": null,
+     "true_episodes": 0,
+     "false_episodes": 0,
+     "late_episodes": 8,
+     "episode_precision": null,
+     "false_episode_list": []
+    },
+    "B20_drawdown_6m_train": {
+     "day_precision": 0.0,
+     "day_recall": 0.0,
+     "alarm_day_share": 0.014219991635299039,
+     "events": 2,
+     "events_detected": [],
+     "detected_before_peak": [],
+     "event_recall": 0.0,
+     "lead_days_to_event": [],
+     "lead_days_to_peak": [],
+     "median_lead_days": null,
+     "true_episodes": 0,
+     "false_episodes": 1,
+     "late_episodes": 6,
+     "episode_precision": 0.0,
+     "false_episode_list": [
+      [
+       "2011-08-18",
+       "2011-08-24"
+      ]
+     ]
+    },
+    "B20_drawdown_6m_test": {
+     "day_precision": null,
+     "day_recall": 0.0,
+     "alarm_day_share": 0.006642066420664207,
+     "events": 2,
+     "events_detected": [],
+     "detected_before_peak": [],
+     "event_recall": 0.0,
+     "lead_days_to_event": [],
+     "lead_days_to_peak": [],
+     "median_lead_days": null,
+     "true_episodes": 0,
+     "false_episodes": 0,
+     "late_episodes": 1,
+     "episode_precision": null,
+     "false_episode_list": []
+    },
+    "B20_drawdown_6m_full": {
+     "day_precision": 0.0,
+     "day_recall": 0.0,
+     "alarm_day_share": 0.011478910838227442,
+     "events": 4,
+     "events_detected": [],
+     "detected_before_peak": [],
+     "event_recall": 0.0,
+     "lead_days_to_event": [],
+     "lead_days_to_peak": [],
+     "median_lead_days": null,
+     "true_episodes": 0,
+     "false_episodes": 1,
+     "late_episodes": 7,
+     "episode_precision": 0.0,
+     "false_episode_list": [
+      [
+       "2011-08-18",
+       "2011-08-24"
+      ]
+     ]
+    }
+   }
+  },
+  "warn_timing_dd15": [
+   {
+    "peak": "1998-07-17",
+    "warned": true,
+    "first_warn": "1998-01-20",
+    "months_before_peak": 5.8,
+    "dd_from_peak_at_warn_pct": 0.0,
+    "fall_from_warn_to_trough_pct": 2.2,
+    "max_dd": 19.3
+   },
+   {
+    "peak": "2000-03-24",
+    "warned": true,
+    "first_warn": "1999-09-24",
+    "months_before_peak": 6.0,
+    "dd_from_peak_at_warn_pct": 0.0,
+    "fall_from_warn_to_trough_pct": 39.2,
+    "max_dd": 34.7
+   },
+   {
+    "peak": "2007-10-09",
+    "warned": true,
+    "first_warn": "2007-08-03",
+    "months_before_peak": 2.2,
+    "dd_from_peak_at_warn_pct": 0.0,
+    "fall_from_warn_to_trough_pct": 52.8,
+    "max_dd": 52.6
+   },
+   {
+    "peak": "2010-04-23",
+    "warned": true,
+    "first_warn": "2009-10-30",
+    "months_before_peak": 5.7,
+    "dd_from_peak_at_warn_pct": 0.0,
+    "fall_from_warn_to_trough_pct": 1.3,
+    "max_dd": 16.0
+   },
+   {
+    "peak": "2011-04-29",
+    "warned": true,
+    "first_warn": "2011-06-17",
+    "months_before_peak": -1.6,
+    "dd_from_peak_at_warn_pct": 6.8,
+    "fall_from_warn_to_trough_pct": 13.5,
+    "max_dd": 19.4
+   },
+   {
+    "peak": "2018-09-20",
+    "warned": true,
+    "first_warn": "2018-03-27",
+    "months_before_peak": 5.8,
+    "dd_from_peak_at_warn_pct": 0.0,
+    "fall_from_warn_to_trough_pct": 10.0,
+    "max_dd": 19.8
+   },
+   {
+    "peak": "2020-02-19",
+    "warned": true,
+    "first_warn": "2019-08-21",
+    "months_before_peak": 6.0,
+    "dd_from_peak_at_warn_pct": 0.0,
+    "fall_from_warn_to_trough_pct": 23.5,
+    "max_dd": 33.9
+   },
+   {
+    "peak": "2022-01-03",
+    "warned": true,
+    "first_warn": "2022-02-11",
+    "months_before_peak": -1.3,
+    "dd_from_peak_at_warn_pct": 7.9,
+    "fall_from_warn_to_trough_pct": 19.0,
+    "max_dd": 25.4
+   },
+   {
+    "peak": "2025-02-19",
+    "warned": true,
+    "first_warn": "2025-03-17",
+    "months_before_peak": -0.9,
+    "dd_from_peak_at_warn_pct": 7.6,
+    "fall_from_warn_to_trough_pct": 12.2,
+    "max_dd": 18.9
+   }
+  ],
+  "warn_timing_dd20": [
+   {
+    "peak": "2000-03-24",
+    "warned": true,
+    "first_warn": "1999-09-24",
+    "months_before_peak": 6.0,
+    "dd_from_peak_at_warn_pct": 0.0,
+    "fall_from_warn_to_trough_pct": 39.2,
+    "max_dd": 34.7
+   },
+   {
+    "peak": "2007-10-09",
+    "warned": true,
+    "first_warn": "2007-08-03",
+    "months_before_peak": 2.2,
+    "dd_from_peak_at_warn_pct": 0.0,
+    "fall_from_warn_to_trough_pct": 52.8,
+    "max_dd": 52.6
+   },
+   {
+    "peak": "2020-02-19",
+    "warned": true,
+    "first_warn": "2019-08-21",
+    "months_before_peak": 6.0,
+    "dd_from_peak_at_warn_pct": 0.0,
+    "fall_from_warn_to_trough_pct": 23.5,
+    "max_dd": 33.9
+   },
+   {
+    "peak": "2022-01-03",
+    "warned": true,
+    "first_warn": "2022-02-11",
+    "months_before_peak": -1.3,
+    "dd_from_peak_at_warn_pct": 7.9,
+    "fall_from_warn_to_trough_pct": 19.0,
+    "max_dd": 25.4
+   }
+  ],
+  "_raw": null,
+  "daily_last": 0
+ }
+}
