@@ -422,6 +422,44 @@ def regime_verdict(z_bar, pct_bar, action):
                          f"(best {s} {w}: z={d.get('z')}, {d.get('compression_pct')}%){near_txt} -> discard as a regime gate")
     return f
 
+# ------------------------------------------------------------------ 11. turn-of-month day-of-cycle neighbourhood (#17, ideate 2026-10-13)
+def tom_day_k(b, i, p):           # long open -> close on the k-th session of the new month only
+    return [Order(i, 0, 1, i, 390)] if tom_day(b, i) == p["k"] else []
+
+# ------------------------------------------------------------------ 12. VWAP intraday mean reversion, STOCK class (#22, ideate 2026-10-13)
+_RNG = {}
+def trailing_range(b, i, look=20):
+    """mean over the prior `look` sessions of (high-low)/open -- a per-name volatility scale known at session i's open."""
+    if b.sym not in _RNG:
+        r = np.full(len(b.dates), np.nan)
+        for k in range(len(b.dates)):
+            if b.has[k].any():
+                r[k] = (np.nanmax(b.h[k]) - np.nanmin(b.l[k])) / b.session_open(k)
+        _RNG[b.sym] = r
+    past = _RNG[b.sym][max(0, i - look):i]
+    past = past[np.isfinite(past)]
+    return past.mean() if len(past) >= look // 2 else np.nan
+
+
+def vwap_fade(b, i, p):
+    """at minute p['t'] fade the stretch from session VWAP (typical-price x volume, bars so far) once it exceeds
+    p['z'] x the name's trailing 20-session mean daily range; exit p['hold'] minutes later. no stop, no VWAP target."""
+    t = p["t"]
+    if i < 20 or not b.full(i):
+        return []
+    v = np.nan_to_num(b.v[i, :t])
+    if v.sum() <= 0:
+        return []
+    tp = np.nan_to_num((b.h[i, :t] + b.l[i, :t] + b.c[i, :t]) / 3)
+    vwap = (tp * v).sum() / v.sum()
+    px, rng = b.exit_px(i, t), trailing_range(b, i)
+    if not (np.isfinite(px) and np.isfinite(rng) and rng > 0 and vwap > 0):
+        return []
+    dev = px / vwap - 1
+    if abs(dev) < p["z"] * rng:
+        return []
+    return [Order(i, t, int(-np.sign(dev)), i, t + p["hold"])]
+
 # ------------------------------------------------------------------ registry
 K45 = "net positive in >= 4/5 years and PF > 1.3 (3 bps + $0.005/sh per leg, 36 % of $10k)"
 CELLS = [
@@ -527,4 +565,30 @@ CELLS = [
      "verdict_fn": lambda row: (False, "diagnostic only -- see cell verdict / extra"),
      "verdict": regime_verdict(2.0, 10.0, "an existing SPY/QQQ window on OpEx day"),
      "extra": compression_stats(lambda d: d in OPEX_DAYS)},
+    {"id": "c11_tom_day_of_cycle", "anomaly": "#17 turn-of-month day-of-cycle neighbourhood (round 1b day +2 discovery; Ariel, McConnell-Xu)",
+     "instruments": ["QQQ", "SPY", "IWM", "XLK", "SMH"],
+     "kill_text": K45 + " on the primary point (day +2 open->close); pre-registered neighbourhood: day-of-month k in {2,1,3}, "
+                  "instruments = home QQQ/SPY + IWM + tech sector ETFs XLK/SMH (nearby instruments, not tuned on). "
+                  "round 1b found day +2 post hoc, so this cell is its out-of-grid check: pass additionally requires the "
+                  "random-session control (extra, 5000 draws) p < 0.05 on the instrument that passes -- read it before "
+                  "any engine study. expected ~12 trades/yr/instrument",
+     "variants": [{"name": "long open->close on session k of the month", "rule": tom_day_k,
+                   "grid": [{"k": 2}, {"k": 1}, {"k": 3}]}],
+     "verdict_fn": standard_verdict(4, 1.3), "verdict": cell_verdict,
+     "extra": calendar_control([(f"k=2 {s}", s, tom_day_k, {"k": 2}, oc(390)) for s in ("QQQ", "SPY", "IWM", "XLK", "SMH")])},
+    {"id": "c12_vwap_reversion_stock", "anomaly": "#22 VWAP intraday mean reversion, STOCK class (folklore, no rigorous source; matrix home never tested pooled)",
+     "instruments": [ALL34, FOUR],
+     "kill_text": K45 + " -- strict: practitioner-only sourcing and the 2026-09-27 mega-cap VWAP-short retest failed. "
+                  "rule: at entry minute t fade the stretch of price from session VWAP when |dev| >= z x trailing 20-session "
+                  "mean daily range, time exit after `hold` min. pre-registered neighbourhood: z in {0.75,0.5,1.0}, "
+                  "(t,hold) in {(11:00,60),(12:30,60),(11:00,120)}, instruments = 34-name pool + the 4 mega-caps. "
+                  "verdict is on the pooled 34-name book; ex-top3 and the year count must show it is not one name or one year",
+     "variants": [
+         {"name": "fade VWAP stretch, enter 11:00 hold 60", "rule": vwap_fade,
+          "grid": [{"t": 90, "hold": 60, "z": 0.75}, {"t": 90, "hold": 60, "z": 0.5}, {"t": 90, "hold": 60, "z": 1.0}]},
+         {"name": "fade VWAP stretch, enter 12:30 hold 60", "rule": vwap_fade,
+          "grid": [{"t": 180, "hold": 60, "z": 0.75}, {"t": 180, "hold": 60, "z": 0.5}, {"t": 180, "hold": 60, "z": 1.0}]},
+         {"name": "fade VWAP stretch, enter 11:00 hold 120", "rule": vwap_fade,
+          "grid": [{"t": 90, "hold": 120, "z": 0.75}, {"t": 90, "hold": 120, "z": 0.5}, {"t": 90, "hold": 120, "z": 1.0}]}],
+     "verdict_fn": standard_verdict(4, 1.3), "verdict": cell_verdict},
 ]
