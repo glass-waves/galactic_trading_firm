@@ -40,3 +40,9 @@ status: parked — recommended next
 why: Tradier docs say its equities feed is consolidated (all exchanges) at $10/mo Pro vs Alpaca's $99 SIP plan; would fix the VPIN volume gap on the free IEX stream. real-time is gated to a brokerage account; the websocket is per-trade ticks (adapter must bucket minutes); REST 1m history only 10–20 days (Alpaca stays the history source). research: docs/research/2026-10-04_tradier_data_quality.md.
 command: put a free sandbox token in .env as TRADIER_TOKEN (TRADIER_BASE=https://sandbox.tradier.com), then `set -a; source .env; set +a; python3 scripts/analysis/tradier_volume_check.py 2026-10-02` — the decisive test, 10 minutes.
 accept if: Tradier/SIP volume ratio ≈ 1.0 (± 0.05) with minute correlation > 0.95 on all five symbols → then scope a tradier_feed.rs adapter (2–3 days) and run it as a parallel feed for a week before anything depends on it. ratio well below 1 → close.
+
+### RQ-5 scale-free MACD (found 2026-10-14 by the split-adjustment restatement)
+status: proposed
+why: `macd_5min` and `macd_fast_1min` score the MACD histogram in DOLLARS (clamped to ±1), so the composite's sensitivity depends on a name's price level — NVDA at $120 vs $1,200 scores differently for the same percentage move, and so do AAPL ($335) vs MSFT ($520). a hidden per-name parameter; also why a plain replay of split-adjusted history moves ~80 trades (docs/research/2026-10-14_split_adjustment.md).
+command: add a `normalize_by_price: true` option to the MACD indicator (histogram ÷ close, scaled so the ±1 clamp binds at the same percentage move), then propose a config candidate with both MACD instances switched on, gate quality-config — the pipeline judges it like any other change.
+accept if: PF ≥ baseline + 0.05 with ≥ 4 of 5 years and ≥ 0.6 × baseline trades (quality-config), or trades ≥ baseline with PF ≥ 1.3 (volume-config); either way it must also be positive in every year on the point-in-time record.
