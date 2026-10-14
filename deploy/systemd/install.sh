@@ -19,12 +19,14 @@ if [[ -f "$HERE/pipeline.timer" ]]; then systemctl --user enable --now pipeline.
 if [[ -f "$HERE/pretest.timer" ]]; then systemctl --user enable --now pretest.timer; else echo "note: pretest.timer not present in $HERE — skipped"; fi
 # weekly ideation check-in (Sunday 18:00 PT; proposes new research/pretest/cells.py cells). the unit files ship with the ideate skill.
 if [[ -f "$HERE/ideate.timer" ]]; then systemctl --user enable --now ideate.timer; else echo "note: ideate.timer not present in $HERE — skipped"; fi
+# daily recession watch (05:45 PT weekdays; scripts/macro/fetch_indicators.py + the recession-watch skill). information only — never touches config, migrations, crates or scripts/pipeline.
+if [[ -f "$HERE/recession-watch.timer" ]]; then systemctl --user enable --now recession-watch.timer; else echo "note: recession-watch.timer not present in $HERE — skipped"; fi
 # the intraday LLM review is on-demand since 2026-09-14 (run it from a session with /intraday-review or /loop 15m /intraday-review)
 systemctl --user disable --now intraday-review.timer 2>/dev/null || true
 # keep user services alive without an interactive login (survives logout / reboot)
 loginctl enable-linger "$USER" || echo "warning: could not enable linger (run: sudo loginctl enable-linger $USER)"
 echo
-systemctl --user list-timers --all --no-pager | grep -E "paper-trader|preopen|intraday|eod|watchdog|export|research|pipeline|pretest|ideate|NEXT" || true
+systemctl --user list-timers --all --no-pager | grep -E "paper-trader|preopen|intraday|eod|watchdog|export|research|pipeline|pretest|ideate|recession-watch|NEXT" || true
 echo
 echo "units installed. manual controls:"
 echo "  systemctl --user start|stop|status paper-trader.service"

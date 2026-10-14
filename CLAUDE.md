@@ -473,6 +473,7 @@ new tool *types* require code changes. *instances* of existing types can be adde
 - first trading day of each month, the `eod-review` check-in's mechanics audit (`.claude/skills/eod-review/SKILL.md` §7) reads a month of `data/live/<date>/block_events.json` / `near_miss_replay.txt` / `trades.json` and writes `docs/audits/<month>.md` — block counts, near-miss forward returns, trades per window, proposals only.
 - the export also writes `books.json`, `shadow_trades.json` and one `replay_<book>.csv` per enabled book (`scripts/replay_book.sh`); the EOD routine reports primary vs each shadow and may propose "promote candidate NAME (config row N)".
 - `scripts/watchdog.sh` (every 5 min in-session, no LLM) watches the primary's positions / P&L, any book's heartbeat, shadows not hosted, and abnormal moves (one Alpaca snapshot per run; name ≥ 1.5 % / SPY ≥ 1 % vs open).
+- 05:45 PT Mon–Fri `recession-watch.timer` → `scripts/macro/fetch_indicators.py` (no LLM; FRED series + the 59-name daily cache, rubric `BASE` score 0–8) then the `recession-watch` claude check-in (`.claude/skills/recession-watch/SKILL.md`) adds a cited qualitative 0–2 and writes `docs/macro/<date>.md` (`FINAL` 0–10, `docs/macro/README.md` has the rubric) — **information only**, never read into config, gates, or the trader.
 - everything the two sides say to each other is a commit; the human steers by editing the queue/briefing. promotion stays human: `UPDATE config_versions SET status='promoted', promoted_at=now() WHERE id=N` — the pipeline only proposes.
 
 ## repo hygiene

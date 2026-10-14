@@ -1,0 +1,17 @@
+[Unit]
+Description=claude check-in: daily recession watch — macro rubric (no LLM) + qualitative read, information only (05:45 PT)
+After=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/home/dylmet/Projects/galactic_trading_firm
+EnvironmentFile=/home/dylmet/Projects/galactic_trading_firm/.env
+# run on the claude.ai login (subscription), not the API key: the key would take precedence
+UnsetEnvironment=ANTHROPIC_API_KEY
+Environment=PATH=/home/dylmet/.local/bin:/home/dylmet/.cargo/bin:/usr/local/bin:/usr/bin:/bin
+Environment=TZ=America/Los_Angeles
+# headless: no TTY, no approvals possible. tools are pre-approved below; anything else is
+# denied rather than waited on. no push: the next nightly research/pipeline/pretest job pushes
+# this commit along with its own. fetch_indicators.py runs first and does no LLM work.
+ExecStart=/bin/sh -c 'git pull -q --ff-only 2>/dev/null; mkdir -p logs/checkins && python3 research/swing/fetch_daily.py >/dev/null 2>&1 || true; python3 scripts/macro/fetch_indicators.py && /home/dylmet/.local/bin/claude -p "/recession-watch" --model sonnet --output-format json --max-turns 40 --max-budget-usd 1.50 --permission-mode dontAsk --allowedTools "Read" "Grep" "Glob" "Edit" "Write" "WebSearch" "WebFetch" "Bash(python3 scripts/macro/*)" "Bash(./scripts/notify.sh *)" "Bash(git add *)" "Bash(git commit *)" "Bash(git status*)" "Bash(cat *)" "Bash(ls *)" "Bash(date *)" "Bash(head *)" "Bash(tail *)" --disallowedTools "Bash(git push *)" "Bash(git push)" --permission-prompts none >> logs/checkins/recession-watch.jsonl'
+TimeoutStartSec=900

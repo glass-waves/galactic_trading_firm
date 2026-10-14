@@ -68,3 +68,8 @@ data/live/ticks_*.csv
 
 # per-cell pre-test outputs are regenerated nightly; summary.md and CHANGELOG.md are the record
 research/pretest/results/c*.json
+
+# recession watch: raw FRED series cache (20h refetch) and the per-day json are regenerable;
+# data/macro/history.csv (final record, updated by fetch_indicators.py + the skill) stays tracked
+data/macro/series/
+data/macro/*.json
