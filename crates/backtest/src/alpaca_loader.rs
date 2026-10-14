@@ -11,6 +11,14 @@ const MAX_RETRIES: u32 = 3;
 /// base delay between retries in milliseconds (doubles each attempt).
 const RETRY_BASE_MS: u64 = 1000;
 
+/// price basis requested for historical bars. split-adjusted, dividends NOT adjusted: the live
+/// websocket streams post-split prices, so a split-adjusted history is on the same basis as the
+/// stream, while dividend adjustment would shift every pre-ex-date price and break parity with
+/// it (we trade intraday; dividends never touch a position). before 2026-10-14 bars were
+/// requested raw (alpaca's default) and any indicator window straddling a split (the hourly
+/// window holds ~28 sessions) read e.g. NVDA 1208 → 122 as a 90 % crash for weeks.
+pub const DEFAULT_ADJUSTMENT: apca::data::v2::bars::Adjustment = apca::data::v2::bars::Adjustment::Split;
+
 /// convert an apca bar Num to f64, defaulting to 0.0 on failure.
 fn num_to_f64(n: &num_decimal::Num) -> f64 {
     n.to_f64().unwrap_or(0.0)
@@ -71,6 +79,7 @@ pub async fn fetch_day_bars(
 
     let req = bars::ListReqInit {
         limit: Some(500),
+        adjustment: Some(DEFAULT_ADJUSTMENT),
         ..Default::default()
     }
     .init(symbol, start_utc, end_utc, bars::TimeFrame::OneMinute);
@@ -163,12 +172,13 @@ pub async fn fetch_bars_range(
     start_date: NaiveDate,
     end_date: NaiveDate,
 ) -> Result<Vec<Candle>, String> {
-    fetch_bars_range_feed(api_key, api_secret, symbol, start_date, end_date, None).await
+    fetch_bars_range_feed(api_key, api_secret, symbol, start_date, end_date, None, DEFAULT_ADJUSTMENT).await
 }
 
 /// like `fetch_bars_range` but with an explicit feed: `Some(Feed::IEX)` returns the bars the
 /// live websocket actually sees on the free plan (~3 % of consolidated volume for mega-caps);
-/// `None` = the account default (SIP for historical).
+/// `None` = the account default (SIP for historical). `adjustment` is the price basis —
+/// pass `DEFAULT_ADJUSTMENT` (split) unless you explicitly want raw prints.
 pub async fn fetch_bars_range_feed(
     api_key: &str,
     api_secret: &str,
@@ -176,6 +186,7 @@ pub async fn fetch_bars_range_feed(
     start_date: NaiveDate,
     end_date: NaiveDate,
     feed: Option<apca::data::v2::Feed>,
+    adjustment: apca::data::v2::bars::Adjustment,
 ) -> Result<Vec<Candle>, String> {
     use apca::data::v2::bars;
     use apca::ApiInfo;
@@ -214,6 +225,7 @@ pub async fn fetch_bars_range_feed(
             limit: Some(10_000),
             page_token: page_token.clone(),
             feed,
+            adjustment: Some(adjustment),
             ..Default::default()
         }
         .init(symbol, start_utc, end_utc, bars::TimeFrame::OneMinute);
@@ -261,6 +273,9 @@ pub async fn fetch_bars_range_feed(
             Some(token) if !token.is_empty() => page_token = Some(token),
             _ => break,
         }
+        // free plan: 200 requests/minute. a short pause between pages keeps a long cache
+        // build (thousands of pages) under it without leaning on the 429 retry path.
+        tokio::time::sleep(std::time::Duration::from_millis(250)).await;
     }
     Ok(all)
 }

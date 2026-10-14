@@ -1119,3 +1119,19 @@ Tradier ~$10/mo if its feed is truly consolidated — RQ-4) are the cheapest vol
 - on IEX the parameter frontier tops out near 460 trades at PF ~1.4–1.46; the afternoon never pays.
 - universe: 0 of 36 names qualify (research/universe/); the edge is specific to AAPL/AMZN/MSFT/NVDA.
 - the levers stack: consolidated data + the time-consistent band = +25 % trades and PF 1.59 vs today's live book.
+
+### 16.3 split adjustment (2026-10-14)
+
+Bars had been fetched raw. The caches and the live warm-up now request `adjustment=split`
+(`docs/research/2026-10-14_split_adjustment.md`; 10 splits in the caches). Restated v18
+(P&L / trades / PF, live-consistent point-in-time basis):
+
+- IEX `iex_v18`: **+1,829 / 434 / PF 1.40** (old +1,728 / 436 / 1.37). The bug's only trades were
+  two split-day shorts: AMZN 2022-06-06 and NVDA 2024-06-10.
+- SIP `sip_v18_vwapfix`: **+2,835 / 510 / PF 1.57** (old +2,754 / 510 / 1.56).
+
+Plain replays of the new adjusted cache print +1,318 / 360 / 1.34 (IEX) and +1,902 / 421 / 1.44
+(SIP). That gap is because the MACD score is in dollars and sees pre-split NVDA/AMZN at a tenth or
+a twentieth of the price the engine actually saw, not because of the split bug. Point-in-time
+rebasing in the replay, or a scale-free MACD, is the open decision. No gate verdict changes on the
+point-in-time basis.

@@ -235,6 +235,11 @@ impl AlpacaFeed {
                 limit: Some(10_000),
                 page_token: page_token.take(),
                 feed,
+                // split-adjusted (dividends raw): the stream is post-split prices, so the
+                // warm-up history must be too — a raw window straddling a split reads as a
+                // 90 % crash in every hourly indicator for weeks. same basis as the backtest
+                // loader (`backtest::alpaca_loader::DEFAULT_ADJUSTMENT`) and the bar caches.
+                adjustment: Some(bars::Adjustment::Split),
                 ..Default::default()
             }
             .init(symbol, start, end, bars::TimeFrame::OneMinute);

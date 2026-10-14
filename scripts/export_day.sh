@@ -58,8 +58,16 @@ UNION="$(Q "select string_agg(t, ',' order by t) from (
   from books b where b.enabled
   union select 'SPY') s" || true)"
 UNION="${UNION:-AAPL,AMZN,NVDA,MSFT,SPY}"
-./target/release/backtest --fetch-bars data/bars --start "$D" --end "$D" --tickers AAPL,AMZN,NVDA,MSFT,SPY >/dev/null 2>&1 || true
-./target/release/backtest --fetch-bars data/bars_iex --start "$D" --end "$D" --tickers "$UNION" --feed iex >/dev/null 2>&1 || true
+# split-adjusted by default (since 2026-10-14; no flag needed). appending never re-adjusts the
+# older bars, so a split after the cache was built shows up as a WARNING from --fetch-bars: surface it.
+{ ./target/release/backtest --fetch-bars data/bars --start "$D" --end "$D" --tickers AAPL,AMZN,NVDA,MSFT,SPY 2>&1
+  ./target/release/backtest --fetch-bars data/bars_iex --start "$D" --end "$D" --tickers "$UNION" --feed iex 2>&1
+} | grep -F WARNING > "$OUT/bar_cache_warnings.log" || true
+if [[ -s "$OUT/bar_cache_warnings.log" ]]; then
+    ./scripts/notify.sh warning "bar cache: split/basis break — refetch the named symbol(s) in full: $(head -c 400 "$OUT/bar_cache_warnings.log")" >/dev/null || true
+else
+    rm -f "$OUT/bar_cache_warnings.log"
+fi
 # live streams and warms up on IEX (since 2026-09-24), so the like-for-like replay is on the IEX cache
 ./target/release/backtest --date "$D" --lookback-days 8 --capital 10000 --slippage-bps 3.0 --half-spread 0.005 --output-trades-csv --bars-dir data/bars_iex --cross-index SPY 2>/dev/null > "$OUT/replay_trades.csv" || true
 ./target/release/backtest --date "$D" --lookback-days 8 --capital 10000 --slippage-bps 3.0 --half-spread 0.005 --output-trades-csv --bars-dir data/bars --cross-index SPY 2>/dev/null > "$OUT/replay_trades_sip.csv" || true

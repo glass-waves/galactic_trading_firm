@@ -1051,7 +1051,17 @@ async fn main() {
             Some("sip") => Some(apca::data::v2::Feed::SIP),
             _ => None,
         };
-        run_fetch_bars(&dir, &start, &end, &tickers, feed).await;
+        // price basis: split-adjusted by default (matches the live stream, which is post-split);
+        // `raw` only to reproduce a pre-2026-10-14 cache. never mix bases in one directory.
+        let adjustment = match get_arg(&args, "--adjustment").as_deref() {
+            None | Some("split") => apca::data::v2::bars::Adjustment::Split,
+            Some("raw") => apca::data::v2::bars::Adjustment::Raw,
+            Some(other) => {
+                eprintln!("error: --adjustment must be raw or split (got {other})");
+                process::exit(1);
+            }
+        };
+        run_fetch_bars(&dir, &start, &end, &tickers, feed, adjustment).await;
     } else {
         run_legacy_mode(&args, capital, &cost_config);
     }
@@ -1681,7 +1691,14 @@ fn load_cached_bars(dir: &str, ticker: &str, start_date: NaiveDate, end_date: Na
 
 /// fetch RTH 1-minute bars in ~20-day chunks and write `<dir>/<TICKER>.csv`
 /// (epoch seconds, o, h, l, c, v). existing files are merged, not clobbered.
-async fn run_fetch_bars(dir: &str, start: &str, end: &str, tickers: &str, feed: Option<apca::data::v2::Feed>) {
+async fn run_fetch_bars(
+    dir: &str,
+    start: &str,
+    end: &str,
+    tickers: &str,
+    feed: Option<apca::data::v2::Feed>,
+    adjustment: apca::data::v2::bars::Adjustment,
+) {
     let mut fetch_failed = false;
     dotenvy::dotenv().ok();
     let api_key = std::env::var("APCA_API_KEY_ID").expect("APCA_API_KEY_ID not set");
@@ -1689,6 +1706,7 @@ async fn run_fetch_bars(dir: &str, start: &str, end: &str, tickers: &str, feed: 
     let start = NaiveDate::parse_from_str(start, "%Y-%m-%d").expect("bad --start");
     let end = NaiveDate::parse_from_str(end, "%Y-%m-%d").expect("bad --end");
     fs::create_dir_all(dir).expect("create bars dir");
+    eprintln!("[fetch-bars] dir={dir} feed={} adjustment={adjustment:?}", feed.map(|f| format!("{f:?}")).unwrap_or_else(|| "default".into()));
 
     for ticker in tickers.split(',').map(|t| t.trim()).filter(|t| !t.is_empty()) {
         let path = format!("{}/{}.csv", dir.trim_end_matches('/'), ticker);
@@ -1704,7 +1722,7 @@ async fn run_fetch_bars(dir: &str, start: &str, end: &str, tickers: &str, feed: 
         let mut chunk_start = start;
         while chunk_start <= end {
             let chunk_end = std::cmp::min(chunk_start + Duration::days(19), end);
-            match backtest::alpaca_loader::fetch_bars_range_feed(&api_key, &api_secret, ticker, chunk_start, chunk_end, feed).await {
+            match backtest::alpaca_loader::fetch_bars_range_feed(&api_key, &api_secret, ticker, chunk_start, chunk_end, feed, adjustment).await {
                 Ok(bars) => {
                     let n = bars.len();
                     for c in bars {
@@ -1725,12 +1743,42 @@ async fn run_fetch_bars(dir: &str, start: &str, end: &str, tickers: &str, feed: 
             out.push_str(&format!("{},{},{},{},{},{}\n", ts, c.open, c.high, c.low, c.close, c.volume));
         }
         fs::write(&path, out).expect("write bars csv");
+        // a split after the cache was built leaves the old bars on the pre-split basis (merging
+        // never re-adjusts them): flag any session-over-session close jump outside [0.7, 1.45] so the
+        // symbol gets refetched from scratch instead of silently poisoning indicator windows.
+        // only sessions inside the fetched range are judged, so a genuine old crash day (NFLX
+        // 2022-04-20, −35 %) does not re-warn on every daily append.
+        for (day, prev, cur) in session_close_jumps(&by_ts).into_iter().filter(|(d, _, _)| (start..=end).contains(d)) {
+            eprintln!("[fetch-bars] WARNING {ticker} close {prev} -> {cur} on {day}: possible split/basis break (or a >30 % day) — if a split, delete {path} and refetch the full range");
+        }
         eprintln!("[fetch-bars] {ticker}: {} -> {} bars in {path}", before, by_ts.len());
     }
     if fetch_failed {
         eprintln!("[fetch-bars] at least one chunk failed; the cache may have holes — rerun before using it");
         std::process::exit(3);
     }
+}
+
+/// last close of each Eastern session vs the previous session's; returns (day, prev, cur) for
+/// every ratio outside [0.7, 1.45]. [0.5, 2] is too wide: a 2:1 split on an up day lands inside it
+/// (SMH 2023-05-05, XLK 2025-12-05 did); 0.7 still catches 3:2 (0.667), and a false alarm on a
+/// −30 % day is only a warning.
+fn session_close_jumps(by_ts: &std::collections::BTreeMap<i64, types::market::Candle>) -> Vec<(NaiveDate, f64, f64)> {
+    let mut last_by_day: std::collections::BTreeMap<NaiveDate, f64> = std::collections::BTreeMap::new();
+    for c in by_ts.values() {
+        last_by_day.insert(c.timestamp.with_timezone(&chrono_tz::America::New_York).date_naive(), c.close);
+    }
+    let mut out = Vec::new();
+    let mut prev: Option<f64> = None;
+    for (day, close) in last_by_day {
+        if let Some(p) = prev {
+            if p > 0.0 && close > 0.0 && !(0.7..=1.45).contains(&(close / p)) {
+                out.push((day, p, close));
+            }
+        }
+        prev = Some(close);
+    }
+    out
 }
 
 fn csv_quote(s: &str) -> String {
@@ -1887,7 +1935,8 @@ fn build_cross_context(
 
 #[cfg(test)]
 mod tests {
-    use super::resolve_lookback_days;
+    use super::{resolve_lookback_days, session_close_jumps};
+    use chrono::NaiveDate;
 
     #[test]
     fn lookback_flag_wins_then_config_then_default() {
@@ -1895,5 +1944,21 @@ mod tests {
         assert_eq!(resolve_lookback_days(Some(22), None), 22);
         assert_eq!(resolve_lookback_days(None, Some(30)), 30);
         assert_eq!(resolve_lookback_days(None, None), 5);
+    }
+
+    #[test]
+    fn session_close_jumps_flags_only_split_sized_moves() {
+        use chrono::TimeZone;
+        let mut m = std::collections::BTreeMap::new();
+        // last bar of five sessions (15:59 ET = 19:59 UTC in June): 1200 → 1208 → 121.9 (10:1) → 125
+        // → 63.5 (a 2:1 split on a +1.6 % day: ratio 0.508, inside the too-wide [0.5, 2])
+        for (d, close) in [(6, 1200.0), (7, 1208.42), (10, 121.93), (11, 125.0), (12, 63.5)] {
+            let ts = chrono::Utc.with_ymd_and_hms(2024, 6, d, 19, 59, 0).unwrap();
+            m.insert(ts.timestamp(), types::market::Candle { timestamp: ts, open: close, high: close, low: close, close, volume: 1.0 });
+        }
+        let jumps = session_close_jumps(&m);
+        assert_eq!(jumps.len(), 2);
+        assert_eq!(jumps[0].0, NaiveDate::from_ymd_opt(2024, 6, 10).unwrap());
+        assert_eq!(jumps[1].0, NaiveDate::from_ymd_opt(2024, 6, 12).unwrap());
     }
 }
