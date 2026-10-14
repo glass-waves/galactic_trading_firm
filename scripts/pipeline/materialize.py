@@ -35,7 +35,11 @@ PATCH_KEYS = ("disable", "indicators", "actions", "session", "tickers")
 #   occurrence of a flag such as --max-position-pct wins; see backtest/src/main.rs get_arg(), which
 #   resolves a repeated flag to its LAST occurrence) - lets a candidate's sweep run at a cap the
 #   standard --max-position-pct 0.36 would otherwise clamp. documented in docs/pipeline.md.
-META_KEYS = ("_sweep_args",)
+# _provenance: dict - where the candidate came from when it is the best cell of a research grid:
+#   {"cells_scanned": int, "study": "research/<dir>/<report>.md", "loyo": "stable"|"unstable"|"n/a"}.
+#   purely descriptive (pipeline.py's `show`/`report` print it next to the backtest numbers as a
+#   selection-discount note); never applied to the config blob. documented in docs/pipeline.md.
+META_KEYS = ("_sweep_args", "_provenance")
 
 
 class PatchError(ValueError):
@@ -68,12 +72,14 @@ def validate_patch(patch: dict) -> list[str]:
         problems.append("'tickers' must be a list of strings")
     if "_sweep_args" in patch and not isinstance(patch["_sweep_args"], str):
         problems.append("'_sweep_args' must be a string")
+    if "_provenance" in patch and not isinstance(patch["_provenance"], dict):
+        problems.append("'_provenance' must be an object")
     return problems
 
 
 def merge_patches(*patches: dict) -> dict:
     """sequential application of several patch files == one merged patch (lists concatenate,
-    session keys shallow-merge in order, the last `tickers` / `_sweep_args` wins)."""
+    session keys shallow-merge in order, the last `tickers` / `_sweep_args` / `_provenance` wins)."""
     out: dict = {}
     for p in patches:
         if p.get("disable"):
@@ -88,6 +94,8 @@ def merge_patches(*patches: dict) -> dict:
             out["tickers"] = list(p["tickers"])
         if isinstance(p.get("_sweep_args"), str):
             out["_sweep_args"] = p["_sweep_args"]
+        if isinstance(p.get("_provenance"), dict):
+            out["_provenance"] = dict(p["_provenance"])
     return out
 
 

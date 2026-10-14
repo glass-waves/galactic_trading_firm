@@ -96,6 +96,16 @@ class ApplyPatch(unittest.TestCase):
         self.assertEqual(len(problems), 1)
         self.assertIn("bogus", problems[0])
 
+    def test_provenance_meta_key_accepted_but_never_applied(self):
+        # _provenance is a meta key like _sweep_args: valid on a patch, read separately by
+        # pipeline.py/report.py, never touched by apply_patch (or the backtest CLI's --patch-json).
+        prov = {"cells_scanned": 20, "study": "research/trigger/2026-10-02_entry_trigger_study.md", "loyo": "stable"}
+        self.assertEqual(materialize.validate_patch({"_provenance": prov}), [])
+        self.assertTrue(materialize.validate_patch({"_provenance": "not a dict"}))
+        out = materialize.apply_patch(BASE, {"disable": ["window_5m_thrust"], "_provenance": prov})
+        self.assertNotIn("_provenance", out)
+        self.assertEqual(out["session"], BASE["session"])  # untouched, same as _sweep_args
+
 
 class MergePatches(unittest.TestCase):
     def test_merge_equals_sequential_application(self):
@@ -114,6 +124,12 @@ class MergePatches(unittest.TestCase):
         p2 = {"_sweep_args": "--max-position-pct 0.45"}
         self.assertEqual(materialize.merge_patches(p1, p2)["_sweep_args"], "--max-position-pct 0.45")
         self.assertNotIn("_sweep_args", materialize.merge_patches({"tickers": ["A"]}))
+
+    def test_merge_provenance_last_wins(self):
+        p1 = {"_provenance": {"cells_scanned": 12, "study": "a.md"}}
+        p2 = {"_provenance": {"cells_scanned": 20, "study": "b.md", "loyo": "stable"}}
+        self.assertEqual(materialize.merge_patches(p1, p2)["_provenance"], {"cells_scanned": 20, "study": "b.md", "loyo": "stable"})
+        self.assertNotIn("_provenance", materialize.merge_patches({"tickers": ["A"]}))
 
     def test_stamp_blob(self):
         out = materialize.stamp_blob(materialize.apply_patch(BASE, {}), BASE, "x")

@@ -30,6 +30,38 @@ def _num(x, fmt="{:+.0f}"):
     return "—" if x is None else fmt.format(x)
 
 
+def provenance_of(c: dict) -> dict:
+    """the candidate's `_provenance` meta key (patch.json's optional {"cells_scanned", "study",
+    "loyo"} — docs/pipeline.md), or {} when it was never set (e.g. every ticker candidate, and any
+    config candidate proposed before provenance tracking existed)."""
+    return (c.get("patch") or {}).get("_provenance") or {}
+
+
+def _stats_suffix(stats: dict | None, prov: dict) -> str:
+    """' [1.31-1.63] · p 0.02 · best of 20 cells' appended right after the PF number: the bootstrap
+    90 % CI, the random-session-control p-value (metrics.candidate_stats(), never a gate input), and
+    - only when the candidate's own provenance says it was chosen out of more than one cell - a
+    reminder that a best-of-N point estimate is biased upward (the selection-discount note; see
+    pipeline.py cmd_show for the fuller prose version). empty string when there is no stats block
+    at all (an old backtest_result computed before this existed)."""
+    if not stats:
+        return ""
+    out = ""
+    ci = stats.get("pf_ci90")
+    if ci:
+        out += f" [{ci[0]:.2f}-{ci[1]:.2f}]"
+    tail = []
+    p = stats.get("random_session_p")
+    if p is not None:
+        tail.append(f"p {p:.2f}")
+    n = prov.get("cells_scanned")
+    if n and n > 1:
+        tail.append(f"best of {n} cells")
+    if tail:
+        out += " · " + " · ".join(tail)
+    return out
+
+
 def _bt_cell(c: dict) -> str:
     r = c.get("backtest_result") or {}
     m = r.get("metrics")
@@ -53,7 +85,8 @@ def _bt_cell(c: dict) -> str:
         exb = sa["ex_best_year"]
         addcell += (f" · corr {sa['daily_corr']:+.2f} vs {sa['baseline_tag']} · combined PF {sa['combined']['pf']:.2f} / dd {sa['combined']['dd']:+.0f}"
                     f" · active days {sa['combined_active_days']} (base {sa['baseline_active_days']}) · ex-best-yr PF {exb['pf']:.2f} (excl {exb.get('excluded_year')})")
-    return f"{m['pnl']:+.0f} / {m['n']} / PF {m['pf']:.2f} · {years} · {verdict}{bcell}{addcell}"
+    pf_part = f"PF {m['pf']:.2f}" + _stats_suffix(m.get("stats"), provenance_of(c))
+    return f"{m['pnl']:+.0f} / {m['n']} / {pf_part} · {years} · {verdict}{bcell}{addcell}"
 
 
 def _shadow_cell(c: dict) -> str:

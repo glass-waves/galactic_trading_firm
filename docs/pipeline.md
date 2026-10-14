@@ -27,12 +27,17 @@ query still means "the primary".
 
 ```
 pipeline.py propose --name NAME --kind ticker --ticker T [--gate default-ticker] [--notes ...] [--source human]
+                     [--cells-scanned N --study PATH --loyo stable|unstable|n/a]
 pipeline.py propose --name NAME --kind config --patch FILE.json [--tickers A,B] [--gate default-config|stress-mode] [--notes ...]
+                     [--cells-scanned N --study PATH --loyo stable|unstable|n/a]
 pipeline.py list [--stage S]              # table: id, name, kind, stage, gate, since, key numbers
 pipeline.py show NAME                     # everything incl. events and results json
 pipeline.py advance [--max-backtests N] [--dry-run]   # run every due transition (the nightly entry point)
 pipeline.py backtest NAME | evaluate NAME | withdraw NAME [--reason] | retire-shadow NAME [--reason]
 pipeline.py regate NAME --gate GATE       # re-evaluate an existing backtest under a different gate (no new sweep)
+pipeline.py set-provenance NAME [--cells-scanned N] [--study PATH] [--loyo stable|unstable|n/a]
+                     # backfill/correct _provenance on an existing candidate; no regate, pass/fail unchanged
+pipeline.py restat NAME                   # recompute backtest_result.metrics.stats from the existing sweep tag; no new sweep, no regate
 pipeline.py report [--markdown]           # regenerates docs/pipeline/status.md and prints it
 ```
 
@@ -295,3 +300,68 @@ not see it.
   to tune anything. `eod-review` compares the primary to its replay as before.
 - **cockpit**: its trade queries have no `source`/`book` filter yet — dashboard totals include
   shadow trades until that is fixed (noted, not changed).
+
+## 11. statistical honesty (point estimates are best-of-N)
+
+a candidate is judged on PF / P&L from ~300–500 trades, usually chosen as the best cell of a
+research grid (`research/<dir>/make_patches.py` sweeps a dozen-plus variants; the report proposes
+the one that clears the owner's bar). that point estimate is biased upward by the search that
+picked it, and the gates (§2, `gates.py`) never changed to account for it — they still compare
+flat numbers against fixed thresholds, deliberately. `metrics.py` instead adds a second, purely
+descriptive layer that sits next to the point estimate without touching any gate:
+
+- **`metrics.bootstrap_pf(trades, n=2000, seed=0)` / `bootstrap_pnl(trades, n=2000, seed=0)`** — the
+  5th/95th percentile of PF (resp. total P&L) over `n` trade-level bootstrap resamples: each
+  resample draws `len(trades)` trade P&Ls WITH replacement from the trades' own P&Ls (the standard
+  bootstrap). seeded with python's own `random` (this package is stdlib only, no numpy) so the CI is
+  reproducible across runs and in tests.
+- **`metrics.random_session_control(candidate_daily_series, spy_sessions, n=5000, seed=0)`** — the
+  p-value that a random set of the same number of active days, drawn from every session (not just
+  the ones the candidate traded), would produce total P&L ≥ the candidate's own. mirrors
+  `research/pretest/cells.py`'s `calendar_control()` **exactly** (same method, so a pipeline
+  candidate and a stage-0 pretest cell report the same kind of number): draw `k` (the candidate's
+  active-day count) items WITHOUT replacement from the full session population, `n` times; p = the
+  share of draws whose aggregate is ≥ the observed one. the one difference from `calendar_control()`
+  is the aggregate itself — SUM (total P&L), the natural reading of "a random set of days would
+  produce this much money", vs `calendar_control()`'s MEAN bps per trade (its population is a
+  control *trade* per session, not a P&L series); the random-without-replacement, same-n, p =
+  share-≥-observed structure is identical.
+- both are folded into every `metrics.full_metrics()` call automatically, under
+  `metrics['stats'] = {"pf_ci90": [lo, hi], "pnl_ci90": [lo, hi], "random_session_p": p, "n_trades": n}`.
+  `random_session_p` is `None` when the tag's `data/bars_iex/SPY.csv` isn't on disk (e.g. a unit
+  test with no bar cache) or there are no trades — nothing to test against.
+
+**provenance.** a candidate's patch json may carry an optional `_provenance` meta key (ignored by
+the materializer exactly like `_sweep_args` — never reaches the config blob):
+
+```json
+"_provenance": {"cells_scanned": 20, "study": "research/trigger/2026-10-02_entry_trigger_study.md", "loyo": "stable"}
+```
+
+`cells_scanned` is how many cells the study swept before picking this one (the size of the best-of-N
+search — the thing that biases the point estimate); `study` is the report that did the picking;
+`loyo` is that study's own leave-one-year-out verdict (`stable` | `unstable` | `n/a` when none was
+run). set it at propose time (`pipeline.py propose ... --cells-scanned 20 --study research/trigger/2026-10-02_entry_trigger_study.md --loyo stable`)
+or backfill/correct it later with `pipeline.py set-provenance NAME --cells-scanned N --study PATH
+--loyo stable|unstable|n/a` (no re-sweep, no regate — this only edits the stored patch's meta key).
+a ticker candidate, or any candidate proposed by hand rather than out of a grid study, simply has
+no `_provenance` — `cells_scanned` is never required and nothing defaults it to 1.
+
+**where it shows up.** `pipeline.py show NAME` prints a `provenance` block (the three fields plus
+the current `pf_ci90`/`pnl_ci90`/`random_session_p`, and — only when `cells_scanned > 1` — a
+`selection_discount` sentence spelling out that the headline PF is biased high and naming the CI's
+low end). `pipeline.py report` / `docs/pipeline/status.md`'s per-candidate line appends the same
+numbers right after the PF figure: `PF 1.46 [1.31–1.63] · p 0.02 · best of 20 cells`. none of this
+changes `gate_result.pass` — the gate still runs on the flat point estimate, exactly as before this
+section existed.
+
+**`pipeline.py restat NAME`** recomputes just `backtest_result.metrics.stats` from the candidate's
+already-complete sweep tag (`metrics.sweep_files_present()`) and rewrites `docs/pipeline/status.md`
+— no new sweep, no re-materialization, no regate, pass/fail untouched. it is the way to add stats
+to a candidate backtested before this section existed (the shadow candidates at the time this was
+written: #4 `vpin-0.26`, #6 `stress-s15-core`, #28 `size-vpin26-x1.25`, #29 `thrust-1h15`, #44
+`spy-sqrt-band`, #45 `spy-sqrt-band-1h15`, #48 `qqq-noise-pm-vol`). if another run is mid-rewrite of
+that tag's sweep CSVs (a missing year), `restat` skips and says so rather than compute stats on a
+trade set that is about to change out from under it — the research lock (§9.8) serializes actual
+*sweeps*, but `restat` reads finished CSVs off disk without taking it, so this check is its own
+guard against a half-written tag.

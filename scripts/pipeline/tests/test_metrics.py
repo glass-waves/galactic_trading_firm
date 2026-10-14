@@ -350,5 +350,133 @@ class StandaloneMetrics(unittest.TestCase):
         self.assertEqual(sa["ex_best_year"]["excluded_year"], "2022")  # the only year with trades
 
 
+class BootstrapPf(unittest.TestCase):
+    """metrics.bootstrap_pf(): trade-level bootstrap (with replacement, same count), seeded."""
+
+    def test_empty_is_zero_zero(self):
+        self.assertEqual(metrics.bootstrap_pf([]), [0.0, 0.0])
+
+    def test_identical_winning_trades_have_no_spread(self):
+        # every resample is just the same winner repeated -> gross_loss always 0 -> PF_CAP always
+        trades = [{"pnl": 10.0}] * 5
+        self.assertEqual(metrics.bootstrap_pf(trades), [metrics.PF_CAP, metrics.PF_CAP])
+
+    def test_identical_losing_trades_have_no_spread(self):
+        trades = [{"pnl": -5.0}] * 3
+        self.assertEqual(metrics.bootstrap_pf(trades), [0.0, 0.0])
+
+    def test_mixed_trades_spread_from_worst_to_best_case(self):
+        # two trades, +10/-10: a resample of size 2 with replacement can land on (-,-) -> PF 0.0,
+        # (+,+) -> PF_CAP, or one of each -> PF 1.0. the 90 % CI spans the two extremes.
+        trades = [{"pnl": 10.0}, {"pnl": -10.0}]
+        lo, hi = metrics.bootstrap_pf(trades)
+        self.assertEqual(lo, 0.0)
+        self.assertEqual(hi, metrics.PF_CAP)
+
+    def test_deterministic_for_a_fixed_seed(self):
+        trades = [{"pnl": v} for v in [12.0, -8.0, 5.0, -3.0, 20.0, -15.0, 7.0, -2.0, 9.0, -11.0]]
+        self.assertEqual(metrics.bootstrap_pf(trades, seed=0), metrics.bootstrap_pf(trades, seed=0))
+        # a different seed is allowed to (and does, for this varied fixture) land on a different CI
+        self.assertNotEqual(metrics.bootstrap_pf(trades, seed=0), metrics.bootstrap_pf(trades, seed=1))
+
+
+class BootstrapPnl(unittest.TestCase):
+    """metrics.bootstrap_pnl(): same resampling as bootstrap_pf(), but the sum, not the PF."""
+
+    def test_empty_is_zero_zero(self):
+        self.assertEqual(metrics.bootstrap_pnl([]), [0.0, 0.0])
+
+    def test_identical_trades_have_no_spread(self):
+        # every resample of k identical 10.0 trades sums to exactly 10*k
+        trades = [{"pnl": 10.0}] * 5
+        self.assertEqual(metrics.bootstrap_pnl(trades), [50.0, 50.0])
+
+    def test_mixed_trades_span_from_all_losers_to_all_winners(self):
+        trades = [{"pnl": 10.0}, {"pnl": -10.0}]
+        lo, hi = metrics.bootstrap_pnl(trades)
+        self.assertEqual(lo, -20.0)
+        self.assertEqual(hi, 20.0)
+
+    def test_seedable(self):
+        trades = [{"pnl": 10.0}, {"pnl": -10.0}, {"pnl": 5.0}]
+        self.assertEqual(metrics.bootstrap_pnl(trades, seed=42), metrics.bootstrap_pnl(trades, seed=42))
+
+
+class RandomSessionControl(unittest.TestCase):
+    """metrics.random_session_control(): mirrors research/pretest/cells.py's calendar_control()
+    (same method: random draws, same n, WITHOUT replacement, from the full session population;
+    p = share of draws >= observed) but over daily P&L sums instead of per-trade mean bps."""
+
+    def test_no_active_days_is_none(self):
+        self.assertIsNone(metrics.random_session_control({"d1": 0.0, "d2": 0.0}, ["d1", "d2", "d3"]))
+
+    def test_k_larger_than_universe_is_none(self):
+        series = {"d1": 1.0, "d2": 1.0, "d3": 1.0}
+        self.assertIsNone(metrics.random_session_control(series, ["d1", "d2"]))
+
+    def test_active_on_every_session_is_certain(self):
+        # k == len(universe): the only possible draw (without replacement) is the whole universe,
+        # whose total is the observed total exactly -> p = 1.0, deterministically (no seed matters)
+        series = {"d1": 10.0, "d2": -5.0, "d3": 3.0}
+        universe = ["d1", "d2", "d3"]
+        self.assertEqual(metrics.random_session_control(series, universe, seed=0), 1.0)
+        self.assertEqual(metrics.random_session_control(series, universe, seed=99), 1.0)
+
+    def test_matches_theoretical_probability_one_third(self):
+        # 2 active days (d1, d2, total 20) out of a 3-day universe: exactly 1 of the
+        # C(3,2) = 3 equally-likely draws (d1&d2) reaches the observed total -> p ~= 1/3
+        series = {"d1": 10.0, "d2": 10.0, "d3": 0.0}
+        p = metrics.random_session_control(series, ["d1", "d2", "d3"], n=5000, seed=0)
+        self.assertAlmostEqual(p, 1 / 3, delta=0.03)
+
+    def test_matches_theoretical_probability_one_tenth(self):
+        # 1 active day (pnl 100) out of a 10-day universe, every other day 0: only the draw that
+        # happens to be that one day (k=1) reaches the observed total -> p ~= 1/10
+        series = {f"d{i}": (100.0 if i == 0 else 0.0) for i in range(10)}
+        universe = [f"d{i}" for i in range(10)]
+        p = metrics.random_session_control(series, universe, n=5000, seed=0)
+        self.assertAlmostEqual(p, 0.1, delta=0.03)
+
+    def test_seedable(self):
+        series = {"d1": 10.0, "d2": 10.0, "d3": 0.0, "d4": 5.0}
+        universe = ["d1", "d2", "d3", "d4", "d5"]
+        self.assertEqual(metrics.random_session_control(series, universe, seed=7),
+                         metrics.random_session_control(series, universe, seed=7))
+
+
+class CandidateStats(unittest.TestCase):
+    """metrics.candidate_stats() / full_metrics()['stats']: folded in automatically, gracefully
+    absent (random_session_p = None) without a bar cache on disk."""
+
+    def test_shape_and_n_trades(self):
+        rows = [{"pnl": 10.0, "date": "2024-01-02"}, {"pnl": -5.0, "date": "2024-01-03"}]
+        out = metrics.candidate_stats(rows)
+        self.assertEqual(out["n_trades"], 2)
+        self.assertEqual(len(out["pf_ci90"]), 2)
+        self.assertEqual(len(out["pnl_ci90"]), 2)
+
+    def test_no_bar_cache_leaves_random_session_p_none(self):
+        with tempfile.TemporaryDirectory() as d:
+            rows = [{"pnl": 10.0, "date": "2024-01-02"}]
+            out = metrics.candidate_stats(rows, data_dir=Path(d))
+        self.assertIsNone(out["random_session_p"])
+
+    def test_empty_trades_is_zero_ci_and_no_control(self):
+        out = metrics.candidate_stats([])
+        self.assertEqual(out["pf_ci90"], [0.0, 0.0])
+        self.assertEqual(out["n_trades"], 0)
+        self.assertIsNone(out["random_session_p"])
+
+    def test_full_metrics_always_has_a_stats_block(self):
+        with tempfile.TemporaryDirectory() as d:
+            d = Path(d)
+            for y in metrics.YEARS:
+                write_trades(d / f"cs_{y}_trades.csv", [])
+            write_trades(d / "cs_2024_trades.csv", [trade("2024-01-02", "QQQ", "Long", "t1", 10.0)])
+            m = metrics.full_metrics("cs", data_dir=d)
+        self.assertIn("stats", m)
+        self.assertEqual(m["stats"]["n_trades"], 1)
+
+
 if __name__ == "__main__":
     unittest.main()

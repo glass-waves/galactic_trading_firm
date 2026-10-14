@@ -115,6 +115,21 @@ def actor_for(default: str) -> str:
     return os.environ.get("PIPELINE_ACTOR") or default
 
 
+def provenance_from_args(a) -> dict:
+    """--cells-scanned/--study/--loyo (on `propose` or `set-provenance`) as a `_provenance` meta
+    dict stored on the candidate's patch (docs/pipeline.md's "provenance" section); {} when none
+    of the three were given. a candidate proposed from a research grid study usually has all
+    three; one proposed by hand (or before provenance tracking existed) has none."""
+    prov = {}
+    if getattr(a, "cells_scanned", None) is not None:
+        prov["cells_scanned"] = a.cells_scanned
+    if getattr(a, "study", None):
+        prov["study"] = a.study
+    if getattr(a, "loyo", None):
+        prov["loyo"] = a.loyo
+    return prov
+
+
 class Lock:
     """flock on a file; wait_s=0 means fail fast."""
 
@@ -412,6 +427,10 @@ def cmd_propose(a) -> int:
             dup = sorted({i for i in ids if ids.count(i) > 1 or i in {x.get("instance_id") for x in base_blob.get(key, [])}})
             if dup:
                 log(f"warning: {key} instance ids already present (appended, not replaced): {', '.join(dup)}")
+    prov = provenance_from_args(a)
+    if prov:
+        patch = dict(patch, _provenance=prov)
+        log(f"provenance: {prov}")
     active = db.query(f"SELECT id, stage FROM pipeline_candidates WHERE name = {db.lit(name)} AND stage NOT IN ({','.join(db.lit(s) for s in sorted(TERMINAL))})")
     if active:
         raise PipelineError(f"'{name}' is already active (#{active[0]['id']}, {active[0]['stage']})")
@@ -1003,6 +1022,55 @@ def cmd_regate(a) -> int:
     return 0
 
 
+def cmd_set_provenance(a) -> int:
+    """backfill (or correct) a candidate's `_provenance` meta key without touching its gate result:
+    no re-sweep, no re-materialization, no regate (thresholds are unchanged - docs/pipeline.md).
+    works from any stage, including terminal ones, since this is backfilling the historical record."""
+    prov = provenance_from_args(a)
+    if not prov:
+        raise PipelineError("set-provenance: give at least one of --cells-scanned / --study / --loyo")
+    with Lock(PIPELINE_LOCK, 0, "pipeline"):
+        cand = get_candidate(a.name, active_only=False)
+        patch = dict(cand.get("patch") or {})
+        patch["_provenance"] = dict(patch.get("_provenance") or {}, **prov)
+        event_only(cand, actor_for("human"), {"event": "set_provenance", **prov}, sets={"patch": patch})
+    log(f"#{cand['id']} {cand['name']}: provenance set {patch['_provenance']}")
+    write_status()
+    return 0
+
+
+def cmd_restat(a) -> int:
+    """recompute backtest_result.metrics.stats (bootstrap PF/P&L CIs + random-session-control p)
+    for a candidate from its EXISTING sweep tag - no new sweep, no regate, pass/fail untouched.
+    for a shadow candidate whose tag another run may be re-sweeping concurrently (two agents can
+    share the repo but not a half-written sweep): skip and say so when a year's trade csv is
+    missing rather than compute stats on a partial, about-to-change trade set."""
+    with Lock(PIPELINE_LOCK, 0, "pipeline"):
+        cand = get_candidate(a.name, active_only=False)
+        br = cand.get("backtest_result") or {}
+        tag = (br.get("sweep") or {}).get("tag") or cand.get("backtest_tag")
+        if not tag:
+            raise PipelineError(f"#{cand['id']} {cand['name']}: no backtest tag on record; nothing to restat")
+        if not metrics.sweep_files_present(tag):
+            missing = [y for y in metrics.YEARS if not (metrics.DATA / f"{tag}_{y}_trades.csv").exists()]
+            log(f"#{cand['id']} {cand['name']}: tag {tag} is missing {', '.join(missing)} "
+                "(another run may be rewriting it right now); skipped")
+            return 1
+        rows = metrics.load_trades(tag)
+        new_stats = metrics.candidate_stats(rows)
+        br = dict(br)
+        m = dict(br.get("metrics") or {})
+        m["stats"] = new_stats
+        br["metrics"] = m
+        event_only(cand, actor_for("human"), {"event": "restat", "tag": tag, "n_trades": new_stats["n_trades"],
+                                              "random_session_p": new_stats.get("random_session_p")},
+                   sets={"backtest_result": br})
+    log(f"#{cand['id']} {cand['name']}: restat {tag} -> PF CI {new_stats['pf_ci90']}, "
+        f"P&L CI {new_stats['pnl_ci90']}, random-session p={new_stats.get('random_session_p')}")
+    write_status()
+    return 0
+
+
 def cmd_backtest(a) -> int:
     with Lock(PIPELINE_LOCK, 0, "pipeline"):
         # --rerun is specifically for backtest_passed|backtest_failed (rerun_backtest()'s own guard
@@ -1173,6 +1241,24 @@ def cmd_show(a) -> int:
             "active_days": f"combined {sa['combined_active_days']} (candidate {sa['candidate_active_days']}, baseline {sa['baseline_active_days']})",
             "ex_best_year": f"PF {exb['pf']:.2f} excluding {exb.get('excluded_year')} ({exb.get('excluded_year_pnl'):+.0f}); {metrics.fmt_stats(exb)}",
         }
+    prov = report.provenance_of(cand)
+    bt_metrics = (cand.get("backtest_result") or {}).get("metrics") or {}
+    stats = bt_metrics.get("stats")
+    if prov or stats:
+        summary = dict(prov)
+        if stats:
+            summary["pf_ci90"] = stats.get("pf_ci90")
+            summary["pnl_ci90"] = stats.get("pnl_ci90")
+            summary["random_session_p"] = stats.get("random_session_p")
+            summary["n_trades"] = stats.get("n_trades")
+        n = prov.get("cells_scanned")
+        if n and n > 1 and stats and stats.get("pf_ci90"):
+            lo, hi = stats["pf_ci90"]
+            summary["selection_discount"] = (
+                f"best of {n} cells: the headline PF {bt_metrics.get('pf')} is biased upward by the grid search that "
+                f"picked it; the trade-level bootstrap 90% CI is [{lo:.2f}, {hi:.2f}] — read the low end before "
+                "trusting the margin over the baseline. never changes the gate's pass/fail.")
+        out["provenance"] = summary
     print(json.dumps(out, indent=1, default=str))
     return 0
 
@@ -1219,6 +1305,9 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--notes")
     p.add_argument("--source", default="human", help="human | routine | scout | agent")
     p.add_argument("--force", action="store_true", help="ignore a cooldown")
+    p.add_argument("--cells-scanned", type=int, help="candidate is the best of N grid cells in the study that produced it (selection-discount note in show/report)")
+    p.add_argument("--study", help="path to the research report, e.g. research/trigger/2026-10-02_entry_trigger_study.md")
+    p.add_argument("--loyo", choices=["stable", "unstable", "n/a"], help="leave-one-year-out verdict from the study, if one was run")
     p.set_defaults(fn=cmd_propose)
     p = sp.add_parser("list", help="table of candidates")
     p.add_argument("--stage")
@@ -1239,6 +1328,15 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("name")
     p.add_argument("--gate", required=True, help="volume-config | quality-config | stress-mode | additive-config | additive-ticker | sizing-config | standalone-strategy | default-ticker")
     p.set_defaults(fn=cmd_regate)
+    p = sp.add_parser("set-provenance", help="backfill/correct a candidate's _provenance meta (no regate, pass/fail unchanged)")
+    p.add_argument("name")
+    p.add_argument("--cells-scanned", type=int)
+    p.add_argument("--study", help="path to the research report")
+    p.add_argument("--loyo", choices=["stable", "unstable", "n/a"])
+    p.set_defaults(fn=cmd_set_provenance)
+    p = sp.add_parser("restat", help="recompute backtest_result.metrics.stats from the existing sweep tag (no new sweep, no regate)")
+    p.add_argument("name")
+    p.set_defaults(fn=cmd_restat)
     p = sp.add_parser("evaluate", help="evaluate a shadow trial now")
     p.add_argument("name")
     p.add_argument("--force", action="store_true", help="evaluate even if not due; clears a parity flag on success")

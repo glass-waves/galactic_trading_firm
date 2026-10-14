@@ -4,6 +4,16 @@ the maths copies research/entries/summarize.py: P&L, n, win %, profit factor, ma
 daily curve, per year and over the five years. SPY-day buckets use the same session return the
 cross_context trigger sees: last RTH close / first RTH open - 1 per eastern date, from
 data/bars_iex/SPY.csv. stdlib only.
+
+statistical honesty (candidate_stats(), folded into full_metrics()['stats']): the pipeline picks
+a candidate as the best cell of a research grid, then reports that cell's point-estimate PF / P&L
+as if it were a single pre-registered test. bootstrap_pf()/bootstrap_pnl() give a 90 % CI over
+trade-level resampling (same count, with replacement) so the point estimate's spread is visible;
+random_session_control() mirrors research/pretest/cells.py's calendar_control() (same method:
+random draws, same n, WITHOUT replacement, from the full session population; p = share of draws
+whose total matches or beats the observed one) so a pipeline candidate and a stage-0 pretest cell
+report the same kind of number. none of this changes any gate's pass/fail threshold (gates.py is
+untouched) - it is a second, descriptive opinion sitting next to the point estimate.
 """
 from __future__ import annotations
 
@@ -11,6 +21,7 @@ import csv
 import datetime as dt
 import glob
 import math
+import random
 import re
 from collections import defaultdict
 from pathlib import Path
@@ -78,6 +89,101 @@ def stats(rows: list[dict]) -> dict:
         "pf": round(min(pf, PF_CAP), 3), "dd": round(dd, 2),
         "gross_win": round(gw, 2), "gross_loss": round(gl, 2),
     }
+
+
+# ---------------------------------------------------------------- statistical honesty
+
+def _pf_of(pnls: list[float]) -> float:
+    gw = sum(x for x in pnls if x > 0)
+    gl = -sum(x for x in pnls if x < 0)
+    pf = (gw / gl) if gl > 0 else (PF_CAP if gw > 0 else 0.0)
+    return min(pf, PF_CAP)
+
+
+def _percentile(sorted_vals: list[float], p: float) -> float:
+    """nearest-rank percentile (0 <= p <= 1) of an already-sorted ascending list. deliberately the
+    simplest possible rule (no interpolation) so bootstrap_pf()/bootstrap_pnl() have one exact,
+    reproducible definition small synthetic fixtures can check by hand."""
+    if not sorted_vals:
+        return 0.0
+    idx = min(len(sorted_vals) - 1, max(0, int(p * len(sorted_vals))))
+    return sorted_vals[idx]
+
+
+def bootstrap_pf(trades: list[dict], n: int = 2000, seed: int = 0) -> list[float]:
+    """5th/95th percentile of profit factor over n trade-level bootstrap resamples: each resample
+    draws len(trades) pnls WITH replacement from trades' own pnls (the standard bootstrap), so the
+    spread reflects how much a different draw of the same-size sample could have produced. [0.0, 0.0]
+    when there are no trades. seedable (python's own `random`, not numpy — this package is stdlib
+    only) for reproducible tests and reports."""
+    pnls = [r["pnl"] for r in trades]
+    k = len(pnls)
+    if k == 0:
+        return [0.0, 0.0]
+    rng = random.Random(seed)
+    pfs = sorted(_pf_of(rng.choices(pnls, k=k)) for _ in range(n))
+    return [round(_percentile(pfs, 0.05), 3), round(_percentile(pfs, 0.95), 3)]
+
+
+def bootstrap_pnl(trades: list[dict], n: int = 2000, seed: int = 0) -> list[float]:
+    """5th/95th percentile of total P&L over the same trade-level bootstrap as bootstrap_pf()."""
+    pnls = [r["pnl"] for r in trades]
+    k = len(pnls)
+    if k == 0:
+        return [0.0, 0.0]
+    rng = random.Random(seed)
+    sums = sorted(sum(rng.choices(pnls, k=k)) for _ in range(n))
+    return [round(_percentile(sums, 0.05), 2), round(_percentile(sums, 0.95), 2)]
+
+
+def random_session_control(candidate_daily_series: dict[str, float], spy_sessions: list[str],
+                            n: int = 5000, seed: int = 0) -> float | None:
+    """the p-value that a random set of the same number of active days, drawn from every session
+    (not just the ones the candidate traded), would produce total P&L >= the candidate's own.
+
+    mirrors research/pretest/cells.py's calendar_control() exactly (same method, read there): k =
+    the observed sample size, draw k items WITHOUT replacement from the full population n times,
+    p = the share of draws whose aggregate is >= the observed aggregate. calendar_control() draws
+    from a population of per-session control-trade returns and compares means; here the population
+    is `candidate_daily_series` itself (a day not in it, or present with 0.0, contributes nothing),
+    the draw is k session DATES out of `spy_sessions` (the full universe, so most draws land mostly
+    on days the candidate never traded), and the comparison is the SUM (total P&L), not the mean —
+    the natural reading of "a random set of days would produce this much money".
+
+    `candidate_daily_series` may be the full zero-filled series (daily_series() over spy_sessions)
+    or just the active days; only nonzero/"present" days count toward k and the observed total is
+    always sum(candidate_daily_series.values()) either way. None when there are no active days or
+    no session universe to draw from (nothing to test)."""
+    active_days = [d for d, v in candidate_daily_series.items() if v]
+    k = len(active_days)
+    universe = list(spy_sessions)
+    if k == 0 or not universe or k > len(universe):
+        return None
+    observed = sum(candidate_daily_series.values())
+    rng = random.Random(seed)
+    hits = 0
+    for _ in range(n):
+        draw = rng.sample(universe, k)
+        total = sum(candidate_daily_series.get(d, 0.0) for d in draw)
+        if total >= observed:
+            hits += 1
+    return round(hits / n, 4)
+
+
+def candidate_stats(rows: list[dict], data_dir: Path = DATA, n_bootstrap: int = 2000,
+                     n_control: int = 5000, seed: int = 0) -> dict:
+    """the stats block folded into full_metrics()['stats']: bootstrap PF/P&L 90 % CIs and the
+    random-session-control p-value (against the SPY session universe in `data_dir`, when its bar
+    cache is on disk — None when it is not, e.g. in a unit test with no bars). purely descriptive;
+    never read by gates.py."""
+    n_trades = len(rows)
+    out = {"pf_ci90": bootstrap_pf(rows, n=n_bootstrap, seed=seed), "pnl_ci90": bootstrap_pnl(rows, n=n_bootstrap, seed=seed),
+           "random_session_p": None, "n_trades": n_trades}
+    spy_csv = data_dir / "bars_iex" / "SPY.csv"
+    if n_trades and spy_csv.exists():
+        universe = spy_session_list(spy_csv)
+        out["random_session_p"] = random_session_control(daily_pnl(rows), universe, n=n_control, seed=seed)
+    return out
 
 
 def max_position_fraction(rows: list[dict], capital: float = 10000.0) -> float:
@@ -426,6 +532,7 @@ def full_metrics(tag: str, tickers: list[str] | None = None, data_dir: Path = DA
     spy_ret = spy_ret if spy_ret is not None else (spy_day_returns() if (BARS_DIR / "SPY.csv").exists() else {})
     m["stress"] = spy_buckets(rows, spy_ret, -0.01) if spy_ret else None
     m["stress_2pct"] = spy_buckets(rows, spy_ret, -0.02) if spy_ret else None
+    m["stats"] = candidate_stats(rows, data_dir)
     if tickers:
         m["tickers"] = list(tickers)
     if baseline_tag:

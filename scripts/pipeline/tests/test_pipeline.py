@@ -1,3 +1,4 @@
+import argparse
 import shutil
 import sys
 import tempfile
@@ -7,6 +8,35 @@ from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import pipeline  # noqa: E402
+
+
+class ProvenanceFromArgs(unittest.TestCase):
+    """pipeline.provenance_from_args(): the --cells-scanned/--study/--loyo parsing shared by
+    `propose` and `set-provenance` (docs/pipeline.md's "provenance" section)."""
+
+    def _args(self, cells_scanned=None, study=None, loyo=None):
+        return argparse.Namespace(cells_scanned=cells_scanned, study=study, loyo=loyo)
+
+    def test_all_three_given(self):
+        prov = pipeline.provenance_from_args(self._args(20, "research/trigger/2026-10-02_entry_trigger_study.md", "stable"))
+        self.assertEqual(prov, {"cells_scanned": 20, "study": "research/trigger/2026-10-02_entry_trigger_study.md", "loyo": "stable"})
+
+    def test_none_given_is_empty(self):
+        self.assertEqual(pipeline.provenance_from_args(self._args()), {})
+
+    def test_partial_is_partial(self):
+        self.assertEqual(pipeline.provenance_from_args(self._args(study="x.md")), {"study": "x.md"})
+        self.assertEqual(pipeline.provenance_from_args(self._args(cells_scanned=17)), {"cells_scanned": 17})
+        self.assertEqual(pipeline.provenance_from_args(self._args(loyo="unstable")), {"loyo": "unstable"})
+
+    def test_cells_scanned_zero_is_still_given(self):
+        # 0 is a legitimate (if odd) value, not "not given" - only None means absent
+        self.assertEqual(pipeline.provenance_from_args(self._args(cells_scanned=0)), {"cells_scanned": 0})
+
+    def test_missing_attributes_are_tolerated(self):
+        # a bare argparse.Namespace() without these attrs at all (e.g. a future subcommand that
+        # never declared the flags) must not raise
+        self.assertEqual(pipeline.provenance_from_args(argparse.Namespace()), {})
 
 
 class VerifyMaterialization(unittest.TestCase):
