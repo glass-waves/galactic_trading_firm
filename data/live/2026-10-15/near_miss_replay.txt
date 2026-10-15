@@ -1,0 +1,12 @@
+near-miss bars on 2026-10-15: 10
+  NVDA  09:30 ET  short would have made -0.13% (breakeven at 10:00)   filtered by: 5m thrust short: FiveMinute -0.69 not lagging by 0.10, cross_1m none<-0.40, cross_1m none>
+  AMZN  09:30 ET  short would have made -0.99% (max_hold at 10:11)   filtered by: 5m thrust short: FiveMinute -0.51 not lagging by 0.10
+  NVDA  09:35 ET  short would have made -0.10% (breakeven at 10:00)   filtered by: 5m thrust short: vpin_1m.raw_vpin 0.01<0.22
+  AMZN  09:35 ET  short would have made -1.25% (max_hold at 10:16)   filtered by: 5m thrust short: FiveMinute -0.56 not lagging by 0.10
+  NVDA  09:40 ET  short would have made -0.39% (breakeven at 10:01)   filtered by: 5m thrust short: OneHour 0.10>0.00, vpin_1m.raw_vpin 0.03<0.22
+  AMZN  09:41 ET  short would have made -1.22% (max_hold at 10:22)   filtered by: 5m thrust short: FiveMinute -0.55 not lagging by 0.10
+  NVDA  09:45 ET  short would have made -0.31% (breakeven at 10:01)   filtered by: 5m thrust short: OneHour 0.09>0.00, vpin_1m.raw_vpin 0.05<0.22
+  NVDA  09:50 ET  short would have made -0.12% (breakeven at 10:00)   filtered by: 5m thrust short: vpin_1m.raw_vpin 0.02<0.22
+  AMZN  09:53 ET  short would have made -1.33% (max_hold at 10:34)   filtered by: 5m thrust short: FiveMinute -0.51 not lagging by 0.10, vpin_1m.raw_vpin 0.00<0.22
+  NVDA  09:55 ET  short would have made -1.19% (max_hold at 10:36)   filtered by: 5m thrust short: cross_1m -0.41<-0.40, vpin_1m.raw_vpin 0.00<0.22
+sum of hypothetical short returns: -7.01%  (positive = the filters cost us; negative = they saved us)

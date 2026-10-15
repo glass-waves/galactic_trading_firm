@@ -1,0 +1,7 @@
+2026-10-15T10:00:03-07:00 [warning] AAPL feed_stale at 1300 ET (last bar 243s ago)
+2026-10-15T10:00:03-07:00 [warning] AMZN feed_stale at 1300 ET (last bar 243s ago)
+2026-10-15T10:00:03-07:00 [warning] MSFT feed_stale at 1300 ET (last bar 243s ago)
+2026-10-15T10:00:04-07:00 [warning] NVDA feed_stale at 1300 ET (last bar 243s ago)
+2026-10-15T10:00:04-07:00 [warning] QQQ feed_stale at 1300 ET (last bar 303s ago)
+2026-10-15T10:00:04-07:00 [critical] ALL tickers feed_stale at 1300 ET
+2026-10-15T12:15:04-07:00 [info] AMZN +2.08% vs today's open (255.335 vs 250.13) at 1515 ET — primary: flat, daily P&L 0.00; shadows in a trade: none
