@@ -10,10 +10,18 @@
 # is a warning ("not hosted"). abnormal-move alert: one snapshot request per run for the
 # primary's tickers + SPY (docs/plans/2026-09-26_pipeline_and_books.md §6).
 #
+# broker-vs-engine reconciliation (since 2026-10-15, docs/dev/books_trader_notes.md "broker ↔
+# engine invariant"): a second Alpaca request (GET /v2/positions, trading API) compared against
+# engine_state(book='primary'). a mismatch only alerts once seen on two consecutive runs (the
+# ~5 min timer gap covers the 90s grace period) and re-alerts (undeduped `:2` key) if it is
+# still there 30 min after the first alert. at/after 16:01 ET any broker position at all is
+# CRITICAL regardless of the engine side, since the primary must be flat overnight.
+#
 # env: MOVE_ALERT_NAME_PCT (2.0) / MOVE_ALERT_SPY_PCT (1.0) — % vs today's open;
 #      MOVE_ALERT_NAME_HIGH_PCT (2.0) / MOVE_ALERT_SPY_HIGH_PCT (1.5) — % off the intraday high;
 #      DRY_RUN=1 — ignore the session clock and the service check, print alerts instead of
-#      sending them, use a throw-away state file, accept a stale snapshot (weekend testing).
+#      sending them, use a throw-away state file, accept a stale snapshot (weekend testing);
+#      the reconciliation grace period is skipped too (each DRY_RUN is a one-shot, no "last run").
 #
 # thresholds mirror .claude/skills/intraday-review/SKILL.md §1.
 set -uo pipefail
@@ -173,5 +181,98 @@ PY
         if [[ "$sym" == "-" ]]; then alert "$level" "$key" "$text at $HM ET"; continue; fi
         alert "$level" "$key" "$text at $HM ET — $(book_context "$sym" </dev/null)"
     done 3<<< "$MOVES"
+fi
+
+# 6. broker vs engine reconciliation: GET /v2/positions vs engine_state(book='primary').
+#    orphan_<SYM> (broker holds it, primary doesn't, or the side differs) and missing_<SYM>
+#    (primary thinks it holds it, broker doesn't) need two consecutive runs before they alert;
+#    close_<SYM> (any broker position at/after 16:01 ET) fires on the first sighting.
+MISMATCH_FILE="$STATE_DIR/$TODAY.mismatch"
+FIRST_FILE="$STATE_DIR/$TODAY.mismatch_first"
+if [[ "$DRY_RUN" == "1" ]]; then
+    MISMATCH_FILE="$(mktemp)"; FIRST_FILE="$(mktemp)"
+    trap 'rm -f "$MISMATCH_FILE" "$FIRST_FILE"' EXIT
+fi
+touch "$MISMATCH_FILE" "$FIRST_FILE"
+PREV_MISMATCH="$(cat "$MISMATCH_FILE")"
+
+if [[ -n "${APCA_API_KEY_ID:-}" && -n "${APCA_API_SECRET_KEY:-}" ]]; then
+    POSJSON="$(curl -s -m 10 "https://paper-api.alpaca.markets/v2/positions" \
+        -H "APCA-API-KEY-ID: $APCA_API_KEY_ID" -H "APCA-API-SECRET-KEY: $APCA_API_SECRET_KEY" 2>/dev/null)"
+    ENGINE_ROWS="$("$PSQL" -At -F '|' -c "
+SELECT ticker, lower(position_direction), position_size
+FROM engine_state WHERE book='primary' AND position_direction IS NOT NULL" 2>/dev/null)"
+
+    RECON="$(POSJSON="$POSJSON" ENGINE="$ENGINE_ROWS" HM="$HM" python3 - <<'PY'
+import os, json, sys
+try:
+    positions = json.loads(os.environ.get("POSJSON", ""))
+    assert isinstance(positions, list)
+except Exception as e:
+    print(f"warning|positions_failed|broker /v2/positions not parseable ({str(e)[:60]})")
+    sys.exit(0)
+
+broker = {}
+for p in positions:
+    if not isinstance(p, dict):
+        continue
+    sym = p.get("symbol")
+    if not sym:
+        continue
+    broker[sym] = (str(p.get("side", "")).lower(), p.get("qty"), p.get("unrealized_pl"))
+
+engine = {}
+for line in os.environ.get("ENGINE", "").splitlines():
+    parts = line.split("|")
+    if len(parts) != 3:
+        continue
+    t, d, sz = parts
+    engine[t] = (d, sz)
+
+for sym in sorted(broker):
+    side, qty, upl = broker[sym]
+    e = engine.get(sym)
+    if e is None or e[0] != side:
+        print(f"critical|orphan_{sym}|broker holds {sym} qty {qty} ({side}, unrealized P&L {upl}) that primary's engine does not know about")
+for t in sorted(engine):
+    if t not in broker:
+        d, sz = engine[t]
+        print(f"warning|missing_{t}|primary's engine shows {t} {d} size {sz} open but the broker holds no position for it")
+
+try:
+    hm_i = int(os.environ.get("HM", "0"))
+except Exception:
+    hm_i = 0
+if hm_i > 1601:
+    for sym in sorted(broker):
+        side, qty, upl = broker[sym]
+        print(f"critical|close_{sym}|broker still holds {sym} qty {qty} ({side}, unrealized P&L {upl}) at or after 16:01 ET — the primary book must be flat overnight")
+PY
+)"
+    CUR_KEYS=""
+    while IFS='|' read -r level key msg; do
+        [[ -z "$level" ]] && continue
+        case "$key" in
+            orphan_*|missing_*)
+                CUR_KEYS="${CUR_KEYS:+$CUR_KEYS$'\n'}$key"
+                # grace period: alert only once the mismatch has shown up on two consecutive
+                # runs — skipped in DRY_RUN, which throws the "last run" state away anyway
+                if [[ "$DRY_RUN" == "1" ]] || grep -qx "$key" <<< "$PREV_MISMATCH"; then
+                    ALREADY=0
+                    { grep -qx "critical:$key" "$STATE" || grep -qx "warning:$key" "$STATE"; } 2>/dev/null && ALREADY=1
+                    alert "$level" "$key" "$msg at $HM ET"
+                    (( ALREADY == 0 )) && echo "$key $(date +%s)" >> "$FIRST_FILE"
+                    FIRST_TS="$(awk -v k="$key" '$1==k{print $2}' "$FIRST_FILE" | tail -1)"
+                    if [[ -n "$FIRST_TS" ]] && (( $(date +%s) - FIRST_TS >= 1800 )); then
+                        alert "$level" "${key}:2" "$msg at $HM ET (still unresolved 30+ min after the first alert)"
+                    fi
+                fi
+                ;;
+            *)
+                alert "$level" "$key" "$msg at $HM ET"
+                ;;
+        esac
+    done <<< "$RECON"
+    printf '%s\n' "$CUR_KEYS" | grep -v '^$' > "$MISMATCH_FILE" || true
 fi
 exit 0

@@ -34,6 +34,12 @@ SELECT ticker, now() - updated_at AS heartbeat_age, config_version_id, broker_mo
        position_direction, process_started_at
 FROM engine_state WHERE book='primary' ORDER BY ticker;
 SELECT id, promoted_at, created_by, left(mutation_reason, 80) FROM config_versions WHERE status = 'promoted';
+-- orphan check (since 2026-10-15; docs/dev/books_trader_notes.md): compare against
+-- `curl -H "APCA-API-KEY-ID: $APCA_API_KEY_ID" -H "APCA-API-SECRET-KEY: $APCA_API_SECRET_KEY"
+--  https://paper-api.alpaca.markets/v2/positions` — any symbol there should match a primary
+-- position below (same side); the binary adopts orphans at startup under ORPHAN_POLICY=adopt
+-- and notifies, so this just confirms it happened (CRITICAL if a broker position still has no
+-- matching primary row)
 -- shadow books (since 2026-09-26; docs/pipeline.md): hosted? heartbeat? a shadow's problems are WARNINGS, never CRITICAL
 SELECT b.name, b.config_version_id, b.tickers,
        (SELECT count(*) FROM engine_state e WHERE e.book=b.name) AS hosted_tickers,
@@ -49,6 +55,7 @@ FROM agent_memos WHERE created_at > now() - interval '20 hours' ORDER BY created
 | service not active, or no `engine_state` rows updated in the last 2 min | CRITICAL |
 | journal shows `starting cold`, `fewer than 3 trading days`, or `FEED STALE` | WARNING (day's hourly scores suspect) |
 | journal shows `BROKER HOLDS A POSITION THE ENGINE DOES NOT KNOW ABOUT` | CRITICAL (orphan from a previous day — human must close it) |
+| `/v2/positions` holds a symbol with no matching primary `position_direction`/side below | CRITICAL (should have been adopted at startup under `ORPHAN_POLICY=adopt` — confirm it wasn't, say so in the verdict line) |
 | `broker_mode` ≠ what `.env` says, or `config_version_id` ≠ the promoted row | WARNING |
 | journal shows `config blob's config_id differs` only | ignore (expected) |
 | any `position_direction` non-null this early | CRITICAL (nothing should be open before 09:30 ET) |
