@@ -58,3 +58,17 @@ targets, plus the blended search). It needs only the Python 3 standard library a
   above its 200-day. It gives the same score as the real 59-name breadth on 87% of days from 2022-03.
 - **Small sample.** There are 3 recessions and 9 drawdowns. Every precision figure is an anecdote with a
   denominator.
+
+## follow-up: valuation and leadership (`valuation_leadership.py`)
+
+```bash
+python3 research/macro/valuation_leadership.py            # ~10 s with caches; reuses calibrate.py's loaders and evaluate()
+python3 research/macro/valuation_leadership.py --no-fetch # offline
+```
+
+Write-up: `docs/macro/2026-10-15_valuation_and_leadership.md`. New caches in `data/macro/series/`:
+`CAPE_multpl.csv` (Shiller CAPE via multpl.com, 1871→), `NCBEILQ027S.csv` + `GDP.csv` (Z.1 equities/GDP;
+FRED dropped Wilshire), `yahoo_*.csv` (^GSPC/^NDX from 1985, ^SOX, SPY, RSP, SMH, the AI-infra names, ^FPMI,
+DXYZ). The calendar is 1990→ (4 recessions, 10 drawdowns ≥15%). Outputs: `valuation.json/.md` (CAPE timing,
+depth given −8%, recession add-on), `leadership.json/.md` (rule grid fit 1990–2015 / tested 2016–26, episode
+table, null check, D add-on), `current_readings.json` (today's leadership, AI-infra basket and valuation readings).
