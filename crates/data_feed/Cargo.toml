@@ -32,6 +32,7 @@ http-endpoint = "0.6"
 
 [dev-dependencies]
 serde_json = { workspace = true }
+uuid = "1"
 
 [features]
 tui = ["dep:ratatui", "dep:crossterm"]

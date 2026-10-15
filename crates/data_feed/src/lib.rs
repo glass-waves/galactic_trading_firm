@@ -8,6 +8,7 @@ pub mod config_watcher;
 pub mod cross_tracker;
 pub mod live_session;
 pub mod market_state;
+pub mod notify;
 pub mod replay_feed;
 pub mod session_clock;
 pub mod state_writer;

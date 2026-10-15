@@ -29,14 +29,15 @@ use tracing_subscriber::{prelude::*, EnvFilter};
 use data_feed::account::resolve_capital;
 use data_feed::alpaca_feed::{AlpacaFeed, BarEvent};
 use data_feed::book::{
-    apply_limits, load_books, warmup_plan, Book, BookPlan, BookSpec, Limits, ReplayLog, Sink,
-    TickerShared, WarmupInput, SHADOW_SLIPPAGE_BPS,
+    apply_limits, load_books, warmup_plan, Book, BookPlan, BookSpec, Limits, OrphanAction,
+    OrphanPolicy, ReplayLog, Sink, TickerShared, WarmupInput, PRIMARY_BOOK, SHADOW_SLIPPAGE_BPS,
 };
 use data_feed::broker::{AlpacaBroker, Broker, SimulatedBroker};
 use data_feed::config_loader::{load_config, load_config_by_id};
 use data_feed::config_watcher::ConfigWatcher;
 use data_feed::cross_tracker::CrossTracker;
 use data_feed::market_state::MarketStateBuilder;
+use data_feed::notify::notify_critical;
 use data_feed::replay_feed::{load_replay_bars, write_replay_trades};
 use data_feed::session_clock::{eastern_minutes, is_regular_hours, parse_hm};
 use data_feed::state_writer::delete_unhosted_engine_state;
@@ -393,7 +394,8 @@ async fn main() {
             let broker: Box<dyn Broker> = match broker_mode.as_str() {
                 "alpaca_paper" => {
                     let b = AlpacaBroker::new(api_key.clone(), api_secret.clone())
-                        .expect("failed to create alpaca broker");
+                        .expect("failed to create alpaca broker")
+                        .with_tag(PRIMARY_BOOK);
                     info!("using alpaca paper broker");
                     Box::new(b)
                 }
@@ -429,21 +431,26 @@ async fn main() {
     info!(books = ?roster, "book roster");
 
     // 6b. reconcile: the engine starts flat; anything the primary's broker already holds is
-    //     an orphan (shadows are simulated and start empty by construction)
-    match books[0].broker_open_positions().await {
-        Ok(open) if !open.is_empty() => {
-            for p in &open {
-                error!(
-                    ticker = %p.ticker,
-                    direction = ?p.direction,
-                    quantity = p.quantity,
-                    entry_price = p.entry_price,
-                    "BROKER HOLDS A POSITION THE ENGINE DOES NOT KNOW ABOUT — close it manually or it will be ignored"
-                );
+    //     an orphan (shadows are simulated and start empty by construction). per
+    //     ORPHAN_POLICY it is adopted (traded tickers: the exit stack closes it today),
+    //     closed at the broker, or only logged — and the human is notified either way.
+    if !replay_mode {
+        let policy = OrphanPolicy::from_env();
+        match books[0].reconcile_orphans(policy, Utc::now()).await {
+            Ok(outcomes) if outcomes.is_empty() => info!(?policy, "broker reconciliation: no pre-existing positions"),
+            Ok(outcomes) => {
+                for o in &outcomes {
+                    error!(ticker = %o.ticker, action = ?o.action, ?policy, "orphan position handled");
+                }
+                if outcomes.iter().any(|o| matches!(o.action, OrphanAction::CloseFailed(_) | OrphanAction::Ignored)) {
+                    error!("orphan positions remain at the broker — close them by hand");
+                }
+            }
+            Err(e) => {
+                error!(error = %e, "could not list broker positions for reconciliation");
+                notify_critical(format!("CRITICAL primary startup: could not list broker positions ({e}) — orphans unknown"));
             }
         }
-        Ok(_) => info!("broker reconciliation: no pre-existing positions"),
-        Err(e) => warn!(error = %e, "could not list broker positions for reconciliation"),
     }
 
     // 7. config watcher (keyed on the promoted row id; books that follow promotions consume it)

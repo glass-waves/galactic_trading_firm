@@ -101,6 +101,42 @@ impl LiveSession {
         self.broker_entry_price = Some(price);
     }
 
+    /// take the entry stash (scores, reason) off a position that is being rolled back,
+    /// so it can be re-attached if the broker turns out to hold the position after all.
+    pub fn take_entry_stash(&mut self) -> (Option<TimescaleScores>, Option<String>) {
+        (self.entry_scores.take(), self.entry_reason.take())
+    }
+
+    /// the broker holds a position the engine does not: force-open it with the broker's
+    /// quantity and fill price so the exit stack manages it. `scores` default to the
+    /// last scores seen.
+    #[allow(clippy::too_many_arguments)]
+    pub fn adopt_broker_position(
+        &mut self,
+        ticker: &str,
+        direction: types::action::TradeDirection,
+        quantity: f64,
+        price: f64,
+        timestamp: DateTime<Utc>,
+        scores: Option<TimescaleScores>,
+        reason: &str,
+    ) -> Result<(), String> {
+        if quantity <= 0.0 || price <= 0.0 {
+            return Err(format!("cannot adopt {ticker}: quantity {quantity} price {price}"));
+        }
+        self.engine
+            .force_open_position(ticker.to_string(), direction, price, quantity, timestamp)?;
+        self.entry_scores = Some(scores.unwrap_or_else(|| self.last_scores.clone()));
+        self.entry_reason = Some(reason.to_string());
+        self.broker_entry_price = Some(price);
+        Ok(())
+    }
+
+    /// gate entries until `until` (after a failed / unconfirmed broker order).
+    pub fn suppress_entries_until(&mut self, until: DateTime<Utc>) {
+        self.engine.suppress_entries_until(until);
+    }
+
     /// force-close the open position outside the tick loop (shutdown, config
     /// swap, missed-close safety net). exit scores are the last scores seen.
     pub fn force_close(
@@ -345,6 +381,29 @@ mod tests {
                 return;
             }
         }
+    }
+
+    #[test]
+    fn adopt_broker_position_opens_with_broker_numbers_and_attribution() {
+        use chrono::Utc;
+        use types::action::TradeDirection;
+        let mut session = build_test_session();
+        assert!(!session.has_position());
+        let ts = Utc::now();
+        session
+            .adopt_broker_position("SPY", TradeDirection::Short, 48.0, 249.704792, ts, None, "adopted:orphan")
+            .unwrap();
+        let p = session.current_position().expect("adopted");
+        assert_eq!(p.direction, TradeDirection::Short);
+        assert!((p.size - 48.0).abs() < f64::EPSILON);
+        assert!((p.entry_price - 249.704792).abs() < 1e-9);
+        assert_eq!(session.entry_reason(), Some("adopted:orphan"));
+        // a second adoption while one is open is refused, as is a nonsense fill
+        assert!(session.adopt_broker_position("SPY", TradeDirection::Short, 1.0, 1.0, ts, None, "x").is_err());
+        let tws = session.force_close(250.0, ts, ExitReason::ManualOverride).expect("trade");
+        assert_eq!(tws.broker_entry_price, Some(249.704792));
+        assert_eq!(tws.entry_reason, "adopted:orphan");
+        assert!(session.adopt_broker_position("SPY", TradeDirection::Short, 0.0, 1.0, ts, None, "x").is_err());
     }
 
     #[test]

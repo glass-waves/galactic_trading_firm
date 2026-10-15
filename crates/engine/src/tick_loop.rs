@@ -40,6 +40,9 @@ pub struct TradingEngine {
     session_start_time: Option<DateTime<Utc>>,
     /// timestamp when the last position was closed (for re-entry cooldown).
     last_exit_time: Option<DateTime<Utc>>,
+    /// entries are gated until this instant (set by the host after a broker order
+    /// failed, so a rejected/unconfirmed order cannot re-fire on every bar).
+    entries_suppressed_until: Option<DateTime<Utc>>,
     /// cumulative realized P&L for daily loss circuit breaker.
     cumulative_realized_pnl: f64,
     /// true when daily loss breaker has been triggered.
@@ -129,6 +132,7 @@ impl TradingEngine {
             current_session_date: None,
             session_start_time: None,
             last_exit_time: None,
+            entries_suppressed_until: None,
             cumulative_realized_pnl: 0.0,
             daily_loss_breaker_active: false,
             initial_capital_snapshot: capital,
@@ -552,6 +556,20 @@ impl TradingEngine {
         self.cumulative_realized_pnl = 0.0;
         self.daily_loss_breaker_active = false;
         self.last_exit_time = None;
+        self.entries_suppressed_until = None;
+    }
+
+    /// gate entries until `until` (host-side order-failure cooldown). a later call
+    /// never shortens an existing suppression.
+    pub fn suppress_entries_until(&mut self, until: DateTime<Utc>) {
+        self.entries_suppressed_until = match self.entries_suppressed_until {
+            Some(cur) if cur >= until => Some(cur),
+            _ => Some(until),
+        };
+    }
+
+    pub fn entries_suppressed_until(&self) -> Option<DateTime<Utc>> {
+        self.entries_suppressed_until
     }
 
     /// check all entry-blocking conditions. returns the first gate that blocks,
@@ -565,6 +583,13 @@ impl TradingEngine {
         // daily loss circuit breaker
         if self.daily_loss_breaker_active {
             return Some("daily_loss_breaker");
+        }
+
+        // host-side cooldown after a failed / unconfirmed broker order
+        if let Some(until) = self.entries_suppressed_until {
+            if market.timestamp < until {
+                return Some("order_failed_cooldown");
+            }
         }
 
         if let Some(ref sc) = self.session_config {

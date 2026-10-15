@@ -94,3 +94,29 @@ the old binary's `ON CONFLICT (ticker)` upsert fails on the `(book, ticker)` key
 the sql deletes non-primary `engine_state` rows and restores `PRIMARY KEY (ticker)`; verified on a scratch
 copy both ways (old upsert fails before, works after with `book` defaulting to `'primary'`). forward
 again: `ALTER TABLE engine_state DROP CONSTRAINT engine_state_pkey, ADD PRIMARY KEY (book, ticker);`.
+
+## broker ↔ engine invariant (2026-10-15 incident)
+
+alpaca started rejecting apca 0.30's order paths: `order::Get` / `Delete` / `Change` format
+`/v2/orders/{id}` with `Uuid::as_simple()` (no hyphens) and alpaca answers 422 `invalid order_id`
+(`curl /v2/orders/4f807b122af249ad952bc39c2b212234` → 422; the hyphenated id → 200). the fill poll
+errored, the book undid the engine position, the window re-fired on the next bars: five fills
+orphaned (−48 AMZN, −14 NVDA) the engine never knew about.
+
+- `broker.rs`: `OrderGetRaw` / `OrderCancelRaw` send the id string exactly as returned
+  (`order_id_string`, hyphenated); every order carries `client_order_id = gtf-<book>-<ticker>-<unix_ms>`.
+  `wait_for_fill_with` (generic over `OrderApi`, unit-tested with a scripted mock): a failed poll is
+  retried 3× with backoff, then resolved by `GET /v2/orders:by_client_order_id`, then by the positions
+  list; at the deadline the order is cancelled and re-read (a fill that raced the cancel is returned).
+  `Err` now means the broker holds nothing for the order — or `BrokerError::Unconfirmed` when it could
+  not be asked. `close_orphan` = market order (RTH) or extended-hours day limit at the last trade ±0.3 %.
+- `book.rs`: `handle_failed_entry` undoes the engine, gates the ticker (`order_failed_cooldown`,
+  max(`entry_cooldown_ms`, 5 min), engine `suppress_entries_until`) and, primary only, asks the broker:
+  a held position is adopted (`LiveSession::adopt_broker_position` → `force_open_position` with the
+  broker's qty/fill, entry_reason `adopted:failed-order (...)`) and the human gets a CRITICAL via
+  `scripts/notify.sh` (`notify.rs`, detached thread); an unreachable broker is re-asked on the next bars.
+  `reconcile_orphans` at start-up follows `ORPHAN_POLICY` (`adopt` default: adopt traded tickers,
+  close the rest; `close`; `ignore` = the old log-only behaviour) and notifies per orphan.
+- verified 2026-10-15 17:08 ET on the paper account: 1 AAPL extended-hours limit round trip
+  (`live_order_roundtrip`): open filled @ 342.27 through the fixed poll, close filled @ 342.18,
+  `/v2/positions` flat for AAPL.

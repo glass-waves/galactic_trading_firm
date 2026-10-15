@@ -17,17 +17,19 @@ use std::collections::{BTreeSet, HashMap};
 use std::fmt;
 use std::sync::{Arc, Mutex};
 
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Duration, NaiveDate, Utc};
 use tracing::{debug, error, info, warn};
 use types::action::ExitReason;
 use types::config::StrategyConfig;
 use types::market::MarketState;
 use types::tick_result::{TickEvent, TickResult};
 
-use crate::broker::{Broker, BrokerError, BrokerPosition, SimulatedBroker};
+use crate::broker::{Broker, BrokerError, BrokerPosition, OrphanClose, SimulatedBroker};
 use crate::config_watcher::try_build_engine;
 use crate::live_session::{LiveSession, TradeWithScores};
-use crate::session_clock::eastern_date;
+use crate::notify::notify_critical;
+use crate::session_clock::{eastern_date, is_regular_hours};
+use types::scoring::TimescaleScores;
 use crate::state_writer::{
     delete_engine_state, upsert_engine_state, write_book_session, write_entry_block_event,
     BlockEvent, BlockKind, EngineStateRow, PositionSnapshot,
@@ -47,6 +49,68 @@ pub const SHADOW_SLIPPAGE_BPS: f64 = 5.0;
 const NEAR_MISS_THROTTLE_SECS: i64 = 300;
 /// a repeated gate reason is re-persisted at most this often per ticker.
 const GATE_REPEAT_SECS: i64 = 900;
+/// after a failed / unconfirmed entry order a ticker takes no new entry for at least this
+/// long (or the config's `entry_cooldown_ms` when that is longer), so one broker fault
+/// cannot re-fire on every bar.
+pub const ORDER_FAIL_COOLDOWN_MS: i64 = 5 * 60 * 1000;
+
+/// what to do with a position the primary's broker holds that no engine knows about
+/// (`ORPHAN_POLICY`): `adopt` (default) adopts tickers the primary trades and closes the
+/// rest; `close` closes everything; `ignore` only logs (today's pre-fix behaviour).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum OrphanPolicy {
+    Adopt,
+    Close,
+    Ignore,
+}
+
+impl OrphanPolicy {
+    pub fn parse(s: &str) -> Option<Self> {
+        match s.trim().to_ascii_lowercase().as_str() {
+            "adopt" => Some(OrphanPolicy::Adopt),
+            "close" => Some(OrphanPolicy::Close),
+            "ignore" => Some(OrphanPolicy::Ignore),
+            _ => None,
+        }
+    }
+
+    pub fn from_env() -> Self {
+        match std::env::var("ORPHAN_POLICY") {
+            Ok(v) => Self::parse(&v).unwrap_or_else(|| {
+                warn!(value = %v, "ORPHAN_POLICY not one of adopt|close|ignore — using adopt");
+                OrphanPolicy::Adopt
+            }),
+            Err(_) => OrphanPolicy::Adopt,
+        }
+    }
+}
+
+/// what startup reconciliation did with one broker position.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum OrphanAction {
+    Adopted,
+    Closed,
+    /// an after-hours limit is resting at the broker.
+    CloseWorking,
+    CloseFailed(String),
+    Ignored,
+}
+
+#[derive(Debug, Clone)]
+pub struct OrphanOutcome {
+    pub ticker: String,
+    pub action: OrphanAction,
+}
+
+/// an entry whose broker order failed or could not be confirmed: the engine is flat,
+/// the broker may not be. re-checked on the ticker's next bars until resolved.
+#[derive(Debug, Clone)]
+struct Unreconciled {
+    scores: Option<TimescaleScores>,
+    reason: Option<String>,
+    since: DateTime<Utc>,
+    attempts: u32,
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BookRole {
@@ -411,6 +475,8 @@ pub struct Book {
     last_gate: HashMap<String, (String, DateTime<Utc>)>,
     /// last persisted near-miss time, per ticker (throttle).
     last_near_miss: HashMap<String, DateTime<Utc>>,
+    /// primary only: tickers whose failed entry order still needs the broker's word.
+    unreconciled: HashMap<String, Unreconciled>,
     process_started_at: DateTime<Utc>,
 }
 
@@ -481,6 +547,7 @@ impl Book {
             session_row_date: None,
             last_gate: HashMap::new(),
             last_near_miss: HashMap::new(),
+            unreconciled: HashMap::new(),
             process_started_at,
         };
         book.refresh_ticker_list();
@@ -548,6 +615,10 @@ impl Book {
         self.sessions.get(ticker)
     }
 
+    pub fn session_mut(&mut self, ticker: &str) -> Option<&mut LiveSession> {
+        self.sessions.get_mut(ticker)
+    }
+
     pub fn open_position_count(&self) -> usize {
         self.sessions.values().filter(|s| s.has_position()).count()
     }
@@ -595,6 +666,167 @@ impl Book {
 
     fn max_concurrent(&self) -> usize {
         self.config.session.max_concurrent_positions as usize
+    }
+
+    /// tickers whose failed order is still unreconciled against the broker (primary only).
+    pub fn unreconciled_tickers(&self) -> Vec<String> {
+        let mut v: Vec<String> = self.unreconciled.keys().cloned().collect();
+        v.sort();
+        v
+    }
+
+    // ── broker ↔ engine invariant ──
+
+    /// the broker rejected — or could not confirm — the entry order: roll the engine
+    /// back, gate the ticker's entries for the cooldown, and (primary) make sure the
+    /// broker does not hold a position the engine just forgot.
+    pub async fn handle_failed_entry(&mut self, ticker: &str, bar_ts: DateTime<Utc>, error: &BrokerError) {
+        error!(book = %self.spec.name, ticker, error = %error, "broker order failed, undoing position");
+        let cooldown_ms = self.config.session.entry_cooldown_ms.max(ORDER_FAIL_COOLDOWN_MS);
+        let until = bar_ts + Duration::milliseconds(cooldown_ms);
+        let stash = match self.sessions.get_mut(ticker) {
+            Some(s) => {
+                let stash = s.take_entry_stash();
+                s.undo_open();
+                s.suppress_entries_until(until);
+                stash
+            }
+            None => (None, None),
+        };
+        warn!(book = %self.spec.name, ticker, until = %until, "entries suppressed after the failed order");
+        if !self.is_primary() {
+            return;
+        }
+        self.unreconciled.insert(
+            ticker.to_string(),
+            Unreconciled { scores: stash.0, reason: stash.1, since: bar_ts, attempts: 0 },
+        );
+        self.reconcile_ticker(ticker, bar_ts).await;
+    }
+
+    /// primary: ask the broker whether it holds `ticker`; adopt it if so, clear the
+    /// entry if it is flat, keep asking (next bar) if it cannot be reached.
+    async fn reconcile_ticker(&mut self, ticker: &str, now: DateTime<Utc>) {
+        let Some(mut pending) = self.unreconciled.remove(ticker) else { return };
+        pending.attempts += 1;
+        match self.broker.open_positions().await {
+            Ok(list) => match list.into_iter().find(|p| p.ticker == ticker) {
+                Some(p) => {
+                    let reason = match &pending.reason {
+                        Some(r) if !r.is_empty() => format!("adopted:failed-order ({r})"),
+                        _ => "adopted:failed-order".to_string(),
+                    };
+                    let adopted = self.adopt(&p, now, pending.scores.clone(), &reason);
+                    let msg = format!(
+                        "CRITICAL {} {}: broker holds {:?} {} @ {:.4} after a failed entry order (since {}) — {}",
+                        self.spec.name,
+                        ticker,
+                        p.direction,
+                        p.quantity,
+                        p.entry_price,
+                        pending.since.format("%H:%M:%SZ"),
+                        if adopted { "adopted into the engine; the exit stack manages it" } else { "ADOPTION FAILED, close it by hand" }
+                    );
+                    notify_critical(msg);
+                }
+                None => {
+                    info!(book = %self.spec.name, ticker, attempts = pending.attempts, "broker confirms flat after the failed order");
+                }
+            },
+            Err(e) => {
+                error!(book = %self.spec.name, ticker, attempts = pending.attempts, error = %e, "broker unreachable — cannot confirm what it holds; retrying on the next bar");
+                if pending.attempts == 1 {
+                    notify_critical(format!(
+                        "CRITICAL {} {}: entry order failed AND the broker cannot be reached ({e}) — it may hold a position the engine does not; retrying every bar",
+                        self.spec.name, ticker
+                    ));
+                }
+                self.unreconciled.insert(ticker.to_string(), pending);
+            }
+        }
+    }
+
+    /// force the broker's position into the ticker's engine. false when the engine
+    /// refused (already in a position / bad numbers).
+    fn adopt(&mut self, p: &BrokerPosition, now: DateTime<Utc>, scores: Option<TimescaleScores>, reason: &str) -> bool {
+        let Some(session) = self.sessions.get_mut(&p.ticker) else {
+            error!(book = %self.spec.name, ticker = %p.ticker, "cannot adopt: no session for the ticker");
+            return false;
+        };
+        match session.adopt_broker_position(&p.ticker, p.direction, p.quantity, p.entry_price, now, scores, reason) {
+            Ok(()) => {
+                warn!(book = %self.spec.name, ticker = %p.ticker, direction = ?p.direction, quantity = p.quantity, entry_price = p.entry_price, reason, "broker position adopted into the engine");
+                true
+            }
+            Err(e) => {
+                error!(book = %self.spec.name, ticker = %p.ticker, error = %e, "adoption refused by the engine");
+                false
+            }
+        }
+    }
+
+    /// startup reconciliation (primary only — shadows are simulated and start empty):
+    /// every position the broker holds that no engine knows about is adopted, closed or
+    /// ignored per `policy`, and the human is told either way.
+    pub async fn reconcile_orphans(&mut self, policy: OrphanPolicy, now: DateTime<Utc>) -> Result<Vec<OrphanOutcome>, BrokerError> {
+        let open = self.broker.open_positions().await?;
+        let mut outcomes = Vec::new();
+        for p in open {
+            let known = self.sessions.get(&p.ticker).map(|s| s.has_position()).unwrap_or(false);
+            if known {
+                continue;
+            }
+            let traded = self.sessions.contains_key(&p.ticker);
+            error!(
+                book = %self.spec.name,
+                ticker = %p.ticker,
+                direction = ?p.direction,
+                quantity = p.quantity,
+                entry_price = p.entry_price,
+                traded,
+                ?policy,
+                "BROKER HOLDS A POSITION THE ENGINE DOES NOT KNOW ABOUT"
+            );
+            let action = match (policy, traded) {
+                (OrphanPolicy::Ignore, _) => OrphanAction::Ignored,
+                (OrphanPolicy::Adopt, true) => {
+                    if self.adopt(&p, now, None, "adopted:orphan-at-start") {
+                        OrphanAction::Adopted
+                    } else {
+                        OrphanAction::CloseFailed("adoption refused".to_string())
+                    }
+                }
+                (OrphanPolicy::Adopt, false) | (OrphanPolicy::Close, _) => {
+                    match self.broker.close_orphan(&p, is_regular_hours(now)).await {
+                        Ok(OrphanClose::Filled(f)) => {
+                            warn!(book = %self.spec.name, ticker = %p.ticker, fill_price = f.fill_price, quantity = f.quantity, "orphan closed at the broker");
+                            OrphanAction::Closed
+                        }
+                        Ok(OrphanClose::Working { order_id, limit_price }) => {
+                            warn!(book = %self.spec.name, ticker = %p.ticker, order_id, limit_price, "orphan close resting as an extended-hours limit");
+                            OrphanAction::CloseWorking
+                        }
+                        Err(e) => {
+                            error!(book = %self.spec.name, ticker = %p.ticker, error = %e, "orphan close FAILED");
+                            OrphanAction::CloseFailed(e.to_string())
+                        }
+                    }
+                }
+            };
+            let what = match &action {
+                OrphanAction::Adopted => "adopted into the engine (the exit stack closes it today)".to_string(),
+                OrphanAction::Closed => "closed at the broker".to_string(),
+                OrphanAction::CloseWorking => "close limit resting at the broker (extended hours, last ±0.3%)".to_string(),
+                OrphanAction::CloseFailed(e) => format!("CLOSE FAILED ({e}) — close it by hand"),
+                OrphanAction::Ignored => "IGNORED per ORPHAN_POLICY=ignore — close it by hand".to_string(),
+            };
+            notify_critical(format!(
+                "CRITICAL {} startup: broker holds {:?} {} {} @ {:.4} the engine does not know — {}",
+                self.spec.name, p.direction, p.quantity, p.ticker, p.entry_price, what
+            ));
+            outcomes.push(OrphanOutcome { ticker: p.ticker.clone(), action });
+        }
+        Ok(outcomes)
     }
 
     // ── per-bar ──
@@ -648,6 +880,9 @@ impl Book {
         let last_price = market.last_price;
         self.roll_daily_pnl(bar_ts);
         self.write_session_row(bar_ts).await;
+        if self.unreconciled.contains_key(ticker) {
+            self.reconcile_ticker(ticker, bar_ts).await;
+        }
 
         // cross-ticker capacity: still tick (exits, clocks, diagnostics), but block entries
         let at_capacity = self.open_position_count() >= self.max_concurrent();
@@ -694,16 +929,16 @@ impl Book {
                                 engine_price = market.last_price,
                                 "broker order filled"
                             );
+                            if (fill.quantity - shares).abs() > 0.5 {
+                                warn!(book = %self.spec.name, ticker = %ticker, requested = shares, filled = fill.quantity, "broker filled a different quantity than the engine sized");
+                            }
                             if let Some(s) = self.sessions.get_mut(ticker) {
-                                s.set_broker_entry_price(fill.fill_price);
+                                if fill.fill_price > 0.0 {
+                                    s.set_broker_entry_price(fill.fill_price);
+                                }
                             }
                         }
-                        Err(e) => {
-                            error!(book = %self.spec.name, ticker = %ticker, error = %e, "broker order failed, undoing position");
-                            if let Some(s) = self.sessions.get_mut(ticker) {
-                                s.undo_open();
-                            }
-                        }
+                        Err(e) => self.handle_failed_entry(ticker, bar_ts, &e).await,
                     }
                 }
             }
@@ -714,10 +949,13 @@ impl Book {
             let broker_exit = match self.broker.close_position(&tws.trade.ticker).await {
                 Ok(fill) => {
                     info!(book = %self.spec.name, ticker = %tws.trade.ticker, fill_price = fill.fill_price, engine_price = tws.trade.exit_price, "broker position closed");
-                    Some(fill.fill_price)
+                    Some(fill.fill_price).filter(|p| *p > 0.0)
                 }
                 Err(e) => {
                     error!(book = %self.spec.name, ticker = %tws.trade.ticker, error = %e, "broker close FAILED (engine already closed) — check the account");
+                    if self.is_primary() {
+                        notify_critical(format!("CRITICAL {} {}: broker close FAILED ({e}) — the engine recorded the exit; check the account", self.spec.name, tws.trade.ticker));
+                    }
                     None
                 }
             };
@@ -776,10 +1014,13 @@ impl Book {
         let broker_exit = match self.broker.close_position(ticker).await {
             Ok(fill) => {
                 info!(book = %self.spec.name, ticker, fill_price = fill.fill_price, ?reason, "broker position closed");
-                Some(fill.fill_price)
+                Some(fill.fill_price).filter(|p| *p > 0.0)
             }
             Err(e) => {
                 error!(book = %self.spec.name, ticker, error = %e, ?reason, "broker close FAILED — check the account manually");
+                if self.is_primary() {
+                    notify_critical(format!("CRITICAL {} {}: forced close ({reason:?}) FAILED at the broker ({e}) — check the account", self.spec.name, ticker));
+                }
                 None
             }
         };
@@ -1291,6 +1532,212 @@ mod tests {
         assert_eq!(book.tickers(), &["SPY".to_string()]);
         assert!(!book.trades("QQQ"));
         assert_eq!(book.config_id(), 13);
+    }
+
+    // ── broker ↔ engine invariant ──
+
+    use crate::broker::OrderFill;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+    use types::action::TradeDirection;
+
+    /// a broker whose entry orders fail; what it reports holding is scripted per call.
+    struct FailingBroker {
+        /// answers to `open_positions`, consumed in order (the last repeats).
+        positions: Mutex<Vec<Result<Vec<BrokerPosition>, String>>>,
+        position_calls: AtomicUsize,
+        closed: Mutex<Vec<String>>,
+    }
+
+    impl FailingBroker {
+        fn new(positions: Vec<Result<Vec<BrokerPosition>, String>>) -> Self {
+            Self { positions: Mutex::new(positions), position_calls: AtomicUsize::new(0), closed: Mutex::new(vec![]) }
+        }
+    }
+
+    #[async_trait::async_trait]
+    impl Broker for FailingBroker {
+        fn kind(&self) -> &'static str {
+            "alpaca_paper"
+        }
+        async fn submit_order(&self, _t: &str, _d: TradeDirection, _q: f64) -> Result<OrderFill, BrokerError> {
+            Err(BrokerError::ConnectionError("order status poll failed: 422 invalid order_id".into()))
+        }
+        async fn close_position(&self, ticker: &str) -> Result<OrderFill, BrokerError> {
+            self.closed.lock().unwrap().push(ticker.to_string());
+            Ok(OrderFill { ticker: ticker.into(), direction: TradeDirection::Long, quantity: 1.0, fill_price: 100.0, filled_at: Utc::now() })
+        }
+        async fn open_positions(&self) -> Result<Vec<BrokerPosition>, BrokerError> {
+            self.position_calls.fetch_add(1, Ordering::SeqCst);
+            let mut v = self.positions.lock().unwrap();
+            let r = if v.len() > 1 { v.remove(0) } else { v.first().cloned().unwrap_or(Ok(vec![])) };
+            r.map_err(BrokerError::ConnectionError)
+        }
+    }
+
+    fn short(ticker: &str, qty: f64, px: f64) -> BrokerPosition {
+        BrokerPosition { ticker: ticker.into(), direction: TradeDirection::Short, quantity: qty, entry_price: px, current_price: Some(px) }
+    }
+
+    fn primary_on(broker: Box<dyn Broker>, tickers: &[&str]) -> Book {
+        let plan = BookPlan::new(spec("primary", BookRole::Primary, None), 12, test_config(tickers));
+        Book::new_primary(plan, broker, 10_000.0, replay_sink(), Utc::now()).unwrap()
+    }
+
+    /// emulate the engine having just opened (PositionOpened) before the broker call.
+    fn engine_opens(book: &mut Book, ticker: &str, ts: DateTime<Utc>) {
+        book.session_mut(ticker)
+            .unwrap()
+            .engine_mut()
+            .force_open_position(ticker.to_string(), TradeDirection::Short, 249.765, 12.0, ts)
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn failed_order_with_a_broker_position_is_adopted_and_cooled_down() {
+        // today's case: the poll failed but alpaca had filled 12 AMZN short @ 249.72
+        let broker = FailingBroker::new(vec![Ok(vec![short("AMZN", 12.0, 249.72)])]);
+        let mut book = primary_on(Box::new(broker), &["AMZN", "NVDA"]);
+        let ts = Utc::now();
+        engine_opens(&mut book, "AMZN", ts);
+        let err = BrokerError::ConnectionError("422".into());
+        book.handle_failed_entry("AMZN", ts, &err).await;
+
+        let s = book.session("AMZN").unwrap();
+        let p = s.current_position().expect("the broker's position is adopted, not forgotten");
+        assert_eq!(p.direction, TradeDirection::Short);
+        assert!((p.size - 12.0).abs() < f64::EPSILON);
+        assert!((p.entry_price - 249.72).abs() < 1e-9, "adopted at the broker's fill, not the engine's price");
+        assert!(s.entry_reason().unwrap().starts_with("adopted:failed-order"));
+        assert_eq!(s.engine().entries_suppressed_until(), Some(ts + Duration::milliseconds(ORDER_FAIL_COOLDOWN_MS)));
+        assert!(book.unreconciled_tickers().is_empty());
+        assert_eq!(book.open_tickers(), vec!["AMZN".to_string()]);
+    }
+
+    #[tokio::test]
+    async fn failed_order_with_a_flat_broker_stays_flat_and_gates_entries() {
+        use types::test_fixtures::{make_market_state_ohlcv, ranging_ohlcv};
+        let broker = FailingBroker::new(vec![Ok(vec![])]);
+        let mut book = primary_on(Box::new(broker), &["AMZN"]);
+        let ts = Utc::now();
+        engine_opens(&mut book, "AMZN", ts);
+        book.handle_failed_entry("AMZN", ts, &BrokerError::OrderRejected("cancelled".into())).await;
+
+        let s = book.session("AMZN").unwrap();
+        assert!(!s.has_position());
+        assert!(book.unreconciled_tickers().is_empty());
+        // the window cannot re-fire on the next bars
+        let mut ms = make_market_state_ohlcv(Timescale::FiveMinute, &ranging_ohlcv(5, 100.0, 0.5));
+        ms.timestamp = ts + Duration::minutes(1);
+        assert_eq!(s.engine().entry_block_reason(&ms), Some("order_failed_cooldown"));
+        ms.timestamp = ts + Duration::milliseconds(ORDER_FAIL_COOLDOWN_MS - 1);
+        assert_eq!(s.engine().entry_block_reason(&ms), Some("order_failed_cooldown"));
+        ms.timestamp = ts + Duration::milliseconds(ORDER_FAIL_COOLDOWN_MS);
+        assert_ne!(s.engine().entry_block_reason(&ms), Some("order_failed_cooldown"));
+    }
+
+    #[tokio::test]
+    async fn config_cooldown_wins_when_longer() {
+        let mut cfg = test_config(&["AMZN"]);
+        cfg.session.entry_cooldown_ms = 20 * 60 * 1000;
+        let plan = BookPlan::new(spec("primary", BookRole::Primary, None), 12, cfg);
+        let mut book = Book::new_primary(plan, Box::new(FailingBroker::new(vec![Ok(vec![])])), 10_000.0, replay_sink(), Utc::now()).unwrap();
+        let ts = Utc::now();
+        engine_opens(&mut book, "AMZN", ts);
+        book.handle_failed_entry("AMZN", ts, &BrokerError::OrderRejected("x".into())).await;
+        assert_eq!(book.session("AMZN").unwrap().engine().entries_suppressed_until(), Some(ts + Duration::minutes(20)));
+    }
+
+    #[tokio::test]
+    async fn unreachable_broker_is_retried_on_the_next_bar_and_then_adopted() {
+        use types::test_fixtures::{make_market_state_ohlcv, ranging_ohlcv};
+        use chrono::TimeZone;
+        let broker = FailingBroker::new(vec![Err("connection reset".into()), Ok(vec![short("AMZN", 12.0, 249.72)])]);
+        let mut book = primary_on(Box::new(broker), &["AMZN"]);
+        // inside regular hours, or the tick would (rightly) session-close the adopted position
+        let ts = Utc.with_ymd_and_hms(2026, 10, 15, 14, 0, 0).unwrap();
+        engine_opens(&mut book, "AMZN", ts);
+        book.handle_failed_entry("AMZN", ts, &BrokerError::Unconfirmed("state unknown".into())).await;
+        assert!(!book.session("AMZN").unwrap().has_position());
+        assert_eq!(book.unreconciled_tickers(), vec!["AMZN".to_string()]);
+
+        // next bar: the broker answers and the position is adopted before the tick
+        let mut ms = make_market_state_ohlcv(Timescale::FiveMinute, &ranging_ohlcv(5, 100.0, 0.5));
+        ms.timestamp = ts + Duration::minutes(1);
+        let shared = TickerShared { last_bar_at: Some(ms.timestamp), last_price: Some(ms.last_price), feed_stale: false };
+        let out = book.on_bar("AMZN", ms, &shared).await.unwrap();
+        assert!(out.trade.is_none(), "{:?}", out.trade.map(|t| t.trade.exit_reason));
+        assert!(book.unreconciled_tickers().is_empty());
+        let p = book.session("AMZN").unwrap().current_position().expect("adopted on the retry");
+        assert!((p.size - 12.0).abs() < f64::EPSILON);
+    }
+
+    #[tokio::test]
+    async fn a_shadow_never_reconciles_against_a_broker() {
+        let plan = BookPlan::new(spec("shadow:x", BookRole::Shadow, None), 10, test_config(&["AMZN"]));
+        let mut book = Book::new_shadow(plan, 10_000.0, replay_sink(), 0.0, Utc::now()).unwrap();
+        let ts = Utc::now();
+        engine_opens(&mut book, "AMZN", ts);
+        book.handle_failed_entry("AMZN", ts, &BrokerError::OrderRejected("x".into())).await;
+        assert!(!book.session("AMZN").unwrap().has_position());
+        assert!(book.unreconciled_tickers().is_empty());
+        assert!(book.session("AMZN").unwrap().engine().entries_suppressed_until().is_some());
+    }
+
+    async fn simulated_with_orphans() -> Box<dyn Broker> {
+        let b = SimulatedBroker::new(0.0);
+        b.set_last_price_for("SPY", 500.0);
+        b.set_last_price_for("AMD", 150.0);
+        b.submit_order("SPY", TradeDirection::Short, 48.0).await.unwrap();
+        b.submit_order("AMD", TradeDirection::Long, 7.0).await.unwrap();
+        Box::new(b)
+    }
+
+    #[tokio::test]
+    async fn startup_adopt_policy_adopts_traded_tickers_and_closes_the_rest() {
+        let mut book = primary_on(simulated_with_orphans().await, &["SPY", "QQQ"]);
+        let out = book.reconcile_orphans(OrphanPolicy::Adopt, Utc::now()).await.unwrap();
+        let mut by: Vec<(String, OrphanAction)> = out.into_iter().map(|o| (o.ticker, o.action)).collect();
+        by.sort_by(|a, b| a.0.cmp(&b.0));
+        assert_eq!(by, vec![("AMD".to_string(), OrphanAction::Closed), ("SPY".to_string(), OrphanAction::Adopted)]);
+        let p = book.session("SPY").unwrap().current_position().expect("SPY adopted");
+        assert_eq!(p.direction, TradeDirection::Short);
+        assert!((p.size - 48.0).abs() < f64::EPSILON);
+        assert!((p.entry_price - 500.0).abs() < f64::EPSILON);
+        assert_eq!(book.session("SPY").unwrap().entry_reason(), Some("adopted:orphan-at-start"));
+        // the broker now holds only what the engine knows
+        let held = book.broker_open_positions().await.unwrap();
+        assert_eq!(held.len(), 1);
+        assert_eq!(held[0].ticker, "SPY");
+        // a second pass finds nothing to do
+        assert!(book.reconcile_orphans(OrphanPolicy::Adopt, Utc::now()).await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn startup_close_policy_closes_everything() {
+        let mut book = primary_on(simulated_with_orphans().await, &["SPY"]);
+        let out = book.reconcile_orphans(OrphanPolicy::Close, Utc::now()).await.unwrap();
+        assert_eq!(out.len(), 2);
+        assert!(out.iter().all(|o| o.action == OrphanAction::Closed));
+        assert!(!book.session("SPY").unwrap().has_position());
+        assert!(book.broker_open_positions().await.unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn startup_ignore_policy_only_reports() {
+        let mut book = primary_on(simulated_with_orphans().await, &["SPY"]);
+        let out = book.reconcile_orphans(OrphanPolicy::Ignore, Utc::now()).await.unwrap();
+        assert_eq!(out.len(), 2);
+        assert!(out.iter().all(|o| o.action == OrphanAction::Ignored));
+        assert!(!book.session("SPY").unwrap().has_position());
+        assert_eq!(book.broker_open_positions().await.unwrap().len(), 2);
+    }
+
+    #[test]
+    fn orphan_policy_parses() {
+        assert_eq!(OrphanPolicy::parse("adopt"), Some(OrphanPolicy::Adopt));
+        assert_eq!(OrphanPolicy::parse(" Close "), Some(OrphanPolicy::Close));
+        assert_eq!(OrphanPolicy::parse("IGNORE"), Some(OrphanPolicy::Ignore));
+        assert_eq!(OrphanPolicy::parse("nope"), None);
     }
 
     #[tokio::test]
