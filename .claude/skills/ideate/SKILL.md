@@ -81,4 +81,4 @@ concentrated in one name or the top-3 trades), pass. never retire an idea on one
 
 - the working directory is already the repo root: never `cd`, never chain commands with `;` or `&&`, never use heredocs. one command per Bash call.
 - create and edit files with the Write / Edit tools, not with `cat >`, `echo >` or `tee`.
-- the exact shell forms that are allowed: `./scripts/notify.sh <level> "<message>"`, `git add <paths>`, `git commit -m "<message>"`, `git status --short`, `python3 scripts/macro/<script>`, `cat/ls/head/tail/date <args>`. anything else will be denied and the step silently lost.
+- the exact shell forms that are allowed: `./scripts/notify.sh <level> "<message>"`, `git add <paths>`, `git commit -m "<message>"`, `git status --short`, `cat/ls/head/tail/date <args>`. anything else will be denied and the step silently lost.

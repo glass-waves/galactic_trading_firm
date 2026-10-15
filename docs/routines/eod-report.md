@@ -55,10 +55,7 @@ Commit message: `eod: <date> — <verdict>`. Reply with the verdict line only.
 - History and evidence: `docs/paper_trading_plan_2026-09.md` §10–§13, `docs/analysis/`,
   previous `docs/reports/`, `docs/research_queue.md`. Read the last three reports and the
   queue before writing anything — continuity matters more than novelty.
-- **Recession watch** (since 2026-10-14, `docs/macro/README.md`): a separate, information-only
-  daily macro checklist (0–10) with its own check-in; read today's `docs/macro/<date>.md` if it
-  exists and include its score and a link in the email's **Watch tomorrow** line — it never
-  feeds config, gates, or the trader, so it is never grounds for a recommendation here.
+- The market-health gauge lives in `../market-health`; read its `out/health.json` if present (information only — never grounds for a recommendation here).
 
 ## 2. Files in `data/live/<date>/`
 
