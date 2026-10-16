@@ -120,3 +120,64 @@ orphaned (−48 AMZN, −14 NVDA) the engine never knew about.
 - verified 2026-10-15 17:08 ET on the paper account: 1 AAPL extended-hours limit round trip
   (`live_order_roundtrip`): open filled @ 342.27 through the fixed poll, close filled @ 342.18,
   `/v2/positions` flat for AAPL.
+
+## exits are never pretended (2026-10-16 incident)
+
+09:31:01 ET the primary's AMZN trailing stop fired on the adopted −48. `close_position`
+(DELETE /v2/positions/AMZN → market BUY 48, order `7d819398-…`, alpaca's own uuid
+`client_order_id`) was created 13:31:00.62Z, `submitted_at` 13:31:01.78Z, and sat
+`accepted` with `filled_qty 0`; at the 15 s deadline the fill-wait **cancelled it**
+(`canceled_at` 13:31:18.69Z), re-read it as still working, returned `Unconfirmed`, and the
+book logged "broker close FAILED (engine already closed)" and wrote trade 22 (−245.77)
+anyway. the broker kept AMZN −48 all day; the engine thought it was flat. NVDA's close at
+09:52 filled in 0.9 s. lesson: a paper market order at the open can stay unfilled past
+15 s, and the old path turned that into a cancel plus a recorded exit that never happened.
+
+- `broker.rs`: `FillWait::close()` = `CLOSE_FILL_TIMEOUT_MS` 120 s, `cancel_on_timeout
+  false`. a close still working at the deadline comes back as `BrokerError::Working
+  { order_id }` and is left working — never cancelled for lack of confirmation, also when
+  the broker cannot be asked. a partial fill keeps waiting for the remainder. the one
+  cancel on the close path is after an explicit rejection / terminal status (idempotent,
+  before the book re-submits). `Broker::order_status(order_id)` reads a working order
+  (hyphenated id); the simulated broker has none. `close_orphan` during RTH is the same path.
+- `book.rs` **exit pending**: on `Working` / any error but `NoPosition`, the book
+  reverts the engine's close (`TradingEngine::revert_last_close` puts the position back
+  with its water marks and undoes realized P&L, the loss breaker and the cooldown clock;
+  `LiveSession::reopen_after_unconfirmed_close` restores the entry attribution), records
+  **no trade**, and tracks `ExitPending { order_id, reason, engine_exit_price, since }`.
+  every bar of the ticker and every 30 s heartbeat re-checks: order filled → trade at
+  the real fill with the original exit reason; order ended but the broker still holds →
+  a new close is submitted; broker flat (the human closed it) → trade at the last known
+  price, WARNING; still working after `EXIT_PENDING_ALERT_SECS` (5 min) → one CRITICAL.
+  while pending the exit stack re-fires every bar and is reverted silently; the
+  force-exit / session-close safety net (`close_and_record`) takes the same path and
+  only re-checks a ticker that is already pending. shutdown with an exit pending logs +
+  notifies CRITICAL and records nothing (startup reconciliation adopts what is held).
+- `book.rs` **intraday reconciliation** `reconcile_live` (primary, every
+  `LIVE_RECONCILE_SECS` = 5 min during regular hours, from the heartbeat): the startup
+  orphan policy for broker positions no engine knows (`adopted:orphan-at-intraday`,
+  untraded → close, notify CRITICAL), and the reverse — an engine position the broker
+  does not hold is recorded closed at the last price, `ManualOverride`, log/notify
+  "broker-flat" WARNING. either mismatch needs `MISMATCH_SIGHTINGS` = 2 consecutive
+  checks (an order can be in flight); tickers with an exit pending or an unreconciled
+  entry are skipped; the count resets when a check agrees.
+- tests (mock `OrderApi` / scripted `Broker`): close unfilled past the deadline → Working,
+  no cancel; partial then full; partial at the deadline stays Working; rejection →
+  cancel + `OrderRejected`; unreachable broker → Working; exit-pending lifecycle (pending →
+  filled on a later bar with the fill price; pending → broker flat; unconfirmed force close →
+  kept → re-submitted → filled; the 5-min alert fires once); reconciliation adopt / close
+  / broker-flat after two sightings, debounce reset, pending tickers skipped; engine
+  `revert_last_close`. live after hours: `live_order_roundtrip` and
+  `live_close_path_roundtrip` (1 AAPL; the queued market close must come back Working and
+  un-cancelled, the test cancels it and flattens with a limit).
+
+### lessons
+
+1. 2026-10-15: an order id sent in a format the broker rejects turned every fill into
+   "failed" — five orphans. poll by the id exactly as returned, carry a `client_order_id`,
+   and never conclude "not filled" from a failed call.
+2. 2026-10-16: a close that times out must stay working and the engine must stay in the
+   position until the broker says otherwise. cancelling an exit and recording it anyway
+   is the one combination that leaves a position nobody is managing.
+3. the broker's positions list is the ground truth; compare it to the engines every
+   few minutes in both directions, with a debounce, instead of only at startup.

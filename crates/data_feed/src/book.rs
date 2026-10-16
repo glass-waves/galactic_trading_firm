@@ -24,10 +24,10 @@ use types::config::StrategyConfig;
 use types::market::MarketState;
 use types::tick_result::{TickEvent, TickResult};
 
-use crate::broker::{Broker, BrokerError, BrokerPosition, OrphanClose, SimulatedBroker};
+use crate::broker::{Broker, BrokerError, BrokerPosition, OrderFill, OrderState, OrphanClose, SimulatedBroker};
 use crate::config_watcher::try_build_engine;
 use crate::live_session::{LiveSession, TradeWithScores};
-use crate::notify::notify_critical;
+use crate::notify::{notify_critical, notify_warning};
 use crate::session_clock::{eastern_date, is_regular_hours};
 use types::scoring::TimescaleScores;
 use crate::state_writer::{
@@ -53,6 +53,13 @@ const GATE_REPEAT_SECS: i64 = 900;
 /// long (or the config's `entry_cooldown_ms` when that is longer), so one broker fault
 /// cannot re-fire on every bar.
 pub const ORDER_FAIL_COOLDOWN_MS: i64 = 5 * 60 * 1000;
+/// a close the broker has not confirmed for this long gets the human a CRITICAL (once).
+pub const EXIT_PENDING_ALERT_SECS: i64 = 5 * 60;
+/// how often the primary reconciles its engines against the broker during regular hours.
+pub const LIVE_RECONCILE_SECS: i64 = 5 * 60;
+/// a broker ↔ engine mismatch must be seen on this many consecutive reconciliation
+/// checks before anything is done about it (an order can be in flight).
+pub const MISMATCH_SIGHTINGS: u32 = 2;
 
 /// what to do with a position the primary's broker holds that no engine knows about
 /// (`ORPHAN_POLICY`): `adopt` (default) adopts tickers the primary trades and closes the
@@ -100,6 +107,43 @@ pub enum OrphanAction {
 pub struct OrphanOutcome {
     pub ticker: String,
     pub action: OrphanAction,
+}
+
+/// an exit the engine decided on but the broker has not confirmed: the engine keeps the
+/// position, no trade is recorded, and the order (or the broker's positions) is
+/// re-checked on every bar and heartbeat until it fills, the broker turns out flat, or
+/// the order ends and a new close is submitted.
+#[derive(Debug, Clone)]
+pub struct ExitPending {
+    /// the working close order; `None` when the close request itself errored (the
+    /// broker's positions decide).
+    pub order_id: Option<String>,
+    pub reason: ExitReason,
+    /// the engine's exit price at the signal (fallback when no fill price is known).
+    pub engine_exit_price: f64,
+    pub since: DateTime<Utc>,
+    pub checks: u32,
+    /// the one CRITICAL after `EXIT_PENDING_ALERT_SECS` has been sent.
+    pub alerted: bool,
+}
+
+/// how a close request at the broker ended, from the book's point of view.
+enum CloseOutcome {
+    Filled(OrderFill),
+    /// the broker holds nothing in the ticker (someone else closed it).
+    Flat,
+    /// the broker may still hold it: a working order (`Some(id)`) or an errored request.
+    Pending(Option<String>, String),
+}
+
+/// what a pending-exit check established.
+enum ExitResolution {
+    Filled { price: Option<f64> },
+    BrokerFlat { price: Option<f64> },
+    /// the order ended (cancelled / expired / rejected) and the broker still holds the
+    /// position: submit a new close.
+    Resubmit,
+    Still,
 }
 
 /// an entry whose broker order failed or could not be confirmed: the engine is flat,
@@ -477,6 +521,12 @@ pub struct Book {
     last_near_miss: HashMap<String, DateTime<Utc>>,
     /// primary only: tickers whose failed entry order still needs the broker's word.
     unreconciled: HashMap<String, Unreconciled>,
+    /// tickers whose exit the broker has not confirmed (engine still in the position).
+    exit_pending: HashMap<String, ExitPending>,
+    /// live reconciliation debounce: consecutive checks a broker position was unknown
+    /// to the engine / an engine position was missing at the broker.
+    orphan_sightings: HashMap<String, u32>,
+    flat_sightings: HashMap<String, u32>,
     process_started_at: DateTime<Utc>,
 }
 
@@ -548,6 +598,9 @@ impl Book {
             last_gate: HashMap::new(),
             last_near_miss: HashMap::new(),
             unreconciled: HashMap::new(),
+            exit_pending: HashMap::new(),
+            orphan_sightings: HashMap::new(),
+            flat_sightings: HashMap::new(),
             process_started_at,
         };
         book.refresh_ticker_list();
@@ -675,6 +728,21 @@ impl Book {
         v
     }
 
+    /// tickers whose exit the broker has not confirmed yet (sorted).
+    pub fn exit_pending_tickers(&self) -> Vec<String> {
+        let mut v: Vec<String> = self.exit_pending.keys().cloned().collect();
+        v.sort();
+        v
+    }
+
+    pub fn exit_pending(&self, ticker: &str) -> Option<&ExitPending> {
+        self.exit_pending.get(ticker)
+    }
+
+    pub fn has_exit_pending(&self) -> bool {
+        !self.exit_pending.is_empty()
+    }
+
     // ── broker ↔ engine invariant ──
 
     /// the broker rejected — or could not confirm — the entry order: roll the engine
@@ -765,6 +833,66 @@ impl Book {
         }
     }
 
+    /// one position the broker holds that no engine knows about: adopt / close / ignore
+    /// per `policy`, and tell the human. `context` names the check ("startup" / "intraday").
+    async fn handle_orphan(&mut self, p: &BrokerPosition, policy: OrphanPolicy, now: DateTime<Utc>, context: &str) -> OrphanAction {
+        let traded = self.sessions.contains_key(&p.ticker);
+        error!(
+            book = %self.spec.name,
+            ticker = %p.ticker,
+            direction = ?p.direction,
+            quantity = p.quantity,
+            entry_price = p.entry_price,
+            traded,
+            ?policy,
+            context,
+            "BROKER HOLDS A POSITION THE ENGINE DOES NOT KNOW ABOUT"
+        );
+        let reason = format!("adopted:orphan-at-{context}");
+        let action = match (policy, traded) {
+            (OrphanPolicy::Ignore, _) => OrphanAction::Ignored,
+            (OrphanPolicy::Adopt, true) => {
+                if self.adopt(p, now, None, &reason) {
+                    OrphanAction::Adopted
+                } else {
+                    OrphanAction::CloseFailed("adoption refused".to_string())
+                }
+            }
+            (OrphanPolicy::Adopt, false) | (OrphanPolicy::Close, _) => {
+                match self.broker.close_orphan(p, is_regular_hours(now)).await {
+                    Ok(OrphanClose::Filled(f)) => {
+                        warn!(book = %self.spec.name, ticker = %p.ticker, fill_price = f.fill_price, quantity = f.quantity, "orphan closed at the broker");
+                        OrphanAction::Closed
+                    }
+                    Ok(OrphanClose::Working { order_id, limit_price }) => {
+                        warn!(book = %self.spec.name, ticker = %p.ticker, order_id, limit_price, "orphan close resting as an extended-hours limit");
+                        OrphanAction::CloseWorking
+                    }
+                    Err(BrokerError::Working { order_id }) => {
+                        warn!(book = %self.spec.name, ticker = %p.ticker, order_id, "orphan close still working at the broker (not cancelled)");
+                        OrphanAction::CloseWorking
+                    }
+                    Err(e) => {
+                        error!(book = %self.spec.name, ticker = %p.ticker, error = %e, "orphan close FAILED");
+                        OrphanAction::CloseFailed(e.to_string())
+                    }
+                }
+            }
+        };
+        let what = match &action {
+            OrphanAction::Adopted => "adopted into the engine (the exit stack closes it today)".to_string(),
+            OrphanAction::Closed => "closed at the broker".to_string(),
+            OrphanAction::CloseWorking => "close order working at the broker (left working, re-checked)".to_string(),
+            OrphanAction::CloseFailed(e) => format!("CLOSE FAILED ({e}) — close it by hand"),
+            OrphanAction::Ignored => "IGNORED per ORPHAN_POLICY=ignore — close it by hand".to_string(),
+        };
+        notify_critical(format!(
+            "CRITICAL {} {context}: broker holds {:?} {} {} @ {:.4} the engine does not know — {}",
+            self.spec.name, p.direction, p.quantity, p.ticker, p.entry_price, what
+        ));
+        action
+    }
+
     /// startup reconciliation (primary only — shadows are simulated and start empty):
     /// every position the broker holds that no engine knows about is adopted, closed or
     /// ignored per `policy`, and the human is told either way.
@@ -776,57 +904,258 @@ impl Book {
             if known {
                 continue;
             }
-            let traded = self.sessions.contains_key(&p.ticker);
-            error!(
-                book = %self.spec.name,
-                ticker = %p.ticker,
-                direction = ?p.direction,
-                quantity = p.quantity,
-                entry_price = p.entry_price,
-                traded,
-                ?policy,
-                "BROKER HOLDS A POSITION THE ENGINE DOES NOT KNOW ABOUT"
-            );
-            let action = match (policy, traded) {
-                (OrphanPolicy::Ignore, _) => OrphanAction::Ignored,
-                (OrphanPolicy::Adopt, true) => {
-                    if self.adopt(&p, now, None, "adopted:orphan-at-start") {
-                        OrphanAction::Adopted
-                    } else {
-                        OrphanAction::CloseFailed("adoption refused".to_string())
-                    }
-                }
-                (OrphanPolicy::Adopt, false) | (OrphanPolicy::Close, _) => {
-                    match self.broker.close_orphan(&p, is_regular_hours(now)).await {
-                        Ok(OrphanClose::Filled(f)) => {
-                            warn!(book = %self.spec.name, ticker = %p.ticker, fill_price = f.fill_price, quantity = f.quantity, "orphan closed at the broker");
-                            OrphanAction::Closed
-                        }
-                        Ok(OrphanClose::Working { order_id, limit_price }) => {
-                            warn!(book = %self.spec.name, ticker = %p.ticker, order_id, limit_price, "orphan close resting as an extended-hours limit");
-                            OrphanAction::CloseWorking
-                        }
-                        Err(e) => {
-                            error!(book = %self.spec.name, ticker = %p.ticker, error = %e, "orphan close FAILED");
-                            OrphanAction::CloseFailed(e.to_string())
-                        }
-                    }
-                }
-            };
-            let what = match &action {
-                OrphanAction::Adopted => "adopted into the engine (the exit stack closes it today)".to_string(),
-                OrphanAction::Closed => "closed at the broker".to_string(),
-                OrphanAction::CloseWorking => "close limit resting at the broker (extended hours, last ±0.3%)".to_string(),
-                OrphanAction::CloseFailed(e) => format!("CLOSE FAILED ({e}) — close it by hand"),
-                OrphanAction::Ignored => "IGNORED per ORPHAN_POLICY=ignore — close it by hand".to_string(),
-            };
-            notify_critical(format!(
-                "CRITICAL {} startup: broker holds {:?} {} {} @ {:.4} the engine does not know — {}",
-                self.spec.name, p.direction, p.quantity, p.ticker, p.entry_price, what
-            ));
+            let action = self.handle_orphan(&p, policy, now, "start").await;
             outcomes.push(OrphanOutcome { ticker: p.ticker.clone(), action });
         }
         Ok(outcomes)
+    }
+
+    /// intraday reconciliation (primary, every `LIVE_RECONCILE_SECS` during regular
+    /// hours): the startup orphan policy for broker positions no engine knows about, and
+    /// the reverse — an engine position the broker does not hold is marked closed at the
+    /// last price (`ManualOverride`, "broker-flat"). either mismatch must be seen on
+    /// `MISMATCH_SIGHTINGS` consecutive checks before anything is done (an order can be
+    /// in flight); tickers with an exit pending or an unreconciled entry are skipped.
+    /// returns (orphans handled, tickers marked broker-flat).
+    pub async fn reconcile_live(
+        &mut self,
+        policy: OrphanPolicy,
+        now: DateTime<Utc>,
+        last_prices: &HashMap<String, f64>,
+    ) -> Result<(Vec<OrphanOutcome>, Vec<String>), BrokerError> {
+        let held = self.broker.open_positions().await?;
+        let in_flight = |b: &Self, t: &str| b.exit_pending.contains_key(t) || b.unreconciled.contains_key(t);
+
+        // broker → engine: positions no engine knows about
+        let mut orphans = Vec::new();
+        let mut seen: BTreeSet<String> = BTreeSet::new();
+        for p in &held {
+            let known = self.sessions.get(&p.ticker).map(|s| s.has_position()).unwrap_or(false);
+            if known || in_flight(self, &p.ticker) {
+                continue;
+            }
+            seen.insert(p.ticker.clone());
+            let n = self.orphan_sightings.entry(p.ticker.clone()).or_insert(0);
+            *n += 1;
+            let n = *n;
+            if n < MISMATCH_SIGHTINGS {
+                warn!(book = %self.spec.name, ticker = %p.ticker, direction = ?p.direction, quantity = p.quantity, sighting = n, "broker holds a position the engine does not — waiting for a second sighting");
+                continue;
+            }
+            self.orphan_sightings.remove(&p.ticker);
+            let action = self.handle_orphan(p, policy, now, "intraday").await;
+            orphans.push(OrphanOutcome { ticker: p.ticker.clone(), action });
+        }
+        self.orphan_sightings.retain(|t, _| seen.contains(t));
+
+        // engine → broker: positions the broker does not hold
+        let mut flat = Vec::new();
+        let mut seen: BTreeSet<String> = BTreeSet::new();
+        for ticker in self.open_tickers() {
+            if in_flight(self, &ticker) || held.iter().any(|p| p.ticker == ticker) {
+                continue;
+            }
+            seen.insert(ticker.clone());
+            let n = self.flat_sightings.entry(ticker.clone()).or_insert(0);
+            *n += 1;
+            let n = *n;
+            if n < MISMATCH_SIGHTINGS {
+                warn!(book = %self.spec.name, ticker = %ticker, sighting = n, "engine holds a position the broker does not — waiting for a second sighting");
+                continue;
+            }
+            self.flat_sightings.remove(&ticker);
+            let price = last_prices.get(&ticker).copied().unwrap_or(0.0);
+            let closed = self
+                .sessions
+                .get_mut(&ticker)
+                .and_then(|s| s.force_close(price, now, ExitReason::ManualOverride));
+            match closed {
+                Some(tws) => {
+                    error!(book = %self.spec.name, ticker = %ticker, price, pnl = format!("{:.2}", tws.trade.pnl), "broker-flat: engine position the broker does not hold — marked closed at the last price");
+                    self.daily_pnl += tws.trade.pnl;
+                    self.record_trade(&tws, None).await;
+                    notify_warning(format!(
+                        "WARNING {} {ticker}: broker-flat — the engine held {:?} {} @ {:.4} the broker does not; recorded closed at {:.4} (ManualOverride), pnl {:.2}",
+                        self.spec.name, tws.trade.direction, tws.trade.size, tws.trade.entry_price, price, tws.trade.pnl
+                    ));
+                    flat.push(ticker);
+                }
+                None => warn!(book = %self.spec.name, ticker = %ticker, "broker-flat: force_close produced no trade"),
+            }
+        }
+        self.flat_sightings.retain(|t, _| seen.contains(t));
+        if !flat.is_empty() && self.pending.is_some() {
+            let _ = self.apply_pending_where_flat().await;
+        }
+        Ok((orphans, flat))
+    }
+
+    // ── exits the broker has not confirmed ──
+
+    /// ask the broker to close `ticker` and classify the answer.
+    async fn close_at_broker(&self, ticker: &str) -> CloseOutcome {
+        match self.broker.close_position(ticker).await {
+            Ok(fill) => CloseOutcome::Filled(fill),
+            Err(BrokerError::NoPosition(_)) => CloseOutcome::Flat,
+            Err(BrokerError::Working { order_id }) => CloseOutcome::Pending(Some(order_id), "still working at the deadline".into()),
+            Err(e) => CloseOutcome::Pending(None, e.to_string()),
+        }
+    }
+
+    /// the broker did not confirm the close: keep the engine in the position (no trade
+    /// is recorded) and track the order until it resolves.
+    fn begin_exit_pending(&mut self, ticker: &str, order_id: Option<String>, reason: ExitReason, engine_exit_price: f64, now: DateTime<Utc>, why: &str) {
+        error!(book = %self.spec.name, ticker, ?order_id, ?reason, why, "broker close NOT confirmed — engine keeps the position, exit pending (re-checked every bar / heartbeat)");
+        self.exit_pending.insert(
+            ticker.to_string(),
+            ExitPending { order_id: order_id.clone(), reason: reason.clone(), engine_exit_price, since: now, checks: 0, alerted: false },
+        );
+        if self.is_primary() {
+            notify_warning(format!(
+                "WARNING {} {ticker}: close ({reason:?}) not confirmed by the broker ({why}; order {}) — position kept open in the engine, re-checking until it fills",
+                self.spec.name,
+                order_id.as_deref().unwrap_or("none")
+            ));
+        }
+    }
+
+    /// record the exit of a pending ticker: engine close at `price` with the pending
+    /// reason, broker fill price when known.
+    async fn finish_exit_pending(&mut self, ticker: &str, p: &ExitPending, price: f64, broker_exit: Option<f64>, now: DateTime<Utc>, how: &str) {
+        let closed = self
+            .sessions
+            .get_mut(ticker)
+            .and_then(|s| s.force_close(price, now, p.reason.clone()));
+        match closed {
+            Some(tws) => {
+                info!(book = %self.spec.name, ticker, price, ?broker_exit, reason = ?p.reason, checks = p.checks, pending_for_s = (now - p.since).num_seconds(), how, "pending exit resolved");
+                self.daily_pnl += tws.trade.pnl;
+                self.record_trade(&tws, broker_exit).await;
+            }
+            None => warn!(book = %self.spec.name, ticker, how, "pending exit resolved but the engine had no position"),
+        }
+        if self.pending.is_some() {
+            let _ = self.apply_pending_where_flat().await;
+        }
+    }
+
+    /// what the broker says about a pending exit now.
+    async fn resolve_exit_pending(&self, ticker: &str, p: &ExitPending) -> ExitResolution {
+        let held_now = |list: &[BrokerPosition]| list.iter().any(|h| h.ticker == ticker);
+        let Some(order_id) = &p.order_id else {
+            return match self.broker.open_positions().await {
+                Ok(list) if held_now(&list) => ExitResolution::Resubmit,
+                Ok(_) => ExitResolution::BrokerFlat { price: None },
+                Err(e) => {
+                    warn!(book = %self.spec.name, ticker, error = %e, "pending exit: broker unreachable");
+                    ExitResolution::Still
+                }
+            };
+        };
+        match self.broker.order_status(order_id).await {
+            Ok(view) => match view.state {
+                OrderState::Filled => ExitResolution::Filled { price: view.avg_fill_price },
+                OrderState::Working => {
+                    debug!(book = %self.spec.name, ticker, order_id, filled_qty = view.filled_qty, "pending exit: order still working");
+                    ExitResolution::Still
+                }
+                OrderState::Terminal(status) => match self.broker.open_positions().await {
+                    Ok(list) if held_now(&list) => {
+                        warn!(book = %self.spec.name, ticker, order_id, status, filled_qty = view.filled_qty, "pending exit: order ended but the broker still holds the position — re-submitting the close");
+                        ExitResolution::Resubmit
+                    }
+                    Ok(_) => ExitResolution::BrokerFlat { price: view.avg_fill_price.filter(|_| view.filled_qty > 0.0) },
+                    Err(e) => {
+                        warn!(book = %self.spec.name, ticker, order_id, status, error = %e, "pending exit: order ended, positions unreachable");
+                        ExitResolution::Still
+                    }
+                },
+            },
+            Err(e) => {
+                warn!(book = %self.spec.name, ticker, order_id, error = %e, "pending exit: order lookup failed — asking the positions list");
+                match self.broker.open_positions().await {
+                    Ok(list) if held_now(&list) => ExitResolution::Still,
+                    Ok(_) => ExitResolution::BrokerFlat { price: None },
+                    Err(_) => ExitResolution::Still,
+                }
+            }
+        }
+    }
+
+    /// re-check one pending exit. true when it resolved (the ticker is flat now).
+    pub async fn check_exit_pending(&mut self, ticker: &str, now: DateTime<Utc>, last_price: Option<f64>) -> bool {
+        let Some(mut p) = self.exit_pending.remove(ticker) else { return false };
+        p.checks += 1;
+        let fallback = last_price.filter(|x| *x > 0.0).unwrap_or(p.engine_exit_price);
+        let resolution = self.resolve_exit_pending(ticker, &p).await;
+        match resolution {
+            ExitResolution::Filled { price } => {
+                let px = price.filter(|x| *x > 0.0).unwrap_or(fallback);
+                self.finish_exit_pending(ticker, &p, px, price.filter(|x| *x > 0.0), now, "order filled").await;
+                true
+            }
+            ExitResolution::BrokerFlat { price } => {
+                let px = price.filter(|x| *x > 0.0).unwrap_or(fallback);
+                warn!(book = %self.spec.name, ticker, price = px, fill_known = price.is_some(), "pending exit: broker is flat — recording the exit");
+                if self.is_primary() {
+                    notify_warning(format!(
+                        "WARNING {} {ticker}: broker flat while a close was pending — exit recorded at {px:.4} ({})",
+                        self.spec.name,
+                        if price.is_some() { "order's fill price" } else { "last known price; fill unknown" }
+                    ));
+                }
+                self.finish_exit_pending(ticker, &p, px, price.filter(|x| *x > 0.0), now, "broker flat").await;
+                true
+            }
+            ExitResolution::Resubmit => match self.close_at_broker(ticker).await {
+                CloseOutcome::Filled(f) => {
+                    let px = Some(f.fill_price).filter(|x| *x > 0.0);
+                    self.finish_exit_pending(ticker, &p, px.unwrap_or(fallback), px, now, "re-submitted close filled").await;
+                    true
+                }
+                CloseOutcome::Flat => {
+                    self.finish_exit_pending(ticker, &p, fallback, None, now, "broker flat on re-submission").await;
+                    true
+                }
+                CloseOutcome::Pending(order_id, why) => {
+                    warn!(book = %self.spec.name, ticker, ?order_id, why, "pending exit: re-submitted close not confirmed either");
+                    p.order_id = order_id;
+                    self.keep_exit_pending(ticker, p, now);
+                    false
+                }
+            },
+            ExitResolution::Still => {
+                self.keep_exit_pending(ticker, p, now);
+                false
+            }
+        }
+    }
+
+    fn keep_exit_pending(&mut self, ticker: &str, mut p: ExitPending, now: DateTime<Utc>) {
+        let age = (now - p.since).num_seconds();
+        if !p.alerted && age >= EXIT_PENDING_ALERT_SECS {
+            p.alerted = true;
+            error!(book = %self.spec.name, ticker, order_id = ?p.order_id, age_s = age, checks = p.checks, "EXIT STILL PENDING — the broker has not confirmed the close");
+            if self.is_primary() {
+                notify_critical(format!(
+                    "CRITICAL {} {ticker}: close ({:?}) still unconfirmed after {}s (order {}, {} checks) — the broker may still hold the position; check the account",
+                    self.spec.name,
+                    p.reason,
+                    age,
+                    p.order_id.as_deref().unwrap_or("none"),
+                    p.checks
+                ));
+            }
+        }
+        self.exit_pending.insert(ticker.to_string(), p);
+    }
+
+    /// re-check every pending exit (heartbeat).
+    pub async fn check_exits_pending(&mut self, now: DateTime<Utc>, last_prices: &HashMap<String, f64>) {
+        for ticker in self.exit_pending_tickers() {
+            let last = last_prices.get(&ticker).copied();
+            self.check_exit_pending(&ticker, now, last).await;
+        }
     }
 
     // ── per-bar ──
@@ -883,10 +1212,13 @@ impl Book {
         if self.unreconciled.contains_key(ticker) {
             self.reconcile_ticker(ticker, bar_ts).await;
         }
+        if self.exit_pending.contains_key(ticker) {
+            self.check_exit_pending(ticker, bar_ts, Some(last_price)).await;
+        }
 
         // cross-ticker capacity: still tick (exits, clocks, diagnostics), but block entries
         let at_capacity = self.open_position_count() >= self.max_concurrent();
-        let (result, trade, session_cfg_id) = {
+        let (mut result, mut trade, session_cfg_id) = {
             let session = self.sessions.get_mut(ticker)?;
             if at_capacity && !session.has_position() {
                 market.entries_blocked = true;
@@ -945,24 +1277,47 @@ impl Book {
         }
 
         let mut dropped = Vec::new();
-        if let Some(tws) = &trade {
-            let broker_exit = match self.broker.close_position(&tws.trade.ticker).await {
-                Ok(fill) => {
-                    info!(book = %self.spec.name, ticker = %tws.trade.ticker, fill_price = fill.fill_price, engine_price = tws.trade.exit_price, "broker position closed");
-                    Some(fill.fill_price).filter(|p| *p > 0.0)
-                }
-                Err(e) => {
-                    error!(book = %self.spec.name, ticker = %tws.trade.ticker, error = %e, "broker close FAILED (engine already closed) — check the account");
-                    if self.is_primary() {
-                        notify_critical(format!("CRITICAL {} {}: broker close FAILED ({e}) — the engine recorded the exit; check the account", self.spec.name, tws.trade.ticker));
+        if let Some(tws) = trade.take() {
+            if self.exit_pending.contains_key(ticker) {
+                // the exit stack re-fired while the earlier close is still unconfirmed:
+                // nothing new to send; the engine stays in the position
+                debug!(book = %self.spec.name, ticker, reason = ?tws.trade.exit_reason, "exit re-fired while a close is pending — reverted");
+                self.revert_engine_close(ticker, &tws);
+                result.event = TickEvent::Nothing;
+            } else {
+                match self.close_at_broker(ticker).await {
+                    CloseOutcome::Filled(fill) => {
+                        info!(book = %self.spec.name, ticker, fill_price = fill.fill_price, engine_price = tws.trade.exit_price, "broker position closed");
+                        let broker_exit = Some(fill.fill_price).filter(|p| *p > 0.0);
+                        self.daily_pnl += tws.trade.pnl;
+                        self.record_trade(&tws, broker_exit).await;
+                        trade = Some(tws);
                     }
-                    None
+                    CloseOutcome::Flat => {
+                        warn!(book = %self.spec.name, ticker, "broker held no position at the close — recording the engine's exit");
+                        self.daily_pnl += tws.trade.pnl;
+                        self.record_trade(&tws, None).await;
+                        trade = Some(tws);
+                    }
+                    CloseOutcome::Pending(order_id, why) => {
+                        // the exit is NOT a trade until the broker says so
+                        if self.revert_engine_close(ticker, &tws) {
+                            self.begin_exit_pending(ticker, order_id, tws.trade.exit_reason.clone(), tws.trade.exit_price, bar_ts, &why);
+                            result.event = TickEvent::Nothing;
+                        } else {
+                            error!(book = %self.spec.name, ticker, why, "broker close not confirmed and the engine could not reopen — recording the exit; CHECK THE ACCOUNT");
+                            if self.is_primary() {
+                                notify_critical(format!("CRITICAL {} {ticker}: broker close not confirmed ({why}) and the engine could not keep the position — exit recorded; check the account", self.spec.name));
+                            }
+                            self.daily_pnl += tws.trade.pnl;
+                            self.record_trade(&tws, None).await;
+                            trade = Some(tws);
+                        }
+                    }
                 }
-            };
-            self.daily_pnl += tws.trade.pnl;
-            self.record_trade(tws, broker_exit).await;
+            }
             // this ticker is flat now — if a config is waiting, swap it in
-            if self.pending.is_some() {
+            if trade.is_some() && self.pending.is_some() {
                 dropped = self.apply_pending_where_flat().await;
             }
         }
@@ -972,6 +1327,14 @@ impl Book {
         self.persist_state(ticker, shared).await;
 
         Some(BarOutcome { result, trade, dropped })
+    }
+
+    /// put the position the engine just closed back (the broker has not confirmed).
+    fn revert_engine_close(&mut self, ticker: &str, tws: &TradeWithScores) -> bool {
+        self.sessions
+            .get_mut(ticker)
+            .map(|s| s.reopen_after_unconfirmed_close(tws))
+            .unwrap_or(false)
     }
 
     // ── trades ──
@@ -1004,6 +1367,8 @@ impl Book {
     /// close the position at the broker and record the trade. `price` is the engine-side
     /// exit price (last known bar close) used when the broker has no better number;
     /// `now` stamps the exit (wall clock live, bar time in replay).
+    /// an unconfirmed close keeps the position and goes
+    /// pending like any other exit; a ticker already pending is only re-checked.
     async fn close_and_record(
         &mut self,
         ticker: &str,
@@ -1011,17 +1376,23 @@ impl Book {
         reason: ExitReason,
         now: DateTime<Utc>,
     ) {
-        let broker_exit = match self.broker.close_position(ticker).await {
-            Ok(fill) => {
+        if self.exit_pending.contains_key(ticker) {
+            info!(book = %self.spec.name, ticker, ?reason, "force close requested while a close is pending — re-checking the pending order instead");
+            self.check_exit_pending(ticker, now, Some(price).filter(|p| *p > 0.0)).await;
+            return;
+        }
+        let broker_exit = match self.close_at_broker(ticker).await {
+            CloseOutcome::Filled(fill) => {
                 info!(book = %self.spec.name, ticker, fill_price = fill.fill_price, ?reason, "broker position closed");
                 Some(fill.fill_price).filter(|p| *p > 0.0)
             }
-            Err(e) => {
-                error!(book = %self.spec.name, ticker, error = %e, ?reason, "broker close FAILED — check the account manually");
-                if self.is_primary() {
-                    notify_critical(format!("CRITICAL {} {}: forced close ({reason:?}) FAILED at the broker ({e}) — check the account", self.spec.name, ticker));
-                }
+            CloseOutcome::Flat => {
+                warn!(book = %self.spec.name, ticker, ?reason, "broker held no position at the forced close — recording the engine's exit");
                 None
+            }
+            CloseOutcome::Pending(order_id, why) => {
+                self.begin_exit_pending(ticker, order_id, reason, price, now, &why);
+                return;
             }
         };
         let engine_price = if price > 0.0 { price } else { broker_exit.unwrap_or(0.0) };
@@ -1758,4 +2129,388 @@ mod tests {
         assert_eq!(row.broker_mode, "simulated");
         assert!(book.state_row("QQQ", &shared).is_none());
     }
+
+    // ── exits the broker has not confirmed (2026-10-16) + intraday reconciliation ──
+
+    use crate::broker::OrderView;
+    use chrono::TimeZone;
+    use types::test_fixtures::{make_market_state_ohlcv, ranging_ohlcv};
+
+    /// one scripted answer to `close_position`.
+    #[derive(Clone)]
+    enum CloseAnswer {
+        Fill(f64),
+        Working(&'static str),
+        NoPosition,
+        Conn(&'static str),
+    }
+
+    /// a broker whose closes, order lookups and position lists are scripted (each list
+    /// is consumed in order; the last answer repeats).
+    struct ScriptedBroker {
+        closes: Mutex<Vec<CloseAnswer>>,
+        orders: Mutex<Vec<Result<OrderView, String>>>,
+        positions: Mutex<Vec<Result<Vec<BrokerPosition>, String>>>,
+        /// every call, shared with the test (the broker is boxed into the book).
+        calls: Calls,
+    }
+
+    type Calls = Arc<Mutex<Vec<String>>>;
+
+    impl ScriptedBroker {
+        fn boxed(closes: Vec<CloseAnswer>, orders: Vec<Result<OrderView, String>>, positions: Vec<Result<Vec<BrokerPosition>, String>>) -> (Box<dyn Broker>, Calls) {
+            let calls: Calls = Arc::new(Mutex::new(vec![]));
+            let b = Self { closes: Mutex::new(closes), orders: Mutex::new(orders), positions: Mutex::new(positions), calls: calls.clone() };
+            (Box::new(b), calls)
+        }
+        fn next<T: Clone>(v: &mut Vec<T>) -> Option<T> {
+            if v.len() > 1 { Some(v.remove(0)) } else { v.first().cloned() }
+        }
+    }
+
+    fn calls_of(c: &Calls) -> Vec<String> {
+        c.lock().unwrap().clone()
+    }
+
+    #[async_trait::async_trait]
+    impl Broker for ScriptedBroker {
+        fn kind(&self) -> &'static str {
+            "alpaca_paper"
+        }
+        async fn submit_order(&self, t: &str, d: TradeDirection, q: f64) -> Result<OrderFill, BrokerError> {
+            self.calls.lock().unwrap().push(format!("submit:{t}"));
+            Ok(OrderFill { ticker: t.into(), direction: d, quantity: q, fill_price: 100.0, filled_at: Utc::now() })
+        }
+        async fn close_position(&self, ticker: &str) -> Result<OrderFill, BrokerError> {
+            self.calls.lock().unwrap().push(format!("close:{ticker}"));
+            match Self::next(&mut self.closes.lock().unwrap()).unwrap_or(CloseAnswer::Conn("unscripted")) {
+                CloseAnswer::Fill(px) => Ok(OrderFill { ticker: ticker.into(), direction: TradeDirection::Long, quantity: 48.0, fill_price: px, filled_at: Utc::now() }),
+                CloseAnswer::Working(id) => Err(BrokerError::Working { order_id: id.to_string() }),
+                CloseAnswer::NoPosition => Err(BrokerError::NoPosition(ticker.into())),
+                CloseAnswer::Conn(e) => Err(BrokerError::ConnectionError(e.into())),
+            }
+        }
+        async fn order_status(&self, order_id: &str) -> Result<OrderView, BrokerError> {
+            self.calls.lock().unwrap().push(format!("order:{order_id}"));
+            Self::next(&mut self.orders.lock().unwrap())
+                .unwrap_or(Err("unscripted".into()))
+                .map_err(BrokerError::ConnectionError)
+        }
+        async fn open_positions(&self) -> Result<Vec<BrokerPosition>, BrokerError> {
+            self.calls.lock().unwrap().push("positions".into());
+            Self::next(&mut self.positions.lock().unwrap())
+                .unwrap_or(Ok(vec![]))
+                .map_err(BrokerError::ConnectionError)
+        }
+    }
+
+    fn order(id: &str, state: OrderState, filled_qty: f64, px: Option<f64>) -> OrderView {
+        OrderView { id: id.into(), client_order_id: "cid".into(), symbol: "AMZN".into(), state, filled_qty, avg_fill_price: px, filled_at: None }
+    }
+
+    /// a primary whose exit stack closes any position held longer than a minute.
+    fn primary_with_timeout(broker: Box<dyn Broker>, tickers: &[&str], log: ReplayLog) -> Book {
+        let mut cfg = test_config(tickers);
+        cfg.actions.push(types::ActionConfig {
+            action_type: "max_hold_timeout".to_string(),
+            instance_id: "mh".to_string(),
+            phase: types::ActionPhase::Exit,
+            enabled: true,
+            priority: 0,
+            params: vec![("max_hold_ms", json!(60_000))].into_iter().map(|(k, v)| (k.to_string(), v)).collect(),
+            last_modified_by: None,
+            last_modified_at: None,
+            modification_reason: None,
+        });
+        let plan = BookPlan::new(spec("primary", BookRole::Primary, None), 12, cfg);
+        Book::new_primary(plan, broker, 10_000.0, Sink::Replay(log), Utc::now()).unwrap()
+    }
+
+    fn rth(h: u32, m: u32) -> DateTime<Utc> {
+        // 2026-10-15 is a thursday; 14:00Z = 10:00 ET
+        Utc.with_ymd_and_hms(2026, 10, 15, h, m, 0).unwrap()
+    }
+
+    fn bar(ts: DateTime<Utc>, price: f64) -> (MarketState, TickerShared) {
+        let mut ms = make_market_state_ohlcv(Timescale::FiveMinute, &ranging_ohlcv(5, 100.0, 0.5));
+        ms.timestamp = ts;
+        ms.last_price = price;
+        let shared = TickerShared { last_bar_at: Some(ts), last_price: Some(price), feed_stale: false };
+        (ms, shared)
+    }
+
+    fn recorded(log: &ReplayLog) -> Vec<ReplayTrade> {
+        log.lock().unwrap().clone()
+    }
+
+    /// today's incident, fixed: the close comes back `Working`; the engine keeps the
+    /// position and no trade is recorded; the order fills before a later bar and the trade
+    /// is recorded with the broker's fill price and the original exit reason.
+    #[tokio::test]
+    async fn unconfirmed_close_keeps_the_position_until_the_order_fills() {
+        let log: ReplayLog = Arc::new(Mutex::new(Vec::new()));
+        let (broker, calls) = ScriptedBroker::boxed(
+            vec![CloseAnswer::Working("ord-1")],
+            vec![Ok(order("ord-1", OrderState::Working, 0.0, None)), Ok(order("ord-1", OrderState::Filled, 48.0, Some(250.10)))],
+            vec![Ok(vec![short("AMZN", 48.0, 249.70)])],
+        );
+        let mut book = primary_with_timeout(broker, &["AMZN"], log.clone());
+        let t0 = rth(14, 0);
+        book.session_mut("AMZN").unwrap().adopt_broker_position("AMZN", TradeDirection::Short, 48.0, 249.70, t0, None, "adopted:orphan-at-start").unwrap();
+
+        // bar 1: the timeout fires → close → Working: NOT a trade
+        let (ms, shared) = bar(t0 + Duration::minutes(2), 254.82);
+        let out = book.on_bar("AMZN", ms, &shared).await.unwrap();
+        assert!(out.trade.is_none(), "an unconfirmed close is not a trade");
+        assert!(matches!(out.result.event, TickEvent::Nothing));
+        assert!(book.session("AMZN").unwrap().has_position(), "engine keeps the position");
+        assert_eq!(book.session("AMZN").unwrap().entry_reason(), Some("adopted:orphan-at-start"));
+        assert_eq!(book.exit_pending_tickers(), vec!["AMZN".to_string()]);
+        let p = book.exit_pending("AMZN").unwrap();
+        assert_eq!(p.order_id.as_deref(), Some("ord-1"));
+        assert_eq!(p.reason, ExitReason::MaxHoldTimeout);
+        assert!(recorded(&log).is_empty());
+        assert!(book.daily_pnl().abs() < f64::EPSILON);
+        assert_eq!(book.open_tickers(), vec!["AMZN".to_string()]);
+
+        // bar 2: still working; the exit stack re-fires and is reverted, nothing new is sent
+        let (ms, shared) = bar(t0 + Duration::minutes(3), 254.90);
+        let out = book.on_bar("AMZN", ms, &shared).await.unwrap();
+        assert!(out.trade.is_none());
+        assert!(book.session("AMZN").unwrap().has_position());
+        assert_eq!(book.exit_pending("AMZN").unwrap().checks, 1);
+        assert!(recorded(&log).is_empty());
+
+        // bar 3: filled @ 250.10 → recorded with the real fill, original reason, engine flat
+        let (ms, shared) = bar(t0 + Duration::minutes(4), 255.00);
+        let _ = book.on_bar("AMZN", ms, &shared).await.unwrap();
+        assert!(!book.session("AMZN").unwrap().has_position());
+        assert!(book.exit_pending_tickers().is_empty());
+        let trades = recorded(&log);
+        assert_eq!(trades.len(), 1);
+        let t = &trades[0];
+        assert_eq!(t.tws.trade.exit_reason, ExitReason::MaxHoldTimeout);
+        assert_eq!(t.broker_exit_price, Some(250.10));
+        assert!((t.tws.trade.exit_price - 250.10).abs() < 1e-9);
+        assert!((t.tws.trade.entry_price - 249.70).abs() < 1e-9);
+        assert_eq!(t.tws.entry_reason, "adopted:orphan-at-start");
+        assert_eq!(t.tws.broker_entry_price, Some(249.70));
+        let expect_pnl = (249.70 - 250.10) * 48.0;
+        assert!((t.tws.trade.pnl - expect_pnl).abs() < 1e-6);
+        assert!((book.daily_pnl() - expect_pnl).abs() < 1e-6);
+        // exactly one close went to the broker
+        let calls = calls_of(&calls);
+        assert_eq!(calls.iter().filter(|c| c.starts_with("close:")).count(), 1, "{calls:?}");
+    }
+
+    /// the pending order ends (the human cancelled it) and the broker is flat (the human
+    /// closed it): the exit is recorded at the last known price and the ticker clears.
+    #[tokio::test]
+    async fn pending_exit_resolves_when_the_broker_turns_out_flat() {
+        let log: ReplayLog = Arc::new(Mutex::new(Vec::new()));
+        let (broker, calls) = ScriptedBroker::boxed(
+            vec![CloseAnswer::Working("ord-1")],
+            vec![Ok(order("ord-1", OrderState::Terminal("Canceled".into()), 0.0, None))],
+            vec![Ok(vec![])],
+        );
+        let mut book = primary_with_timeout(broker, &["AMZN"], log.clone());
+        let t0 = rth(14, 0);
+        book.session_mut("AMZN").unwrap().adopt_broker_position("AMZN", TradeDirection::Short, 48.0, 249.70, t0, None, "x").unwrap();
+        let (ms, shared) = bar(t0 + Duration::minutes(2), 254.82);
+        book.on_bar("AMZN", ms, &shared).await.unwrap();
+        assert!(book.exit_pending("AMZN").is_some());
+
+        // heartbeat path, last price 251.00
+        let mut prices = HashMap::new();
+        prices.insert("AMZN".to_string(), 251.0);
+        book.check_exits_pending(t0 + Duration::minutes(3), &prices).await;
+        assert!(book.exit_pending_tickers().is_empty());
+        assert!(!book.session("AMZN").unwrap().has_position());
+        let trades = recorded(&log);
+        assert_eq!(trades.len(), 1);
+        assert_eq!(trades[0].tws.trade.exit_reason, ExitReason::MaxHoldTimeout);
+        assert!((trades[0].tws.trade.exit_price - 251.0).abs() < 1e-9);
+        assert_eq!(trades[0].broker_exit_price, None, "fill unknown");
+        let calls = calls_of(&calls);
+        assert_eq!(calls.iter().filter(|c| c.starts_with("close:")).count(), 1, "{calls:?}");
+    }
+
+    /// the force-exit safety net uses the same path: an unconfirmed force close keeps the
+    /// position; on the next heartbeat the broker still holds it after the order ended,
+    /// so a new close is submitted and its fill is recorded.
+    #[tokio::test]
+    async fn unconfirmed_force_close_keeps_the_position_and_resubmits() {
+        let log: ReplayLog = Arc::new(Mutex::new(Vec::new()));
+        let (broker, calls) = ScriptedBroker::boxed(
+            vec![CloseAnswer::Conn("connection reset"), CloseAnswer::Fill(250.00)],
+            vec![],
+            vec![Ok(vec![short("AMZN", 48.0, 249.70)])],
+        );
+        let mut book = primary_on(broker, &["AMZN"]);
+        // swap the sink for one we can read
+        book.sink = Sink::Replay(log.clone());
+        let t0 = rth(14, 0);
+        book.session_mut("AMZN").unwrap().adopt_broker_position("AMZN", TradeDirection::Short, 48.0, 249.70, t0, None, "x").unwrap();
+        let mut prices = HashMap::new();
+        prices.insert("AMZN".to_string(), 252.0);
+
+        book.flatten_all(ExitReason::SessionClose, &prices, t0 + Duration::minutes(5)).await;
+        assert!(book.session("AMZN").unwrap().has_position(), "no pretending: the position stays until the broker confirms");
+        assert!(recorded(&log).is_empty());
+        let p = book.exit_pending("AMZN").unwrap();
+        assert_eq!(p.order_id, None);
+        assert_eq!(p.reason, ExitReason::SessionClose);
+
+        // a second flatten (the clock safety net again) does not send another close
+        book.flatten_all(ExitReason::SessionClose, &prices, t0 + Duration::minutes(6)).await;
+        // …but that re-check saw the broker still holding → re-submitted → filled
+        assert!(book.exit_pending_tickers().is_empty());
+        assert!(!book.session("AMZN").unwrap().has_position());
+        let trades = recorded(&log);
+        assert_eq!(trades.len(), 1);
+        assert_eq!(trades[0].tws.trade.exit_reason, ExitReason::SessionClose);
+        assert_eq!(trades[0].broker_exit_price, Some(250.0));
+        assert!((trades[0].tws.trade.exit_price - 250.0).abs() < 1e-9);
+        let calls = calls_of(&calls);
+        assert_eq!(calls.iter().filter(|c| c.starts_with("close:")).count(), 2, "{calls:?}");
+    }
+
+    /// the broker already holds nothing when the exit fires (someone closed it by hand):
+    /// the engine's exit is recorded as before, with no broker fill price.
+    #[tokio::test]
+    async fn close_with_no_broker_position_records_the_engine_exit() {
+        let log: ReplayLog = Arc::new(Mutex::new(Vec::new()));
+        let (broker, calls) = ScriptedBroker::boxed(vec![CloseAnswer::NoPosition], vec![], vec![Ok(vec![])]);
+        let mut book = primary_with_timeout(broker, &["AMZN"], log.clone());
+        let t0 = rth(14, 0);
+        book.session_mut("AMZN").unwrap().adopt_broker_position("AMZN", TradeDirection::Short, 48.0, 249.70, t0, None, "x").unwrap();
+        let (ms, shared) = bar(t0 + Duration::minutes(2), 254.82);
+        let out = book.on_bar("AMZN", ms, &shared).await.unwrap();
+        let tws = out.trade.expect("recorded");
+        assert_eq!(tws.trade.exit_reason, ExitReason::MaxHoldTimeout);
+        assert!(!book.session("AMZN").unwrap().has_position());
+        assert!(book.exit_pending_tickers().is_empty());
+        let trades = recorded(&log);
+        assert_eq!(trades.len(), 1);
+        assert_eq!(trades[0].broker_exit_price, None);
+        assert_eq!(calls_of(&calls).iter().filter(|c| c.starts_with("close:")).count(), 1);
+    }
+
+    #[tokio::test]
+    async fn pending_exit_alerts_once_after_the_deadline_and_stays_pending() {
+        let (broker, _calls) = ScriptedBroker::boxed(
+            vec![CloseAnswer::Working("ord-1")],
+            vec![Ok(order("ord-1", OrderState::Working, 20.0, Some(249.9)))],
+            vec![Ok(vec![short("AMZN", 28.0, 249.70)])],
+        );
+        let mut book = primary_on(broker, &["AMZN"]);
+        let t0 = rth(14, 0);
+        book.session_mut("AMZN").unwrap().adopt_broker_position("AMZN", TradeDirection::Short, 48.0, 249.70, t0, None, "x").unwrap();
+        let prices: HashMap<String, f64> = [("AMZN".to_string(), 252.0)].into_iter().collect();
+        book.flatten_all(ExitReason::SessionClose, &prices, t0).await;
+        assert!(!book.exit_pending("AMZN").unwrap().alerted);
+        book.check_exits_pending(t0 + Duration::seconds(EXIT_PENDING_ALERT_SECS - 1), &prices).await;
+        assert!(!book.exit_pending("AMZN").unwrap().alerted);
+        book.check_exits_pending(t0 + Duration::seconds(EXIT_PENDING_ALERT_SECS), &prices).await;
+        let p = book.exit_pending("AMZN").unwrap();
+        assert!(p.alerted);
+        assert_eq!(p.checks, 2);
+        assert!(book.session("AMZN").unwrap().has_position(), "a partial fill keeps waiting");
+    }
+
+    #[tokio::test]
+    async fn heartbeat_reconciliation_adopts_an_orphan_after_two_sightings() {
+        let (broker, calls) = ScriptedBroker::boxed(
+            vec![CloseAnswer::Fill(150.0)],
+            vec![],
+            vec![Ok(vec![short("AMZN", 48.0, 249.70), BrokerPosition { ticker: "AMD".into(), direction: TradeDirection::Long, quantity: 7.0, entry_price: 150.0, current_price: None }])],
+        );
+        let mut book = primary_on(broker, &["AMZN", "NVDA"]);
+        let prices = HashMap::new();
+        let t0 = rth(14, 0);
+
+        // first sighting: nothing happens
+        let (orphans, flat) = book.reconcile_live(OrphanPolicy::Adopt, t0, &prices).await.unwrap();
+        assert!(orphans.is_empty() && flat.is_empty());
+        assert!(!book.session("AMZN").unwrap().has_position());
+        assert!(!calls_of(&calls).iter().any(|c| c.starts_with("close:")));
+
+        // second consecutive sighting: AMZN (traded) adopted, AMD (not traded) closed
+        let (orphans, flat) = book.reconcile_live(OrphanPolicy::Adopt, t0 + Duration::minutes(5), &prices).await.unwrap();
+        assert!(flat.is_empty());
+        let mut by: Vec<(String, OrphanAction)> = orphans.into_iter().map(|o| (o.ticker, o.action)).collect();
+        by.sort_by(|a, b| a.0.cmp(&b.0));
+        assert_eq!(by, vec![("AMD".to_string(), OrphanAction::Closed), ("AMZN".to_string(), OrphanAction::Adopted)]);
+        let p = book.session("AMZN").unwrap().current_position().expect("adopted");
+        assert_eq!(p.direction, TradeDirection::Short);
+        assert!((p.size - 48.0).abs() < f64::EPSILON);
+        assert_eq!(book.session("AMZN").unwrap().entry_reason(), Some("adopted:orphan-at-intraday"));
+        assert_eq!(calls_of(&calls).iter().filter(|c| c == &"close:AMD").count(), 1);
+
+        // a third check: the engine knows AMZN now; AMD's sighting count restarts
+        let (orphans, _) = book.reconcile_live(OrphanPolicy::Adopt, t0 + Duration::minutes(10), &prices).await.unwrap();
+        assert!(orphans.is_empty(), "AMZN is known; AMD needs two fresh sightings");
+    }
+
+    #[tokio::test]
+    async fn heartbeat_reconciliation_debounce_resets_when_the_mismatch_clears() {
+        let (broker, _calls) = ScriptedBroker::boxed(
+            vec![],
+            vec![],
+            vec![Ok(vec![short("AMZN", 48.0, 249.70)]), Ok(vec![]), Ok(vec![short("AMZN", 48.0, 249.70)]), Ok(vec![])],
+        );
+        let mut book = primary_on(broker, &["AMZN"]);
+        let prices = HashMap::new();
+        for i in 0..4 {
+            let (orphans, flat) = book.reconcile_live(OrphanPolicy::Adopt, rth(14, i), &prices).await.unwrap();
+            assert!(orphans.is_empty() && flat.is_empty(), "check {i}: an in-flight order must not be adopted");
+        }
+        assert!(!book.session("AMZN").unwrap().has_position());
+    }
+
+    #[tokio::test]
+    async fn heartbeat_reconciliation_marks_broker_flat_after_two_sightings() {
+        let log: ReplayLog = Arc::new(Mutex::new(Vec::new()));
+        let (broker, calls) = ScriptedBroker::boxed(vec![], vec![], vec![Ok(vec![])]);
+        let mut book = primary_on(broker, &["AMZN"]);
+        book.sink = Sink::Replay(log.clone());
+        let t0 = rth(14, 0);
+        book.session_mut("AMZN").unwrap().adopt_broker_position("AMZN", TradeDirection::Short, 48.0, 249.70, t0, None, "x").unwrap();
+        let prices: HashMap<String, f64> = [("AMZN".to_string(), 251.0)].into_iter().collect();
+
+        let (_, flat) = book.reconcile_live(OrphanPolicy::Adopt, t0 + Duration::minutes(5), &prices).await.unwrap();
+        assert!(flat.is_empty());
+        assert!(book.session("AMZN").unwrap().has_position());
+
+        let (_, flat) = book.reconcile_live(OrphanPolicy::Adopt, t0 + Duration::minutes(10), &prices).await.unwrap();
+        assert_eq!(flat, vec!["AMZN".to_string()]);
+        assert!(!book.session("AMZN").unwrap().has_position());
+        let trades = recorded(&log);
+        assert_eq!(trades.len(), 1);
+        assert_eq!(trades[0].tws.trade.exit_reason, ExitReason::ManualOverride);
+        assert!((trades[0].tws.trade.exit_price - 251.0).abs() < 1e-9);
+        assert_eq!(trades[0].broker_exit_price, None);
+        assert!((book.daily_pnl() - (249.70 - 251.0) * 48.0).abs() < 1e-6);
+        // nothing was sent to the broker: it already holds nothing
+        assert!(!calls_of(&calls).iter().any(|c| c.starts_with("close:")));
+    }
+
+    /// a ticker whose exit is pending is the broker's to answer, not the reconciler's.
+    #[tokio::test]
+    async fn heartbeat_reconciliation_skips_tickers_with_an_exit_pending() {
+        let (broker, _calls) = ScriptedBroker::boxed(vec![CloseAnswer::Working("ord-1")], vec![Ok(order("ord-1", OrderState::Working, 0.0, None))], vec![Ok(vec![])]);
+        let mut book = primary_on(broker, &["AMZN"]);
+        let t0 = rth(14, 0);
+        book.session_mut("AMZN").unwrap().adopt_broker_position("AMZN", TradeDirection::Short, 48.0, 249.70, t0, None, "x").unwrap();
+        let prices: HashMap<String, f64> = [("AMZN".to_string(), 251.0)].into_iter().collect();
+        book.flatten_all(ExitReason::SessionClose, &prices, t0).await;
+        assert!(book.exit_pending("AMZN").is_some());
+        for i in 1..=3 {
+            let (orphans, flat) = book.reconcile_live(OrphanPolicy::Adopt, t0 + Duration::minutes(5 * i), &prices).await.unwrap();
+            assert!(orphans.is_empty() && flat.is_empty());
+        }
+        assert!(book.session("AMZN").unwrap().has_position());
+        assert!(book.exit_pending("AMZN").is_some());
+    }
+
 }

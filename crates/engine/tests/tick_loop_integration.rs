@@ -907,3 +907,68 @@ fn short_position_score_exit_is_direction_aware() {
     assert_eq!(t.exit_reason, ExitReason::ScoreExit);
     assert_eq!(t.direction, TradeDirection::Short);
 }
+
+/// a close the broker never confirmed is reverted: the position is back with its
+/// water marks, the trade is gone, realized P&L / breaker / cooldown are as before.
+#[test]
+fn revert_last_close_restores_the_position_and_the_exit_bookkeeping() {
+    let scoring = ScoringConfig {
+        timescale_weights: vec![(Timescale::FiveMinute, 1.0)].into_iter().collect(),
+        entry_threshold: 0.5,
+        exit_threshold: -0.3,
+        aggregation: AggregationMethod::WeightedSum,
+        hard_gate_timescales: vec![],
+        agreement: None,
+        dynamic_fusion: None,
+        hard_gate_indicators: HashMap::new(),
+        hourly_exit_override: None,
+    };
+    let mut session = default_session();
+    session.max_daily_loss_pct = Some(0.01);
+    session.entry_cooldown_ms = 3_600_000;
+    let mut engine = build_engine_with_session(scoring, vec![], session);
+    let data = trending_up_ohlcv(5, 100.0, 1.0);
+    let mut ms = market_state_at(&data, utc(2024, 6, 3, 13, 56));
+    engine.on_tick(&mut ms);
+    assert!(engine.revert_last_close().is_none(), "nothing to revert");
+
+    let capital_before = engine.available_capital();
+    engine
+        .force_open_position("SPY".into(), TradeDirection::Short, 249.70, 480.0, utc(2024, 6, 3, 14, 0))
+        .unwrap();
+    let capital_open = engine.available_capital();
+    // the exit the broker did not confirm: 480 × 5.12 = 2.4 % trips the breaker
+    let trade = engine
+        .force_close_position(254.82, utc(2024, 6, 3, 14, 10), ExitReason::TrailingStop)
+        .expect("closed");
+    assert!(trade.pnl < 0.0);
+    assert!(engine.is_daily_loss_breaker_active());
+    assert_eq!(engine.completed_trades().len(), 1);
+    assert!(!engine.has_position());
+
+    let reverted = engine.revert_last_close().expect("reverted");
+    assert!((reverted.pnl - trade.pnl).abs() < 1e-9);
+    assert!(engine.completed_trades().is_empty());
+    let p = engine.current_position().expect("position back");
+    assert_eq!(p.direction, TradeDirection::Short);
+    assert!((p.entry_price - 249.70).abs() < 1e-9);
+    assert!((p.size - 480.0).abs() < 1e-9);
+    assert_eq!(p.entry_time, utc(2024, 6, 3, 14, 0));
+    assert!((p.high_water_mark - trade.high_water_mark).abs() < 1e-9);
+    assert!((p.current_price - 254.82).abs() < 1e-9);
+    assert!(engine.cumulative_realized_pnl().abs() < 1e-9);
+    assert!(!engine.is_daily_loss_breaker_active(), "the phantom exit must not keep the breaker tripped");
+    assert!((engine.available_capital() - capital_open).abs() < 1e-6);
+    // no cooldown from an exit that did not happen
+    let ms_later = market_state_at(&data, utc(2024, 6, 3, 14, 12));
+    assert_ne!(engine.entry_block_reason(&ms_later), Some("entry_cooldown"));
+    // a second revert with the position open is refused
+    assert!(engine.revert_last_close().is_none());
+    // and the real exit, once confirmed, records normally
+    let real = engine
+        .force_close_position(250.0, utc(2024, 6, 3, 14, 15), ExitReason::TrailingStop)
+        .expect("closed");
+    assert!((real.pnl - (249.70 - 250.0) * 480.0).abs() < 1e-6);
+    assert!((engine.available_capital() - (capital_before + real.pnl)).abs() < 1e-6);
+    assert_eq!(engine.completed_trades().len(), 1);
+}

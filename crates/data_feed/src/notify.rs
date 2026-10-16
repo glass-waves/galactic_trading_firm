@@ -62,6 +62,12 @@ pub fn notify(level: &'static str, message: String) {
     }
 }
 
+/// WARNING to the human: something the trader handled itself but wants looked at.
+pub fn notify_warning(message: String) {
+    warn!(severity = "WARNING", message = %message, "WARNING");
+    notify("warning", message);
+}
+
 /// CRITICAL to the human: the broker and the engine disagree about what is held.
 pub fn notify_critical(message: String) {
     error!(severity = "CRITICAL", message = %message, "CRITICAL");

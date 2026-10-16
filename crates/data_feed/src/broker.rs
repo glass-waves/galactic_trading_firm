@@ -24,8 +24,9 @@ pub enum BrokerError {
     /// the broker could not be asked whether the order filled — the caller must
     /// reconcile against the broker's positions before trusting either outcome.
     Unconfirmed(String),
-    /// the order is still working at the deadline and was deliberately left so.
-    OrderWorking(String),
+    /// the order is still working at the deadline and was deliberately left so — the
+    /// broker may still fill it; the caller must track `order_id` until it resolves.
+    Working { order_id: String },
 }
 
 impl fmt::Display for BrokerError {
@@ -35,7 +36,7 @@ impl fmt::Display for BrokerError {
             BrokerError::ConnectionError(msg) => write!(f, "connection error: {msg}"),
             BrokerError::NoPosition(msg) => write!(f, "no position: {msg}"),
             BrokerError::Unconfirmed(msg) => write!(f, "order state UNCONFIRMED: {msg}"),
-            BrokerError::OrderWorking(id) => write!(f, "order {id} still working"),
+            BrokerError::Working { order_id } => write!(f, "order {order_id} still working"),
         }
     }
 }
@@ -75,6 +76,12 @@ pub trait Broker: Send + Sync {
 
     /// positions the broker currently holds (for startup reconciliation).
     async fn open_positions(&self) -> Result<Vec<BrokerPosition>, BrokerError>;
+
+    /// where an order the broker returned as [`BrokerError::Working`] stands now. a
+    /// broker that never leaves orders working (simulated) has nothing to report.
+    async fn order_status(&self, order_id: &str) -> Result<OrderView, BrokerError> {
+        Err(BrokerError::Unconfirmed(format!("order {order_id}: this broker keeps no working orders")))
+    }
 
     /// close a position the engine does not own (startup orphan). with the market open a
     /// market order; otherwise an extended-hours day limit at the last trade ± 0.3 % that
@@ -476,8 +483,13 @@ pub enum Intent {
     Close,
 }
 
-/// how long to wait for a market order to fill before giving up.
+/// how long to wait for an entry market order to fill before cancelling it.
 pub const FILL_TIMEOUT_MS: u64 = 15_000;
+/// how long a close waits for its market order before handing the still-working
+/// order back to the caller (`BrokerError::Working`). a close is never cancelled for
+/// lack of confirmation: the point is to get flat, and 2026-10-16 showed a paper
+/// market order can sit `accepted` for longer than 15 s at the open.
+pub const CLOSE_FILL_TIMEOUT_MS: u64 = 120_000;
 pub const FILL_POLL_MS: u64 = 250;
 /// a failed poll is retried this many times (backoff `poll_ms * 2^n`) before the
 /// fallback lookups run.
@@ -493,8 +505,14 @@ pub struct FillWait {
 }
 
 impl FillWait {
+    /// entries: 15 s, then cancel.
     pub const fn live() -> Self {
         Self { timeout_ms: FILL_TIMEOUT_MS, poll_ms: FILL_POLL_MS, cancel_on_timeout: true }
+    }
+
+    /// exits: 120 s, never cancelled — a working close comes back as `Working`.
+    pub const fn close() -> Self {
+        Self { timeout_ms: CLOSE_FILL_TIMEOUT_MS, poll_ms: FILL_POLL_MS, cancel_on_timeout: false }
     }
 }
 
@@ -631,6 +649,14 @@ pub async fn wait_for_fill_with<A: OrderApi + ?Sized>(
             return Ok(f);
         }
         if let OrderState::Terminal(s) = &current.state {
+            if intent == Intent::Close {
+                // an explicitly rejected/ended close is the one case a close is cancelled:
+                // make sure nothing of it can still execute before the caller re-submits
+                match api.cancel_order(&current.id).await {
+                    Ok(()) => info!(order_id = %current.id, status = %s, "close order ended without filling — cancel sent before re-submission"),
+                    Err(e) => debug!(order_id = %current.id, error = %e, "cancel of the ended close order not accepted (already final)"),
+                }
+            }
             return Err(BrokerError::OrderRejected(format!("order {} ended in status {s}", current.id)));
         }
         if std::time::Instant::now() >= deadline {
@@ -677,7 +703,8 @@ async fn finalize_timeout<A: OrderApi + ?Sized>(
     last_unknown: Option<String>,
 ) -> Result<OrderFill, BrokerError> {
     if !cfg.cancel_on_timeout {
-        return Err(BrokerError::OrderWorking(current.id.clone()));
+        warn!(order_id = %current.id, filled_qty = current.filled_qty, timeout_ms = cfg.timeout_ms, "order still working at the deadline — left working, NOT cancelled");
+        return Err(BrokerError::Working { order_id: current.id.clone() });
     }
     match api.cancel_order(&current.id).await {
         Ok(()) => info!(order_id = %current.id, "cancel requested after fill timeout"),
@@ -913,6 +940,12 @@ impl Broker for AlpacaBroker {
             .collect())
     }
 
+    async fn order_status(&self, order_id: &str) -> Result<OrderView, BrokerError> {
+        poll_with_retries(self, order_id, FILL_POLL_MS)
+            .await
+            .map_err(|e| BrokerError::ConnectionError(format!("order {order_id}: {e}")))
+    }
+
     async fn close_position(&self, ticker: &str) -> Result<OrderFill, BrokerError> {
         use apca::api::v2::position;
 
@@ -940,9 +973,9 @@ impl Broker for AlpacaBroker {
         let view = OrderView::from(order);
         info!(ticker, order_id = %view.id, client_order_id = %view.client_order_id, "close order submitted");
 
-        // a close that does not fill leaves the position open at the broker —
-        // surface that loudly rather than pretending it closed.
-        wait_for_fill_with(self, view, ticker, direction, Intent::Close, FillWait::live()).await
+        // a close that has not filled by the deadline is left working and handed back
+        // as `Working { order_id }` — never cancelled, never pretended filled.
+        wait_for_fill_with(self, view, ticker, direction, Intent::Close, FillWait::close()).await
     }
 
     async fn close_orphan(&self, pos: &BrokerPosition, market_open: bool) -> Result<OrphanClose, BrokerError> {
@@ -987,7 +1020,7 @@ impl Broker for AlpacaBroker {
         let cfg = FillWait { cancel_on_timeout: false, ..FillWait::live() };
         match wait_for_fill_with(self, view, &pos.ticker, close_direction, Intent::Close, cfg).await {
             Ok(fill) => Ok(OrphanClose::Filled(fill)),
-            Err(BrokerError::OrderWorking(order_id)) => Ok(OrphanClose::Working { order_id, limit_price: limit }),
+            Err(BrokerError::Working { order_id }) => Ok(OrphanClose::Working { order_id, limit_price: limit }),
             Err(e) => Err(e),
         }
     }
@@ -1445,8 +1478,110 @@ mod tests {
         });
         let cfg = FillWait { cancel_on_timeout: false, ..FAST };
         let r = wait_for_fill_with(&api, view(OrderState::Working, 0.0, None), "AAPL", TradeDirection::Short, Intent::Close, cfg).await;
-        assert!(matches!(r, Err(BrokerError::OrderWorking(ref id)) if id == "4f807b12-2af2-49ad-952b-c39c2b212234"), "{r:?}");
+        assert!(matches!(r, Err(BrokerError::Working { ref order_id }) if order_id == "4f807b12-2af2-49ad-952b-c39c2b212234"), "{r:?}");
         assert!(!api.calls().iter().any(|c| c.starts_with("cancel")));
+    }
+
+    // ── the close path (2026-10-16: a market close must never be cancelled) ──
+
+    const CLOSE_FAST: FillWait = FillWait { timeout_ms: 400, poll_ms: 1, cancel_on_timeout: false };
+
+    #[test]
+    fn close_wait_never_cancels_and_outlasts_the_entry_wait() {
+        let c = FillWait::close();
+        assert!(!c.cancel_on_timeout);
+        assert_eq!(c.timeout_ms, CLOSE_FILL_TIMEOUT_MS);
+        assert!(c.timeout_ms >= 120_000);
+        assert!(FillWait::live().cancel_on_timeout);
+    }
+
+    /// today's order: `accepted` for the whole deadline. the close must come back as
+    /// `Working { order_id }` with no cancel on the wire.
+    #[tokio::test]
+    async fn market_close_unfilled_past_the_deadline_is_working_not_cancelled() {
+        let api = MockApi::new(Script {
+            get: vec![Ok(view(OrderState::Working, 0.0, None))],
+            positions: vec![Ok(vec![held("AMZN", TradeDirection::Short, 48.0, 249.70)])],
+            ..Default::default()
+        });
+        let r = wait_for_fill_with(&api, view(OrderState::Working, 0.0, None), "AMZN", TradeDirection::Long, Intent::Close, CLOSE_FAST).await;
+        match r {
+            Err(BrokerError::Working { order_id }) => assert_eq!(order_id, "4f807b12-2af2-49ad-952b-c39c2b212234"),
+            other => panic!("expected Working, got {other:?}"),
+        }
+        let calls = api.calls();
+        assert!(!calls.iter().any(|c| c.starts_with("cancel")), "{calls:?}");
+        assert!(calls.iter().filter(|c| c.starts_with("get:")).count() >= 2, "{calls:?}");
+    }
+
+    /// a partial fill keeps the wait going until the remainder fills; the fill carries
+    /// the full quantity and the average price.
+    #[tokio::test]
+    async fn partial_then_full_fill_waits_for_the_remainder() {
+        let api = MockApi::new(Script {
+            get: vec![
+                Ok(view(OrderState::Working, 20.0, Some(249.80))),
+                Ok(view(OrderState::Working, 20.0, Some(249.80))),
+                Ok(view(OrderState::Filled, 48.0, Some(249.85))),
+            ],
+            ..Default::default()
+        });
+        let f = wait_for_fill_with(&api, view(OrderState::Working, 0.0, None), "AMZN", TradeDirection::Long, Intent::Close, CLOSE_FAST)
+            .await
+            .expect("filled after the partial");
+        assert!((f.quantity - 48.0).abs() < 1e-9);
+        assert!((f.fill_price - 249.85).abs() < 1e-9);
+        assert!(!api.calls().iter().any(|c| c.starts_with("cancel")));
+    }
+
+    /// a partially filled close still working at the deadline is `Working` too — the
+    /// caller keeps tracking it; nothing is cancelled.
+    #[tokio::test]
+    async fn partially_filled_close_at_the_deadline_stays_working() {
+        let api = MockApi::new(Script {
+            get: vec![Ok(view(OrderState::Working, 20.0, Some(249.80)))],
+            ..Default::default()
+        });
+        let r = wait_for_fill_with(&api, view(OrderState::Working, 0.0, None), "AMZN", TradeDirection::Long, Intent::Close, CLOSE_FAST).await;
+        assert!(matches!(r, Err(BrokerError::Working { .. })), "{r:?}");
+        assert!(!api.calls().iter().any(|c| c.starts_with("cancel")));
+    }
+
+    /// an explicit rejection of a close: Err(OrderRejected) and a (harmless) cancel so
+    /// nothing of it can execute after the caller re-submits.
+    #[tokio::test]
+    async fn rejected_close_is_cancelled_and_errs() {
+        let api = MockApi::new(Script {
+            get: vec![Ok(view(OrderState::Terminal("Rejected".into()), 0.0, None))],
+            ..Default::default()
+        });
+        let r = wait_for_fill_with(&api, view(OrderState::Working, 0.0, None), "AMZN", TradeDirection::Long, Intent::Close, CLOSE_FAST).await;
+        assert!(matches!(r, Err(BrokerError::OrderRejected(_))), "{r:?}");
+        let calls = api.calls();
+        assert!(calls.iter().any(|c| c.starts_with("cancel:4f807b12")), "{calls:?}");
+    }
+
+    /// the broker cannot be asked at all during a close: still `Working` at the
+    /// deadline (the order id is known; the book re-checks it), never `Unconfirmed`
+    /// pretending the close is gone.
+    #[tokio::test]
+    async fn unreachable_broker_during_a_close_is_working_at_the_deadline() {
+        let api = MockApi::new(Script {
+            get: vec![Err("connection reset".into())],
+            by_cid: vec![Err("connection reset".into())],
+            positions: vec![Err("connection reset".into())],
+            cancel: Err("connection reset".into()),
+            after_cancel: None,
+        });
+        let r = wait_for_fill_with(&api, view(OrderState::Working, 0.0, None), "AMZN", TradeDirection::Long, Intent::Close, CLOSE_FAST).await;
+        assert!(matches!(r, Err(BrokerError::Working { .. })), "{r:?}");
+        assert!(!api.calls().iter().any(|c| c.starts_with("cancel")));
+    }
+
+    #[tokio::test]
+    async fn simulated_broker_has_no_working_orders_to_report() {
+        let b = SimulatedBroker::new(0.0);
+        assert!(matches!(b.order_status("x").await, Err(BrokerError::Unconfirmed(_))));
     }
 
     /// live, after hours (16:00–20:00 ET or 04:00–09:30 ET): buy 1 AAPL with an
@@ -1514,5 +1649,101 @@ mod tests {
         }
         let after = broker.open_positions().await.unwrap();
         assert!(after.iter().all(|p| p.ticker != sym), "{sym} position left open: {after:?}");
+    }
+
+    /// live, after hours: the exit path as the book uses it. open 1 AAPL with an
+    /// extended-hours limit, then close it through `close_position` (DELETE
+    /// /v2/positions → market order). after hours that order queues for the next open,
+    /// so the new path must come back `Working { order_id }` after its deadline with the
+    /// order NOT cancelled (`order_status` still Working); during regular hours it must
+    /// fill. the test then cancels the queued market order itself and flattens with an
+    /// extended-hours limit so the account ends exactly as it started. it touches AAPL
+    /// only — anything else the account holds is left alone.
+    /// run: cargo test -p data_feed -- --ignored live_close_path --nocapture
+    #[tokio::test]
+    #[ignore]
+    async fn live_close_path_roundtrip() {
+        use apca::api::v2::order;
+        let _ = dotenvy::dotenv();
+        let broker = AlpacaBroker::new(
+            std::env::var("APCA_API_KEY_ID").unwrap(),
+            std::env::var("APCA_API_SECRET_KEY").unwrap(),
+        )
+        .unwrap()
+        .with_tag("closepath");
+        let sym = "AAPL";
+        let before = broker.open_positions().await.unwrap();
+        println!("positions before: {before:?}");
+        assert!(before.iter().all(|p| p.ticker != sym), "{sym} already held: {before:?}");
+        let market_open = crate::session_clock::is_regular_hours(Utc::now());
+
+        // open 1 share
+        let fill = if market_open {
+            broker.submit_market_order_with_timeout(sym, TradeDirection::Long, 1, FILL_TIMEOUT_MS).await
+        } else {
+            let last = broker.latest_trade_price(sym).await.unwrap();
+            let limit = ((last * (1.0 + ORPHAN_LIMIT_PCT)) * 100.0).round() / 100.0;
+            let cid = client_order_id("closepath", sym, Utc::now().timestamp_millis());
+            let req = order::CreateReqInit {
+                type_: order::Type::Limit,
+                time_in_force: order::TimeInForce::Day,
+                limit_price: Some(num_from_price(limit).unwrap()),
+                extended_hours: true,
+                client_order_id: Some(cid),
+                ..Default::default()
+            }
+            .init(sym, order::Side::Buy, order::Amount::quantity(1));
+            let created = broker.client.issue::<order::Create>(&req).await.unwrap();
+            let v = OrderView::from(created);
+            println!("open order: id={} state={:?} last={last} limit={limit}", v.id, v.state);
+            let cfg = FillWait { timeout_ms: 60_000, ..FillWait::live() };
+            wait_for_fill_with(&broker, v, sym, TradeDirection::Long, Intent::Open, cfg).await
+        };
+        println!("open result: {fill:?}");
+        let fill = fill.expect("open fill");
+        assert!(fill.fill_price > 0.0);
+
+        // close through the book's path
+        let started = std::time::Instant::now();
+        let closed = broker.close_position(sym).await;
+        println!("close_position after {:?}: {closed:?}", started.elapsed());
+        match closed {
+            Ok(f) => {
+                assert!(market_open, "after hours a market close cannot fill; got {f:?}");
+                assert!(f.quantity >= 1.0);
+            }
+            Err(BrokerError::Working { order_id }) => {
+                assert!(!market_open, "a working close during regular hours is the bug we fixed");
+                assert!(started.elapsed().as_millis() as u64 >= CLOSE_FILL_TIMEOUT_MS, "returned before the close deadline");
+                let o = broker.order_status(&order_id).await.expect("order readable by its hyphenated id");
+                println!("working close: {o:?}");
+                assert_eq!(o.state, OrderState::Working, "the close must NOT have been cancelled");
+                // test cleanup: nothing may stay queued for the next session
+                broker.cancel_order(&order_id).await.expect("cancel the queued market close");
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                let o = broker.order_status(&order_id).await.unwrap();
+                println!("after cancel: {o:?}");
+                assert!(matches!(o.state, OrderState::Terminal(_)), "{o:?}");
+                // flatten the share with an extended-hours limit
+                let pos = broker.open_positions().await.unwrap().into_iter().find(|p| p.ticker == sym).expect("still held");
+                let r = broker.close_orphan(&pos, false).await.expect("orphan close");
+                println!("flatten: {r:?}");
+                if let OrphanClose::Working { order_id, .. } = r {
+                    tokio::time::sleep(std::time::Duration::from_secs(30)).await;
+                    let o = broker.order_status(&order_id).await.unwrap();
+                    if o.state != OrderState::Filled {
+                        let _ = broker.cancel_order(&order_id).await;
+                        panic!("flatten limit did not fill ({:?}); cancelled — CLOSE {sym} BY HAND", o.state);
+                    }
+                }
+            }
+            Err(e) => panic!("close_position failed: {e}"),
+        }
+        let after = broker.open_positions().await.unwrap();
+        println!("positions after: {after:?}");
+        assert!(after.iter().all(|p| p.ticker != sym), "{sym} position left open: {after:?}");
+        let others_before: Vec<String> = before.iter().map(|p| format!("{} {:?} {}", p.ticker, p.direction, p.quantity)).collect();
+        let others_after: Vec<String> = after.iter().map(|p| format!("{} {:?} {}", p.ticker, p.direction, p.quantity)).collect();
+        assert_eq!(others_before, others_after, "the account must end exactly as it started");
     }
 }

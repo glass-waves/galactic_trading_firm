@@ -30,7 +30,8 @@ use data_feed::account::resolve_capital;
 use data_feed::alpaca_feed::{AlpacaFeed, BarEvent};
 use data_feed::book::{
     apply_limits, load_books, warmup_plan, Book, BookPlan, BookSpec, Limits, OrphanAction,
-    OrphanPolicy, ReplayLog, Sink, TickerShared, WarmupInput, PRIMARY_BOOK, SHADOW_SLIPPAGE_BPS,
+    OrphanPolicy, ReplayLog, Sink, TickerShared, WarmupInput, LIVE_RECONCILE_SECS, PRIMARY_BOOK,
+    SHADOW_SLIPPAGE_BPS,
 };
 use data_feed::broker::{AlpacaBroker, Broker, SimulatedBroker};
 use data_feed::config_loader::{load_config, load_config_by_id};
@@ -159,6 +160,19 @@ impl Runtime {
             .iter()
             .map(|b| format!("{}: pnl {:.2}, open {:?}", b.name(), b.daily_pnl(), b.open_tickers()))
             .collect();
+        for b in &self.books {
+            for t in b.exit_pending_tickers() {
+                let order = b.exit_pending(&t).and_then(|p| p.order_id.clone());
+                error!(book = %b.name(), ticker = %t, ?order, "EXIT STILL PENDING AT SHUTDOWN — no trade recorded; the broker may hold the position (startup reconciliation adopts it)");
+                if b.is_primary() {
+                    notify_critical(format!(
+                        "CRITICAL {} {t}: shutting down with the close unconfirmed (order {}) — no trade recorded; check the account, the next start reconciles",
+                        b.name(),
+                        order.as_deref().unwrap_or("none")
+                    ));
+                }
+            }
+        }
         info!(
             total_ticks = self.tick_count,
             daily_pnl = format!("{:.2}", self.primary().daily_pnl()),
@@ -434,8 +448,8 @@ async fn main() {
     //     an orphan (shadows are simulated and start empty by construction). per
     //     ORPHAN_POLICY it is adopted (traded tickers: the exit stack closes it today),
     //     closed at the broker, or only logged — and the human is notified either way.
+    let policy = OrphanPolicy::from_env();
     if !replay_mode {
-        let policy = OrphanPolicy::from_env();
         match books[0].reconcile_orphans(policy, Utc::now()).await {
             Ok(outcomes) if outcomes.is_empty() => info!(?policy, "broker reconciliation: no pre-existing positions"),
             Ok(outcomes) => {
@@ -684,6 +698,8 @@ async fn main() {
 
     info!("entering main trading loop");
     let mut feed_closed = false;
+    // last intraday broker ↔ engine reconciliation (primary, regular hours only)
+    let mut last_reconcile_at: Option<DateTime<Utc>> = None;
 
     // 11. main select! loop
     loop {
@@ -880,6 +896,39 @@ async fn main() {
                             warn!(ticker = %t, last_bar_age_s = ?age, "FEED STALE — no bar during market hours");
                         }
                         rt.feed_stale.insert(t, stale);
+                    }
+                }
+
+                // exits the broker has not confirmed: re-check the order / positions
+                {
+                    let Runtime { books, last_prices, .. } = &mut rt;
+                    for book in books.iter_mut().filter(|b| b.has_exit_pending()) {
+                        book.check_exits_pending(now, last_prices).await;
+                    }
+                }
+
+                // broker ↔ engine reconciliation every LIVE_RECONCILE_SECS in regular hours
+                // (primary on a real feed): orphans per ORPHAN_POLICY, engine positions
+                // the broker does not hold → broker-flat. two sightings before acting.
+                if market_open_now
+                    && mode == Mode::Live
+                    && last_reconcile_at.is_none_or(|t| (now - t).num_seconds() >= LIVE_RECONCILE_SECS)
+                {
+                    last_reconcile_at = Some(now);
+                    let Runtime { books, last_prices, .. } = &mut rt;
+                    match books[0].reconcile_live(policy, now, last_prices).await {
+                        Ok((orphans, flat)) => {
+                            for o in &orphans {
+                                error!(ticker = %o.ticker, action = ?o.action, ?policy, "intraday orphan position handled");
+                            }
+                            for t in &flat {
+                                error!(ticker = %t, "intraday broker-flat: engine position recorded closed");
+                            }
+                            if orphans.is_empty() && flat.is_empty() {
+                                debug!("intraday reconciliation: broker and engine agree");
+                            }
+                        }
+                        Err(e) => warn!(error = %e, "intraday reconciliation: could not list broker positions"),
                     }
                 }
 

@@ -40,6 +40,9 @@ pub struct TradingEngine {
     session_start_time: Option<DateTime<Utc>>,
     /// timestamp when the last position was closed (for re-entry cooldown).
     last_exit_time: Option<DateTime<Utc>>,
+    /// `last_exit_time` before the most recent exit, so [`revert_last_close`] can
+    /// restore the cooldown clock.
+    last_exit_time_before: Option<DateTime<Utc>>,
     /// entries are gated until this instant (set by the host after a broker order
     /// failed, so a rejected/unconfirmed order cannot re-fire on every bar).
     entries_suppressed_until: Option<DateTime<Utc>>,
@@ -132,6 +135,7 @@ impl TradingEngine {
             current_session_date: None,
             session_start_time: None,
             last_exit_time: None,
+            last_exit_time_before: None,
             entries_suppressed_until: None,
             cumulative_realized_pnl: 0.0,
             daily_loss_breaker_active: false,
@@ -628,6 +632,7 @@ impl TradingEngine {
 
     /// record state changes after a position exits.
     fn record_exit(&mut self, trade: &TradeRecord, timestamp: DateTime<Utc>) {
+        self.last_exit_time_before = self.last_exit_time;
         self.last_exit_time = Some(timestamp);
         self.cumulative_realized_pnl += trade.pnl;
 
@@ -725,6 +730,47 @@ impl TradingEngine {
         self.available_capital += trade.size * trade.entry_price + trade.pnl;
         self.record_exit(&trade, timestamp);
         self.completed_trades.push(trade.clone());
+        Some(trade)
+    }
+
+    /// the broker did not confirm the exit the engine just took: put the position back
+    /// exactly as it was (entry, size, water marks, mark at the attempted exit price) and
+    /// undo the exit bookkeeping — the completed trade, realized P&L, the loss breaker it
+    /// may have tripped and the re-entry cooldown clock. returns the trade record that is
+    /// no longer a trade. `None` when there is nothing to revert or a position is open.
+    pub fn revert_last_close(&mut self) -> Option<TradeRecord> {
+        if self.position_manager.has_position() {
+            return None;
+        }
+        let trade = self.completed_trades.pop()?;
+        let position = types::action::Position {
+            ticker: trade.ticker.clone(),
+            direction: trade.direction,
+            entry_price: trade.entry_price,
+            current_price: trade.exit_price,
+            size: trade.size,
+            entry_time: trade.entry_time,
+            unrealized_pnl: trade.pnl,
+            unrealized_pnl_pct: trade.pnl_pct,
+            high_water_mark: trade.high_water_mark,
+            low_water_mark: trade.low_water_mark,
+            hold_duration_ms: trade.hold_duration_ms,
+        };
+        self.position_manager.restore_position(position);
+        self.available_capital -= trade.size * trade.entry_price + trade.pnl;
+        self.cumulative_realized_pnl -= trade.pnl;
+        self.last_exit_time = self.last_exit_time_before;
+        // the breaker is a function of realized P&L: re-derive it without this exit
+        self.daily_loss_breaker_active = match &self.session_config {
+            Some(sc) => match sc.max_daily_loss_pct {
+                Some(max_loss) => {
+                    self.initial_capital_snapshot > 0.0
+                        && -self.cumulative_realized_pnl / self.initial_capital_snapshot >= max_loss
+                }
+                None => false,
+            },
+            None => false,
+        };
         Some(trade)
     }
 

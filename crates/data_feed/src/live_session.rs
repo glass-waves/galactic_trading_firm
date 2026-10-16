@@ -96,6 +96,19 @@ impl LiveSession {
         self.broker_entry_price = None;
     }
 
+    /// the broker did not confirm the exit the engine just took (`tws` is the trade
+    /// `on_tick` returned): put the position and its attribution back so the trade is
+    /// recorded only once the broker fills. false when the engine had nothing to revert.
+    pub fn reopen_after_unconfirmed_close(&mut self, tws: &TradeWithScores) -> bool {
+        if self.engine.revert_last_close().is_none() {
+            return false;
+        }
+        self.entry_scores = Some(tws.entry_scores.clone());
+        self.entry_reason = Some(tws.entry_reason.clone());
+        self.broker_entry_price = tws.broker_entry_price;
+        true
+    }
+
     /// record the broker's actual entry fill for the open position.
     pub fn set_broker_entry_price(&mut self, price: f64) {
         self.broker_entry_price = Some(price);
@@ -404,6 +417,35 @@ mod tests {
         assert_eq!(tws.broker_entry_price, Some(249.704792));
         assert_eq!(tws.entry_reason, "adopted:orphan");
         assert!(session.adopt_broker_position("SPY", TradeDirection::Short, 0.0, 1.0, ts, None, "x").is_err());
+    }
+
+    #[test]
+    fn reopen_after_unconfirmed_close_restores_position_and_attribution() {
+        use chrono::Utc;
+        use types::action::TradeDirection;
+        let mut session = build_test_session();
+        let ts = Utc::now();
+        session
+            .adopt_broker_position("SPY", TradeDirection::Short, 48.0, 249.70, ts, None, "adopted:orphan-at-start")
+            .unwrap();
+        let tws = session.force_close(254.82, ts + chrono::Duration::minutes(20), ExitReason::TrailingStop).expect("trade");
+        assert!(!session.has_position());
+        assert!(session.entry_reason().is_none());
+
+        assert!(session.reopen_after_unconfirmed_close(&tws));
+        let p = session.current_position().expect("position back");
+        assert_eq!(p.direction, TradeDirection::Short);
+        assert!((p.size - 48.0).abs() < f64::EPSILON);
+        assert!((p.entry_price - 249.70).abs() < 1e-9);
+        assert_eq!(session.entry_reason(), Some("adopted:orphan-at-start"));
+        assert!(session.completed_trades().is_empty());
+        // nothing to revert while a position is open
+        assert!(!session.reopen_after_unconfirmed_close(&tws));
+        // the confirmed exit later carries the same attribution
+        let real = session.force_close(250.0, ts + chrono::Duration::minutes(25), ExitReason::TrailingStop).expect("trade");
+        assert_eq!(real.entry_reason, "adopted:orphan-at-start");
+        assert_eq!(real.broker_entry_price, Some(249.70));
+        assert!((real.trade.exit_price - 250.0).abs() < 1e-9);
     }
 
     #[test]
