@@ -1,0 +1,16 @@
+2026-10-16T06:10:02-07:00 [critical] CRITICAL primary startup: broker holds Short 14 NVDA @ 214.2300 the engine does not know — adopted into the engine (the exit stack closes it today)
+2026-10-16T06:10:02-07:00 [critical] CRITICAL primary startup: broker holds Short 48 AMZN @ 249.7048 the engine does not know — adopted into the engine (the exit stack closes it today)
+2026-10-16T06:15:15-07:00 [critical] preopen: 10-15 orphans still at broker (AMZN short 48, NVDA short 14); trader adopted them at startup (engine_state shows both short) — exit stack closes them today; human please verify at broker. Config row 12, 7 shadows hosted. Broker /v2/positions check not run (denied).
+2026-10-16T06:31:16-07:00 [critical] CRITICAL primary AMZN: broker close FAILED (order state UNCONFIRMED: order 7d819398-6976-4e8c-bf1f-07e5f3f7caa2 still Working after cancel at the 15000ms deadline) — the engine recorded the exit; check the account
+2026-10-16T06:40:01-07:00 [critical] broker holds AMZN qty -48 (short, unrealized P&L -179.289984) that primary's engine does not know about at 0940 ET
+2026-10-16T07:10:01-07:00 [critical] broker holds AMZN qty -48 (short, unrealized P&L -170.169984) that primary's engine does not know about at 1010 ET (still unresolved 30+ min after the first alert)
+2026-10-16T08:10:06-07:00 [warning] MSFT -2.12% off its intraday high (532.3 vs 543.82) at 1110 ET — primary: flat, daily P&L -263.34; shadows in a trade: none
+2026-10-16T08:30:04-07:00 [warning] MSFT -2.00% vs today's open (530.42 vs 541.25) at 1130 ET — primary: flat, daily P&L -263.34; shadows in a trade: none
+2026-10-16T10:05:04-07:00 [critical] SPY -1.10% vs today's open (764.59 vs 773.125) at 1305 ET — primary: flat, daily P&L -263.34; shadows in a trade: none
+2026-10-16T10:10:04-07:00 [warning] AMZN -2.15% off its intraday high (250.03 vs 255.515) at 1310 ET — primary: flat, daily P&L -263.34; shadows in a trade: none
+2026-10-16T10:20:04-07:00 [warning] AMZN -2.03% vs today's open (249.8 vs 254.965) at 1320 ET — primary: flat, daily P&L -263.34; shadows in a trade: none
+2026-10-16T10:35:53-07:00 [critical] AMZN -48 is still open at the paper broker (13:35 ET) and the engine thinks it is flat. Please close it before 16:00 ET (Alpaca dashboard, or the curl in chat) or it sits over the weekend. Monday's binary would adopt and close it, but that is a weekend of exposure.
+2026-10-16T11:30:04-07:00 [warning] NVDA -2.02% off its intraday high (214.22 vs 218.64) at 1430 ET — primary: flat, daily P&L -263.34; shadows in a trade: none
+2026-10-16T11:45:04-07:00 [warning] AAPL -2.03% off its intraday high (340.74 vs 347.79) at 1445 ET — primary: flat, daily P&L -263.34; shadows in a trade: none
+2026-10-16T11:55:04-07:00 [critical] SPY -1.52% off its intraday high (761.42 vs 773.18) at 1455 ET — primary: flat, daily P&L -263.34; shadows in a trade: none
+2026-10-16T13:05:06-07:00 [critical] broker still holds AMZN qty -48 (short, unrealized P&L -11.769984) at or after 16:01 ET — the primary book must be flat overnight at 1605 ET
