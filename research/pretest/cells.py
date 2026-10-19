@@ -460,6 +460,19 @@ def vwap_fade(b, i, p):
         return []
     return [Order(i, t, int(-np.sign(dev)), i, t + p["hold"])]
 
+def letf_close_momentum(b, i, p):
+    """LETF close-rebalancing proxy (Cheng-Madhavan 2009; Shum-Hejazi-Haryanto-Rodier 2016): leveraged-ETF
+    rebalancing demand scales with the square of the day's move, so on large-move days trade the sign of the
+    09:30->(390-hold) return in the last `hold` minutes. p['thresh'] = minimum |return so far|."""
+    hold = p.get("hold", 30)
+    t = 390 - hold
+    if not b.full(i) or not b.has[i, :t].any():
+        return []
+    mom = b.exit_px(i, t) / b.session_open(i) - 1
+    if not np.isfinite(mom) or abs(mom) < p["thresh"]:
+        return []
+    return [Order(i, t, int(np.sign(mom)), i, 390)]
+
 # ------------------------------------------------------------------ registry
 K45 = "net positive in >= 4/5 years and PF > 1.3 (3 bps + $0.005/sh per leg, 36 % of $10k)"
 CELLS = [
@@ -590,5 +603,19 @@ CELLS = [
           "grid": [{"t": 180, "hold": 60, "z": 0.75}, {"t": 180, "hold": 60, "z": 0.5}, {"t": 180, "hold": 60, "z": 1.0}]},
          {"name": "fade VWAP stretch, enter 11:00 hold 120", "rule": vwap_fade,
           "grid": [{"t": 90, "hold": 120, "z": 0.75}, {"t": 90, "hold": 120, "z": 0.5}, {"t": 90, "hold": 120, "z": 1.0}]}],
+     "verdict_fn": standard_verdict(4, 1.3), "verdict": cell_verdict},
+    {"id": "c13_letf_close_momentum", "anomaly": "#12 LETF close-rebalancing flow, large-move-day last-N-min momentum (return-magnitude proxy; dealer-gamma leg excluded, needs options OI)",
+     "instruments": ["SPY", "QQQ", "IWM", "XLK"],
+     "kill_text": K45 + "; expected ~15-40 trades/yr/instrument at the 1-2 % thresholds. rule: if |09:30->(390-hold) return| >= thresh, "
+                  "trade its sign for the last `hold` minutes. pre-registered neighbourhood: thresh in {1.0, 1.5, 2.0} %, "
+                  "hold in {30, 15} min, instruments = SPY/QQQ/IWM + XLK (no leveraged-ETF bars in the cache). c08 found "
+                  "plain last-30-min momentum has no gross edge, so pass additionally requires the large-move subset to "
+                  "beat the c08 ungated rows on the same instrument; otherwise discard (the LETF effect is a magnitude "
+                  "effect, so a gross edge appearing only at the larger thresholds is the signature, not a fluke).",
+     "variants": [
+         {"name": "large-move last-30-min momentum", "rule": letf_close_momentum,
+          "grid": [{"thresh": 0.01, "hold": 30}, {"thresh": 0.015, "hold": 30}, {"thresh": 0.02, "hold": 30}]},
+         {"name": "large-move last-15-min momentum", "rule": letf_close_momentum,
+          "grid": [{"thresh": 0.01, "hold": 15}, {"thresh": 0.015, "hold": 15}, {"thresh": 0.02, "hold": 15}]}],
      "verdict_fn": standard_verdict(4, 1.3), "verdict": cell_verdict},
 ]
