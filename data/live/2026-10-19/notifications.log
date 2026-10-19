@@ -1,0 +1,3 @@
+2026-10-19T06:10:03-07:00 [critical] CRITICAL primary start: broker holds Short 48 AMZN @ 249.7048 the engine does not know — adopted into the engine (the exit stack closes it today)
+2026-10-19T06:15:22-07:00 [warning] preopen partial: AMZN short 48 @249.70 (Fri orphan) ADOPTED at start as designed; service/config 12/8 books healthy. Not independently checked vs /v2/positions (.env read denied). New binary ok.
+2026-10-19T07:50:01-07:00 [info] AMZN +2.03% vs today's open (260.785 vs 255.605) at 1050 ET — primary: flat, daily P&L -274.33; shadows in a trade: none
