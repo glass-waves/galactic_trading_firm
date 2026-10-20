@@ -1,0 +1,7 @@
+row_type,date,ticker,direction,entry_time,exit_time,entry_price,exit_price,size,pnl,pnl_pct,hold_duration_ms,exit_reason,entry_reason,candle_pattern,entry_composite,exit_composite,entry_1m,entry_5m,entry_1h,exit_1m,exit_5m,exit_1h,max_composite,max_composite_time,positive_ticks,total_ticks
+summary,2026-10-20,AMZN,,,,,,,0.00,,0,,,,,,,,,,,,0.7549,2026-10-19T14:19:00+00:00,1120,2628
+summary,2026-10-20,AAPL,,,,,,,0.00,,0,,,,,,,,,,,,0.9110,2026-10-12T13:32:00+00:00,1183,2654
+trade,2026-10-20,NVDA,Short,2026-10-20T13:38:00+00:00,2026-10-20T14:02:00+00:00,214.7006,214.7694,17.00,-1.17,-0.000321,1440000,BreakevenStop,window:5m thrust short,three_outside_down,-0.3679,-0.0898,-0.1849,-0.5142,-0.1365,0.5806,-0.2375,-0.0178,,,
+summary,2026-10-20,NVDA,,,,,,,-1.17,,1,,,,,,,,,,,,0.6385,2026-10-13T16:30:00+00:00,1385,2655
+trade,2026-10-20,MSFT,Short,2026-10-20T13:46:00+00:00,2026-10-20T14:27:00+00:00,526.3770,530.5541,7.00,-29.24,-0.007936,2460000,MaxHoldTimeout,window:5m thrust short,hammer,-0.6095,-0.0260,-0.6124,-0.7755,-0.2767,-0.5059,0.0514,-0.0209,,,
+summary,2026-10-20,MSFT,,,,,,,-29.24,,1,,,,,,,,,,,,0.9208,2026-10-12T13:39:00+00:00,1220,2640
