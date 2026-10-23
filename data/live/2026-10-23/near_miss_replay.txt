@@ -1,0 +1,6 @@
+near-miss bars on 2026-10-23: 4
+  MSFT  09:35 ET  short would have made -1.02% (max_hold at 10:16)   filtered by: 5m thrust short: FiveMinute -0.46 not lagging by 0.10, FiveMinute -0.46>-0.50, vpin_1m.raw
+  AMZN  09:38 ET  short would have made -0.55% (max_hold at 10:19)   filtered by: 5m thrust short: FiveMinute -0.38 not lagging by 0.10, FiveMinute -0.38>-0.50, vpin_1m.raw
+  MSFT  09:40 ET  short would have made -1.24% (max_hold at 10:21)   filtered by: 5m thrust short: FiveMinute -0.51 not lagging by 0.10, vpin_1m.raw_vpin 0.03<0.22
+  MSFT  09:45 ET  short would have made -1.05% (max_hold at 10:26)   filtered by: 5m thrust short: FiveMinute -0.44 not lagging by 0.10, FiveMinute -0.44>-0.50, vpin_1m.raw
+sum of hypothetical short returns: -3.86%  (positive = the filters cost us; negative = they saved us)
