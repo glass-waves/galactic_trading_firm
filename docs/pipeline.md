@@ -286,6 +286,12 @@ not see it.
 7. gates are pre-registered and named; the json of every check is stored with the candidate.
 8. the research lock (`logs/.research.lock`) serializes sweeps: research runner and pipeline never overlap.
 
+- **fill timing, backtest vs live.** the backtest fills at the NEXT bar's open (anti-lookahead,
+  `crates/backtest/src/replay.rs`); the trader and the shadow books fill at the signal bar's close
+  (the broker's market fill, or the simulated price ± 5 bps). the decision bar is the same, so "entry
+  within one bar" is the parity rule and a one-minute price difference between `replay_<book>.csv`
+  and the live trade is not a plumbing fault (audit 2026-10-23).
+
 ## 10. where books show up in ops
 
 - **watchdog** (`scripts/watchdog.sh`, every 5 min, no LLM): position / P&L / late-position
