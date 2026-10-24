@@ -2,7 +2,9 @@
 
 proposals from the evening routine; results written back by `scripts/research_runner.sh` on the
 desktop. the human approves an entry by changing `status: proposed` to `status: approved`.
-format and rules: `docs/routines/eod-report.md` §6. append only.
+format and rules: `docs/routines/eod-report.md` §6. append only. `status:` must sit on the `### RQ-N` header line;
+`status: approved from YYYY-MM-DD` runs on the first nightly run on or after that date (one entry per night keeps
+the 20:00 runner clear of the 20:30 pipeline on the shared lock).
 
 ### RQ-1 plateau cell: SPY ±0.3 % / VPIN ≥ 0.18 as v19 candidate   status: done
 proposed: 2026-09-21 by human (from plan doc §11.6 / §13.5)
@@ -35,14 +37,65 @@ command: needs code — add `--feed iex|sip` to `backtest --fetch-bars` (pass `a
 accept if: IEX-VPIN run at some floor gives PF ≥ 1.4 pooled, ≥ 350 trades, positive in ≥ 4 of 5 years — then that floor with an IEX-consistent live warmup is the v19 candidate; otherwise flag the VPIN filter as unvalidated live.
 result: ran 2026-09-24 evening (full IEX cache `data/bars_iex`, whole replay on IEX not just VPIN; plan doc §14.1). v18 cell on IEX: 407 / +2,154 / PF 1.48 / 3 pos years. VPIN 0.26 at ±0.2 %: 306 / +1,952 / PF 1.58 / 4 pos years (2023 −97) — the only cell meeting PF ≥ 1.4 with ≥ 4 years, but 306 < 350 trades. no-VPIN rows PF 1.20, so the filter is real on IEX too. verdict: partially accepted — filter validated, floor 0.217 kept, wider cells rejected; live warm-up moved to IEX (4d81b14).
 
-### RQ-4 Tradier as the live bar feed (parked 2026-10-04; re-prioritised 2026-10-07 after §16.1: SIP replay PF 1.56 / 510 trades vs IEX 1.37 / 436)
-status: parked — recommended next
+### RQ-4 Tradier as the live bar feed (parked 2026-10-04; re-prioritised 2026-10-07 after §16.1: SIP replay PF 1.56 / 510 trades vs IEX 1.37 / 436)   status: parked
+note: parked by the owner (needs a sandbox token); RQ-9 answers the feed question from cached data first.
 why: Tradier docs say its equities feed is consolidated (all exchanges) at $10/mo Pro vs Alpaca's $99 SIP plan; would fix the VPIN volume gap on the free IEX stream. real-time is gated to a brokerage account; the websocket is per-trade ticks (adapter must bucket minutes); REST 1m history only 10–20 days (Alpaca stays the history source). research: docs/research/2026-10-04_tradier_data_quality.md.
 command: put a free sandbox token in .env as TRADIER_TOKEN (TRADIER_BASE=https://sandbox.tradier.com), then `set -a; source .env; set +a; python3 scripts/analysis/tradier_volume_check.py 2026-10-02` — the decisive test, 10 minutes.
 accept if: Tradier/SIP volume ratio ≈ 1.0 (± 0.05) with minute correlation > 0.95 on all five symbols → then scope a tradier_feed.rs adapter (2–3 days) and run it as a parallel feed for a week before anything depends on it. ratio well below 1 → close.
 
-### RQ-5 scale-free MACD (found 2026-10-14 by the split-adjustment restatement)
-status: proposed
+### RQ-5 scale-free MACD (found 2026-10-14 by the split-adjustment restatement)   status: superseded by RQ-8
 why: `macd_5min` and `macd_fast_1min` score the MACD histogram in DOLLARS (clamped to ±1), so the composite's sensitivity depends on a name's price level — NVDA at $120 vs $1,200 scores differently for the same percentage move, and so do AAPL ($335) vs MSFT ($520). a hidden per-name parameter; also why a plain replay of split-adjusted history moves ~80 trades (docs/research/2026-10-14_split_adjustment.md).
 command: add a `normalize_by_price: true` option to the MACD indicator (histogram ÷ close, scaled so the ±1 clamp binds at the same percentage move), then propose a config candidate with both MACD instances switched on, gate quality-config — the pipeline judges it like any other change.
 accept if: PF ≥ baseline + 0.05 with ≥ 4 of 5 years and ≥ 0.6 × baseline trades (quality-config), or trades ≥ baseline with PF ≥ 1.3 (volume-config); either way it must also be positive in every year on the point-in-time record.
+
+### RQ-6 spend the sqrt-band books' PF headroom on volume   status: approved from 2026-10-26
+proposed: 2026-10-23 by claude (weekly audit; owner goal "increase volume while keeping PF > 1.4")
+hypothesis: lowering the VPIN floor on the two time-consistent SPY-band candidates (#44 row 20 PF 1.46 / 460, #45 row 21 PF 1.70 / 309) buys ≥ 480 trades at PF ≥ 1.40.
+why now: the VPIN-floor × SPY-band grid was only ever run on thrust-1h15 (research/qualvol) and on v18 before the VWAP parity fix; on thrust-1h15, 0.217 → 0.15 cost ≈ 0.14 PF for +112 trades — a prior, not a result. conditions/6 of the thrust windows and conditions/5 of the core windows are the `vpin_1m.raw_vpin` min_score (checked against rows 20/21 on 2026-10-23).
+cost: 7 five-year sweeps ≈ 30 min.
+command: for c in "20 0.20" "20 0.18" "20 0.15" "21 0.217" "21 0.20" "21 0.18" "21 0.15"; do set -- $c; BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rq6_r$1_v$2 --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --config-id $1 --set-action-param window_5m_thrust_short_am:conditions/6/min_score=$2 --set-action-param window_strong_core_short_am:conditions/5/min_score=$2 --set-action-param window_5m_thrust_short_pm:conditions/6/min_score=$2 --set-action-param window_strong_core_short_pm:conditions/5/min_score=$2; done; python3 research/entries/summarize.py cand_44 cand_45 rq6_r20_v0.20 rq6_r20_v0.18 rq6_r20_v0.15 rq6_r21_v0.217 rq6_r21_v0.20 rq6_r21_v0.18 rq6_r21_v0.15
+accept if: `rq6_r21_v0.217` reproduces `cand_45` (+2,044 / 309; otherwise the override did not apply — stop). a cell passes with PF ≥ 1.40, ≥ 480 trades, ≥ 4/5 years positive, no year < −300, and the same floor chosen by the volume-constrained leave-one-year-out check (`python3 research/timefilter/analyze.py loyo_vol <tags>`).
+next: edit the four floors in the #44 or #45 patch (data/cand_44.args / cand_45.args name the patch files), then `python3 scripts/pipeline/pipeline.py propose --gate volume-config --cells-scanned 24 --study research/timefilter/2026-10-07_time_consistent_filter.md ...` — four shadow slots are free since MAX_BOOKS went to 12.
+
+### RQ-7 stress-core trigger neighbourhood (generated, never swept)   status: approved from 2026-10-27
+proposed: 2026-10-23 by claude (owner: "make sure we aren't tossing aside ideas too quickly")
+hypothesis: a different trigger on the core-only stress window adds more than #6 stress-s15-core's ≈ +275 / 23 trades while leaving the base book untouched.
+why now: research/stress/make_patches.py already writes {s10,s20,c10n15,c05n15,n15,n25}_core but only s15_core was ever swept (stress report §2); §4 says the 1h ≤ −0.4 requirement "arrives late".
+cost: 9 five-year sweeps ≈ 35 min. the generated JSONs are pruned afterwards (repo hygiene) except the winner's.
+command: python3 research/stress/make_patches.py >/dev/null && for c in am_only s15_core s10_core c10n15_core c05n15_core n15_core n25_core s20_core s10_core_novpin; do BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh st2_$c --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --no-new-entries-after 15:30 --force-exit-by 15:55 --patch-json research/stress/$c.json; done; python3 research/stress/analyze.py --grid st2_am_only st2_s15_core st2_s10_core st2_c10n15_core st2_c05n15_core st2_n15_core st2_n25_core st2_s20_core st2_s10_core_novpin
+accept if: sanity first — st2_am_only = 434 trades and st2_s15_core = cand_6 (+2,003 / 459). a cell passes the additive-config clauses (base unchanged within ±2 % P&L / ±1 % trades; added ≥ 15 trades, net positive, PF ≥ 1.3, no year < −100, no day < −300, combined years not worse) AND added P&L ≥ #6's AND ≥ 35 added trades.
+next: `python3 research/stress/make_patches.py --pipeline` for the winner, `pipeline.py propose --gate additive-config --cells-scanned 26`; the human decides whether #6 stays in shadow. phase 2 (agent edits the generator): core 1h ceiling at −0.3 / −0.2.
+
+### RQ-8 scale-free MACD, runnable form of RQ-5   status: approved from 2026-10-29
+proposed: 2026-10-23 by claude (RQ-5 needed code; the indicator already has a price-scaled mode — normalization_factor ≤ 0 divides the histogram by 1 % of the close, crates/indicators/src/native/macd.rs)
+hypothesis: a price-scaled MACD makes the adjusted and point-in-time replays agree (today 360 vs 434 trades, plan §16.3) without losing PF.
+why now: the fixed $1 norm is 0.2–0.9 % of price across the four names and years (cache medians: MSFT $266→$480, AAPL $153→$297), so the existing 1 %-of-price mode damps MACD 1.1–5×: treat it as an invariance test and a lower bracket, not the fair test. patch: research/macd/k01.patch.json (replaces both MACD instances in place — patches replace by instance_id since 2026-10-23).
+cost: 2 five-year sweeps ≈ 8 min. patch verified 2026-10-23 on 10-22: scores match hist/(0.01·close) to 1e-4; mean |macd_5min| falls from 0.21 → 0.04 (MSFT), so this bracket mostly switches the MACD off — read it as the invariance test, phase B supplies the fair divisor.
+command: BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rq8_k01_pit --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --patch-json research/macd/k01.patch.json; BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rq8_k01_adj --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --patch-json research/macd/k01.patch.json --splits none; python3 research/entries/summarize.py iex_v18 rq8_k01_pit rq8_k01_adj
+accept if: invariance — pit and adj trade counts within 1 % of each other. as a strategy RQ-5's own clause: PF ≥ baseline + 0.05 with ≥ 4/5 years and ≥ 0.6 × baseline trades (quality-config) or trades ≥ baseline with PF ≥ 1.3 (volume-config), positive every year on the point-in-time record.
+next: phase B is a code PR — a `normalization_pct` param so the clamp binds at the same percentage move (sweep k ∈ {0.003, 0.004, 0.005, 0.007}); phase C re-screens the universe near-misses (SHOP PF 1.30, AMD 1.28 / META 1.33 on 1h15, CVX 1.43 n < 60, CAT 1.26) whose dollar MACD made each a different strategy — their cooldowns run to 2027-03/04, re-proposing is the human's call.
+
+### RQ-9 feed gap: volume or price path?   status: approved from 2026-10-28
+proposed: 2026-10-23 by claude (the SIP-vs-IEX decision, answered from cached data before paying for anything)
+hypothesis: most of the SIP-vs-IEX gap comes from the VPIN gate (volume), not from the price path.
+why now: phase 1 is already computed from the iex_v18 / sip_v18_vwapfix trade CSVs (2026-10-23): the +1,006 gap splits into price path and fills +53 (182 identical entries), timing +342 (337 shared ticker-days, re-timed entries, median −1 min), selection +611 (SIP-only ticker-days +424 vs IEX-only −187). ≈ 95 % of the gap is which bar or day passes the gates.
+cost: 2 dump sweeps ≈ 15 min (delete data/rq9_*_ticks.csv afterwards), then ≈ 1 h of agent analysis.
+command: DUMP_TICKS=1 BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rq9_iex --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --dump-window-only; DUMP_TICKS=1 BARS_DIR=data/bars scripts/run_cached_sweep.sh rq9_sip --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --dump-window-only
+accept if (pre-registered): for each non-shared entry find the condition that flipped on the other feed at that bar. "volume-driven" if bars where only VPIN flips carry ≥ 60 % of the +953 timing+selection gap; "price-driven" if SPY-band and score flips carry ≥ 60 % (`vwap_dist_1hr` is volume-weighted — tag it separately); otherwise mixed.
+next: volume-driven → an IEX-native VPIN neighbourhood (`bucket_divisor` {0.2, 0.4, 0.8} × `lookback_buckets` {20, 40}, never swept) with floors set by matching v18's pass rate, before spending $99/mo. price-driven → nothing on IEX can fix it and the SIP decision rests on PF 1.57 / 510 vs 1.40 / 434.
+
+### RQ-10 pretest cell c14: VWAP-fade neighbourhood   status: in pretest (cell c14_vwap_fade_pm added 2026-10-23; first verdict fragile)
+proposed: 2026-10-23 by claude
+why: c12 is labelled dead, but several of its points are net-positive (pretest summary, c12 section: the 4 names at 12:30 +19.8 bps / PF 1.75 / 3 of 5 years, n 57; the 34-name pool at z 1.0 PF 1.46 / 3 of 5). under the README's own vocabulary that is sub-cost, not dead, and it is a fade mechanism, not the thrust trigger that "afternoons never paid" refers to.
+method: c14 appended to research/pretest/cells.py (c12 untouched): t {150, 180, 210} min × hold {45, 60, 90} × z {0.75, 1.0, 1.25}, 4 names and the 34-name pool, same kill bar and random-session control (p < 0.05). ≈ 20 s inside the nightly pretest.
+accept if: a neighbourhood (not a point) clears the pretest pass bar with p < 0.05.
+first run 2026-10-23: fragile — best point pool / 12:30 / hold 45 / z 1.0: n 119, +16.6 bps net, PF 1.69, 4/5 years, z=0 control p 0.00; but only 2 of 54 cells clear the bar and leave-one-year-out gives 3/5, so it is a grid pick (without the LOYO rule it would read pass). the nightly pretest tracks it from here.
+next: an engine study, which needs a normalized-stretch metadata key on vwap_distance (small code).
+
+### RQ-11 turn-of-month day +2 long in the engine   status: proposed (needs the gate decision below)
+proposed: 2026-10-23 by claude (backup decoupled channel if #48 qqq-noise-pm-vol ends insufficient_activity, which its trade rate predicts)
+why: passed the pretest with the random-session control (SPY PF 1.77 5/5 p 0.03, QQQ PF 1.73 4/5 p 0.037) and has never been run in the engine.
+method: research/tom/tom_long.patch.json — `event_calendar` date list (60 dates, session 2 of each month, research/tom/dates.py), a long entry_window 09:30–10:30 with exit_overrides (force_exit_by 15:55, max hold 6.5 h, score exit off), breakeven monitor, ATR trailing stop, both 1m-noise reject gates and both short windows disabled (the strategy stands alone; the 2.5 % hard stop stays), tickers SPY, QQQ, IWM (IEX cache). verified 2026-10-23: 3 trades on 2026-10-02 (session 2), none on 10-01 / 10-05. one five-year sweep; ≈ 170–180 trades expected, which only just clears the standalone gate's ≥ 150.
+command: BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rq11_tom --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --patch-json research/tom/tom_long.patch.json; python3 research/entries/summarize.py rq11_tom
+accept if: net bps within 3 bps of the pretest, PF > 1.3, ≥ 4/5 years.
+caveat (human decision before any proposal): the standalone-strategy gate's `combined_active_days ≥ 1.25 × base` needs ≈ 81 extra active days and this rule adds at most ≈ 58, so it fails by construction; either an `event-strategy` gate variant without that clause, or run it as a shadow ticker-set on its own.

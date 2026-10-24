@@ -110,6 +110,12 @@ impl LiveSession {
     }
 
     /// record the broker's actual entry fill for the open position.
+    /// the broker filled fewer shares than the engine sized: shrink the engine position so
+    /// the recorded trade and P&L reflect the real fill.
+    pub fn resize_open(&mut self, quantity: f64) -> bool {
+        self.engine.resize_open_position(quantity)
+    }
+
     pub fn set_broker_entry_price(&mut self, price: f64) {
         self.broker_entry_price = Some(price);
     }

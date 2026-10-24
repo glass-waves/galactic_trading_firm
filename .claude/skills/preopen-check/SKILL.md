@@ -35,8 +35,8 @@ SELECT ticker, now() - updated_at AS heartbeat_age, config_version_id, broker_mo
 FROM engine_state WHERE book='primary' ORDER BY ticker;
 SELECT id, promoted_at, created_by, left(mutation_reason, 80) FROM config_versions WHERE status = 'promoted';
 -- orphan check (since 2026-10-15; docs/dev/books_trader_notes.md): compare against
--- `curl -H "APCA-API-KEY-ID: $APCA_API_KEY_ID" -H "APCA-API-SECRET-KEY: $APCA_API_SECRET_KEY"
---  https://paper-api.alpaca.markets/v2/positions` — any symbol there should match a primary
+-- `./scripts/alpaca_api.sh /v2/positions` (read-only GET, keys from .env; never inline
+--  `source .env && curl`, that compound line is denied) — any symbol there should match a primary
 -- position below (same side); the binary adopts orphans at startup under ORPHAN_POLICY=adopt
 -- and notifies, so this just confirms it happened (CRITICAL if a broker position still has no
 -- matching primary row)

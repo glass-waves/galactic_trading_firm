@@ -103,6 +103,24 @@ pub fn window_exit_overrides_from_configs(configs: &[types::action::ActionConfig
     out
 }
 
+/// run an action with panic isolation: a panicking action is logged and treated as
+/// `Hold` so one bad module can never take the tick loop down (indicators already get
+/// the same treatment).
+fn evaluate_guarded(
+    action: &dyn Action,
+    position: Option<&types::action::Position>,
+    market: &MarketState,
+    scores: &types::scoring::TimescaleScores,
+) -> ActionSignal {
+    match catch_unwind(AssertUnwindSafe(|| action.evaluate(position, market, scores))) {
+        Ok(signal) => signal,
+        Err(_) => {
+            warn!("action panicked, treating as Hold");
+            ActionSignal::Hold
+        }
+    }
+}
+
 impl TradingEngine {
     #[allow(clippy::too_many_arguments)]
     pub fn new(
@@ -213,11 +231,12 @@ impl TradingEngine {
         // 3. aggregate per-timescale scores
         let mut scores = compute_timescale_scores(&outputs, &self.indicator_configs);
 
-        // 3b. attach per-indicator scores for entry window conditions
-        scores.indicator_scores = Some(outputs.clone());
-
         // 4. compute composite score (pass indicator outputs for dynamic fusion)
         compute_composite_with_indicators(&mut scores, &self.scoring_config, Some(&outputs));
+
+        // 3b/4b. attach per-indicator scores for entry window conditions (moved, not cloned: the
+        // map is not read again in this tick)
+        scores.indicator_scores = Some(outputs);
 
         // 5. update position state (preserves original timing for exits)
         self.position_manager
@@ -306,7 +325,8 @@ impl TradingEngine {
             // check monitor actions (e.g., breakeven stop). a ModifyStop installs a
             // stop that only ever tightens (long: max, short: min).
             for action in &self.monitor_actions {
-                let signal = action.evaluate(
+                let signal = evaluate_guarded(
+                    action.as_ref(),
                     self.position_manager.current_position(),
                     market,
                     &scores,
@@ -350,7 +370,8 @@ impl TradingEngine {
             // check exit actions
             let mut exit_event = TickEvent::Nothing;
             for action in &self.exit_actions {
-                let signal = action.evaluate(
+                let signal = evaluate_guarded(
+                    action.as_ref(),
                     self.position_manager.current_position(),
                     market,
                     &scores,
@@ -398,7 +419,7 @@ impl TradingEngine {
             // check entry actions (sorted by priority — reject gates first, then windows)
             let mut entry_event = TickEvent::Nothing;
             for action in &self.entry_actions {
-                let signal = action.evaluate(None, market, &scores);
+                let signal = evaluate_guarded(action.as_ref(), None, market, &scores);
                 if matches!(signal, ActionSignal::RejectEntry) {
                     // reject gate fired — no entry this tick
                     blocked_by_out = Some(format!("reject_gate:{}", action.name()));
@@ -420,7 +441,7 @@ impl TradingEngine {
                     }
                     // check sizing actions for actual size
                     for sizing in &self.sizing_actions {
-                        let sizing_signal = sizing.evaluate(None, market, &scores);
+                        let sizing_signal = evaluate_guarded(sizing.as_ref(), None, market, &scores);
                         if let ActionSignal::Enter {
                             size_fraction: sf, ..
                         } = sizing_signal
@@ -680,6 +701,33 @@ impl TradingEngine {
     /// current available capital (initial minus deployed in open positions).
     pub fn available_capital(&self) -> f64 {
         self.available_capital
+    }
+
+    /// shrink the open position to what the broker actually filled (a partial fill at the
+    /// entry deadline). returns false when there is no position or `size` is not smaller.
+    pub fn resize_open_position(&mut self, size: f64) -> bool {
+        let Some(pos) = self.position_manager.current_position_mut() else { return false };
+        if size.is_nan() || size <= 0.0 || size >= pos.size {
+            return false;
+        }
+        let released = (pos.size - size) * pos.entry_price;
+        pos.size = size;
+        self.available_capital += released;
+        true
+    }
+
+    /// copy the per-day state from the engine this one replaces (config hot-reload
+    /// mid-session): the loss breaker, realised P&L, the last-exit cooldown clock and any
+    /// order-failure suppression must survive the swap, or a breaker-tripped ticker would
+    /// trade again the same day (audit 2026-10-23).
+    pub fn carry_day_state(&mut self, from: &TradingEngine) {
+        self.current_session_date = from.current_session_date;
+        self.session_start_time = from.session_start_time;
+        self.cumulative_realized_pnl = from.cumulative_realized_pnl;
+        self.daily_loss_breaker_active = from.daily_loss_breaker_active;
+        self.last_exit_time = from.last_exit_time;
+        self.last_exit_time_before = from.last_exit_time_before;
+        self.entries_suppressed_until = from.entries_suppressed_until;
     }
 
     /// undo the last position open (for next-bar execution in backtest).

@@ -488,8 +488,15 @@ pub const FILL_TIMEOUT_MS: u64 = 15_000;
 /// how long a close waits for its market order before handing the still-working
 /// order back to the caller (`BrokerError::Working`). a close is never cancelled for
 /// lack of confirmation: the point is to get flat, and 2026-10-16 showed a paper
-/// market order can sit `accepted` for longer than 15 s at the open.
-pub const CLOSE_FILL_TIMEOUT_MS: u64 = 120_000;
+/// market order can sit `accepted` for longer than 15 s at the open. the wait is short
+/// because it blocks the whole bar loop (every other ticker and book waits); a close
+/// still working at the deadline becomes exit-pending and is re-checked every bar and
+/// heartbeat, so nothing is lost by returning early (audit 2026-10-23: was 120 s).
+pub const CLOSE_FILL_TIMEOUT_MS: u64 = 20_000;
+/// ceiling on any single HTTP round trip to the broker. apca's client sets none, and a
+/// hung request would otherwise stall the bar loop indefinitely. a timed-out submit is
+/// reported `Unconfirmed` (the broker may have the order) so the caller reconciles.
+pub const HTTP_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(15);
 pub const FILL_POLL_MS: u64 = 250;
 /// a failed poll is retried this many times (backoff `poll_ms * 2^n`) before the
 /// fallback lookups run.
@@ -804,9 +811,9 @@ impl AlpacaBroker {
 
     /// last trade (iex feed) from the data api — the reference for after-hours limits.
     pub async fn latest_trade_price(&self, symbol: &str) -> Result<f64, BrokerError> {
-        self.client
-            .issue::<LatestTradeRaw>(&symbol.to_string())
+        tokio::time::timeout(HTTP_TIMEOUT, self.client.issue::<LatestTradeRaw>(&symbol.to_string()))
             .await
+            .map_err(|_| BrokerError::ConnectionError(format!("latest trade {symbol}: http timeout")))?
             .map(|b| b.trade.price)
             .map_err(|e| BrokerError::ConnectionError(format!("latest trade {symbol}: {e:?}")))
     }
@@ -835,10 +842,9 @@ impl AlpacaBroker {
         }
         .init(ticker, side, order::Amount::quantity(shares));
 
-        let created = self
-            .client
-            .issue::<order::Create>(&req)
+        let created = tokio::time::timeout(HTTP_TIMEOUT, self.client.issue::<order::Create>(&req))
             .await
+            .map_err(|_| BrokerError::Unconfirmed(format!("order submit timed out after {} s — the broker may have it", HTTP_TIMEOUT.as_secs())))?
             .map_err(|e| BrokerError::OrderRejected(format!("{e:?}")))?;
         let view = OrderView::from(created);
         info!(
@@ -865,26 +871,26 @@ impl AlpacaBroker {
 impl OrderApi for AlpacaBroker {
     async fn get_order(&self, id: &str) -> Result<OrderView, String> {
         debug!(order_id = id, path = %format!("/v2/orders/{id}"), "GET order");
-        self.client
-            .issue::<OrderGetRaw>(&id.to_string())
+        tokio::time::timeout(HTTP_TIMEOUT, self.client.issue::<OrderGetRaw>(&id.to_string()))
             .await
+            .map_err(|_| format!("GET order {id}: http timeout"))?
             .map(OrderView::from)
             .map_err(|e| format!("{e:?}"))
     }
 
     async fn get_order_by_client_id(&self, client_order_id: &str) -> Result<OrderView, String> {
         use apca::api::v2::order;
-        self.client
-            .issue::<order::GetByClientId>(&client_order_id.to_string())
+        tokio::time::timeout(HTTP_TIMEOUT, self.client.issue::<order::GetByClientId>(&client_order_id.to_string()))
             .await
+            .map_err(|_| format!("GET order by client id {client_order_id}: http timeout"))?
             .map(OrderView::from)
             .map_err(|e| format!("{e:?}"))
     }
 
     async fn cancel_order(&self, id: &str) -> Result<(), String> {
-        self.client
-            .issue::<OrderCancelRaw>(&id.to_string())
+        tokio::time::timeout(HTTP_TIMEOUT, self.client.issue::<OrderCancelRaw>(&id.to_string()))
             .await
+            .map_err(|_| format!("cancel order {id}: http timeout"))?
             .map_err(|e| format!("{e:?}"))
     }
 
@@ -919,10 +925,9 @@ impl Broker for AlpacaBroker {
     async fn open_positions(&self) -> Result<Vec<BrokerPosition>, BrokerError> {
         use apca::api::v2::{position, positions};
 
-        let list = self
-            .client
-            .issue::<positions::List>(&())
+        let list = tokio::time::timeout(HTTP_TIMEOUT, self.client.issue::<positions::List>(&()))
             .await
+            .map_err(|_| BrokerError::ConnectionError("positions list: http timeout".into()))?
             .map_err(|e| BrokerError::ConnectionError(format!("{e:?}")))?;
 
         Ok(list
@@ -951,10 +956,9 @@ impl Broker for AlpacaBroker {
 
         let symbol = apca::api::v2::asset::Symbol::Sym(ticker.to_string());
 
-        let order = self
-            .client
-            .issue::<position::Delete>(&symbol)
+        let order = tokio::time::timeout(HTTP_TIMEOUT, self.client.issue::<position::Delete>(&symbol))
             .await
+            .map_err(|_| BrokerError::Unconfirmed(format!("close {ticker} timed out after {} s — the broker may be working it", HTTP_TIMEOUT.as_secs())))?
             .map_err(|e| {
                 // check if the error is a NotFound
                 let msg = format!("{e:?}");
@@ -1010,10 +1014,9 @@ impl Broker for AlpacaBroker {
             ..Default::default()
         }
         .init(&pos.ticker, side, order::Amount::quantity(shares));
-        let created = self
-            .client
-            .issue::<order::Create>(&req)
+        let created = tokio::time::timeout(HTTP_TIMEOUT, self.client.issue::<order::Create>(&req))
             .await
+            .map_err(|_| BrokerError::Unconfirmed(format!("order submit timed out after {} s — the broker may have it", HTTP_TIMEOUT.as_secs())))?
             .map_err(|e| BrokerError::OrderRejected(format!("{e:?}")))?;
         let view = OrderView::from(created);
         warn!(ticker = %pos.ticker, shares, limit, last, order_id = %view.id, client_order_id = %view.client_order_id, "orphan close: extended-hours day limit submitted");
@@ -1491,7 +1494,10 @@ mod tests {
         let c = FillWait::close();
         assert!(!c.cancel_on_timeout);
         assert_eq!(c.timeout_ms, CLOSE_FILL_TIMEOUT_MS);
-        assert!(c.timeout_ms >= 120_000);
+        // longer than the entry wait, but short: it blocks the bar loop, and a close still
+        // working at the deadline is tracked as exit-pending rather than abandoned
+        assert!(c.timeout_ms > FILL_TIMEOUT_MS);
+        assert!(c.timeout_ms <= 30_000);
         assert!(FillWait::live().cancel_on_timeout);
     }
 

@@ -1,0 +1,10 @@
+{
+  "indicators": [
+    {"instance_id": "macd_5min", "indicator_type": "macd", "timescale": "FiveMinute", "weight": 0.4, "enabled": true,
+     "params": {"fast_period": 12, "slow_period": 26, "signal_period": 9, "normalization_factor": 0.0},
+     "last_modified_by": "research", "modification_reason": "RQ-5 k01: price-scaled MACD (histogram / 1% of close)"},
+    {"instance_id": "macd_fast_1min", "indicator_type": "macd", "timescale": "OneMinute", "weight": 0.25, "enabled": true,
+     "params": {"fast_period": 6, "slow_period": 13, "signal_period": 5, "normalization_factor": 0.0},
+     "last_modified_by": "research", "modification_reason": "RQ-5 k01: price-scaled MACD (histogram / 1% of close)"}
+  ]
+}

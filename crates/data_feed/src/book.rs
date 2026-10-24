@@ -1218,9 +1218,13 @@ impl Book {
 
         // cross-ticker capacity: still tick (exits, clocks, diagnostics), but block entries
         let at_capacity = self.open_position_count() >= self.max_concurrent();
+        // a ticker whose failed entry is still unreconciled against the broker must not
+        // re-enter after the 5-minute suppression: the broker could already hold the first
+        // order's shares and the engine would end up at half the real size
+        let unreconciled = self.unreconciled.contains_key(ticker);
         let (mut result, mut trade, session_cfg_id) = {
             let session = self.sessions.get_mut(ticker)?;
-            if at_capacity && !session.has_position() {
+            if (at_capacity && !session.has_position()) || unreconciled {
                 market.entries_blocked = true;
             }
             let (result, trade) = session.on_tick(&mut market);
@@ -1265,6 +1269,9 @@ impl Book {
                                 warn!(book = %self.spec.name, ticker = %ticker, requested = shares, filled = fill.quantity, "broker filled a different quantity than the engine sized");
                             }
                             if let Some(s) = self.sessions.get_mut(ticker) {
+                                if fill.quantity > 0.5 && fill.quantity < shares - 0.5 && s.resize_open(fill.quantity.floor()) {
+                                    warn!(book = %self.spec.name, ticker = %ticker, engine_size = fill.quantity.floor(), "engine position resized to the partial fill");
+                                }
                                 if fill.fill_price > 0.0 {
                                     s.set_broker_entry_price(fill.fill_price);
                                 }
@@ -1354,7 +1361,10 @@ impl Book {
         match &self.sink {
             Sink::Live { trade_writer, .. } => match trade_writer.write_trade(tws, broker_exit_price).await {
                 Ok(trade_id) => info!(book = %self.spec.name, trade_id, "trade written to database"),
-                Err(e) => error!(book = %self.spec.name, error = %e, "failed to write trade to database"),
+                Err(e) => {
+                    error!(book = %self.spec.name, error = %e, "failed to write trade to database — spooling to logs/trade_spool.jsonl");
+                    spool_trade(&self.spec.name, tws, broker_exit_price, &e.to_string());
+                }
             },
             Sink::Replay(log) => {
                 if let Ok(mut v) = log.lock() {
@@ -1465,8 +1475,11 @@ impl Book {
             return Some(true);
         }
         match try_build_engine(pending_cfg, ticker, self.capital) {
-            Some(engine) => {
+            Some(mut engine) => {
                 info!(book = %self.spec.name, ticker, version_id = pending_id, "engine rebuilt for new config");
+                if let Some(old) = self.sessions.get(ticker) {
+                    engine.carry_day_state(old.engine());
+                }
                 self.sessions
                     .insert(ticker.to_string(), LiveSession::new(engine, pending_id));
                 Some(false)
@@ -1613,6 +1626,40 @@ impl Book {
                 warn!(book = %self.spec.name, ticker, error = %e, "failed to upsert engine_state");
             }
         }
+    }
+}
+
+
+/// last-resort record of a completed trade the database refused: one JSON line per trade
+/// in `$LOG_DIR/trade_spool.jsonl` (default `logs/`), for a human to insert by hand. the
+/// row is never lost silently; the file is append-only and tiny.
+fn spool_trade(book: &str, tws: &TradeWithScores, broker_exit_price: Option<f64>, error: &str) {
+    use std::io::Write;
+    let dir = std::env::var("LOG_DIR").unwrap_or_else(|_| "logs".to_string());
+    let path = std::path::Path::new(&dir).join("trade_spool.jsonl");
+    let t = &tws.trade;
+    let line = serde_json::json!({
+        "spooled_at": Utc::now().to_rfc3339(),
+        "book": book,
+        "ticker": t.ticker,
+        "direction": format!("{:?}", t.direction),
+        "entry_price": t.entry_price,
+        "exit_price": t.exit_price,
+        "size": t.size,
+        "entry_time": t.entry_time.to_rfc3339(),
+        "exit_time": t.exit_time.to_rfc3339(),
+        "pnl": t.pnl,
+        "pnl_pct": t.pnl_pct,
+        "exit_reason": format!("{:?}", t.exit_reason),
+        "entry_reason": tws.entry_reason,
+        "config_version_id": tws.config_version_id,
+        "broker_entry_price": tws.broker_entry_price,
+        "broker_exit_price": broker_exit_price,
+        "db_error": error,
+    });
+    let res = std::fs::OpenOptions::new().create(true).append(true).open(&path).and_then(|mut f| writeln!(f, "{line}"));
+    if let Err(e) = res {
+        error!(book, ticker = %t.ticker, error = %e, "could not write the trade spool either");
     }
 }
 

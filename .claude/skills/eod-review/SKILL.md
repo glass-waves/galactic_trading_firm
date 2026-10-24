@@ -66,9 +66,11 @@ SELECT created_at AT TIME ZONE 'America/New_York', agent, memo_type, reasoning F
 WHERE created_at > now() - interval '7 days' ORDER BY created_at;
 ```
 
-then the **same-day backtest** (the free data plan allows full-day history after the close):
+then the **same-day backtest**. today's bars are already in the cache: `export-day.timer` (13:20 PT)
+fetched them before this check-in started, so do NOT run `--fetch-bars` here (a `D=...; ...` compound
+line is outside the allow-list and is denied). if the replay prints 0 bars for today, say so in the
+verdict instead of fetching:
 ```bash
-D=$(TZ=America/New_York date +%F); ./target/release/backtest --fetch-bars data/bars_iex --start $D --end $D --tickers AAPL,AMZN,NVDA,MSFT,SPY --feed iex >/dev/null 2>&1
 ./target/release/backtest --date $(TZ=America/New_York date +%F) --lookback-days 8 --capital 10000 \
   --slippage-bps 3.0 --half-spread 0.005 --verbose \
   --bars-dir data/bars_iex --cross-index SPY   # live is IEX end-to-end since 2026-09-24; data/bars (SIP) is the research cache

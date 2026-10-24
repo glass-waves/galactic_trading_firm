@@ -229,6 +229,7 @@ without scaling — per-trade bps and PF are.
 
 ```sql
 -- the row named in the proposal block; it is 'validated' and has parent_version_id set
+UPDATE config_versions SET status = 'superseded' WHERE status = 'promoted';
 UPDATE config_versions SET status = 'promoted', promoted_at = now() WHERE id = N;
 ```
 
@@ -252,7 +253,7 @@ not see it.
   its shadow is retired). withdrawing sets no cooldown.
 - a manual shadow (no candidate), e.g. to watch a config row live:
   `INSERT INTO books (name, role, config_version_id, tickers, purpose) VALUES ('shadow:row-14', 'shadow', 14, NULL, 'watch row 14 live');`
-  — it appears at the next start; retire it the same way. at most `MAX_BOOKS` (8) books and
+  — it appears at the next start; retire it the same way. at most `MAX_BOOKS` (12 since 2026-10-23, set in `paper-trader.service`; the pipeline warns when a new shadow would exceed it) books and
   `MAX_SYMBOLS` (25) websocket symbols; excess shadows are skipped with an error and the
   watchdog's "not hosted" warning, the primary is never skipped.
 

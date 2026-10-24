@@ -30,6 +30,10 @@ impl PositionManager {
         Self { position: None }
     }
 
+    pub fn current_position_mut(&mut self) -> Option<&mut Position> {
+        self.position.as_mut()
+    }
+
     pub fn current_position(&self) -> Option<&Position> {
         self.position.as_ref()
     }

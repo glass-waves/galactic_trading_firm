@@ -29,16 +29,28 @@ class ApplyPatch(unittest.TestCase):
         self.assertTrue(by["window_strong_core_short"]["enabled"])
         self.assertEqual(len(out["actions"]), 4)
 
+    def test_existing_instance_id_is_replaced_in_place(self):
+        ind = {"indicator_type": "rsi", "instance_id": "rsi_7_1min", "timescale": "OneMinute", "weight": 0.5, "enabled": True, "params": {"period": 9}}
+        act = {"action_type": "session_close", "instance_id": "exit_session", "phase": "Exit", "enabled": True, "priority": 5, "params": {"force_exit_by": "15:55"}}
+        out = materialize.apply_patch(BASE, {"indicators": [ind], "actions": [act]})
+        self.assertEqual([i["instance_id"] for i in out["indicators"]], ["rsi_7_1min"])
+        self.assertEqual(out["indicators"][0]["params"], {"period": 9})
+        self.assertEqual(out["indicators"][0]["weight"], 0.5)
+        self.assertEqual([a["instance_id"] for a in out["actions"]], ["window_5m_thrust", "window_strong_core_short", "exit_session", "exit_session_b"])
+        self.assertEqual(out["actions"][2]["params"]["force_exit_by"], "15:55")
+        self.assertEqual(BASE["indicators"][0]["params"], {})  # input untouched
+
     def test_indicators_and_actions_append_in_order(self):
         ind = {"indicator_type": "event_calendar", "instance_id": "cal_sma50", "timescale": "OneMinute", "weight": 0.0, "enabled": True, "params": {"dates": []}}
         act = {"action_type": "entry_window", "instance_id": "window_x", "phase": "Entry", "enabled": True, "priority": 10, "params": {}}
         out = materialize.apply_patch(BASE, {"indicators": [ind], "actions": [act]})
         self.assertEqual([i["instance_id"] for i in out["indicators"]], ["rsi_7_1min", "cal_sma50"])
         self.assertEqual(out["actions"][-1]["instance_id"], "window_x")
-        # appended, never replaced, even when the id already exists (mirrors the CLI)
-        dup = dict(act, instance_id="window_5m_thrust")
+        # an existing id is replaced in place, never duplicated (mirrors the CLI since 2026-10-23)
+        dup = dict(act, instance_id="window_5m_thrust", priority=99)
         out2 = materialize.apply_patch(BASE, {"actions": [dup]})
-        self.assertEqual(sum(1 for a in out2["actions"] if a["instance_id"] == "window_5m_thrust"), 2)
+        self.assertEqual(sum(1 for a in out2["actions"] if a["instance_id"] == "window_5m_thrust"), 1)
+        self.assertEqual(out2["actions"][0]["priority"], 99)
 
     def test_session_shallow_merge_and_session_close_mirror(self):
         out = materialize.apply_patch(BASE, {"session": {"no_new_entries_after": "15:30", "force_exit_by": "15:55"}})

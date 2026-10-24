@@ -3,6 +3,8 @@ Description=research pipeline: advance candidates (backtest gate, shadow trials,
 After=trading-postgres.service
 
 [Service]
+# mirrors paper-trader.service: the pipeline warns when a new shadow would exceed the trader's cap
+Environment=MAX_BOOKS=12
 Type=oneshot
 WorkingDirectory=/home/dylmet/Projects/galactic_trading_firm
 Environment=PATH=/home/dylmet/.local/bin:/home/dylmet/.cargo/bin:/usr/local/bin:/usr/bin:/bin

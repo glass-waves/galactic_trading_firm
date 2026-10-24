@@ -66,6 +66,8 @@ COST_ARGS = ["--slippage-bps", "3.0", "--half-spread", "0.005"]
 GATE_SWEEP_ARGS = SIZING_ARGS + CROSS_ARGS
 FETCH_START = "2022-01-01"
 COOLDOWN_DAYS = 180
+# must match the trader's MAX_BOOKS (deploy/systemd/paper-trader.service); used only to warn when a new shadow cannot host
+MAX_BOOKS = int(os.environ.get("MAX_BOOKS", "8") or 8)
 MAX_NEW_TICKER_FETCHES = 2
 COVERAGE_RETRY_DAYS = 1  # a stale tail is transient: retry the next night (was 7 until 2026-10-05)
 TERMINAL = {"backtest_failed", "shadow_failed", "rejected", "withdrawn", "promoted"}
@@ -685,6 +687,16 @@ def create_shadow(cand: dict, actor: str = "pipeline", dry_run: bool = False) ->
         log(f"[{why}] #{cand['id']} {cand['name']}: would create {desc} and move backtest_passed → shadow")
         return "would-create"
     purpose = f"pipeline trial #{cand['id']} {cand['name']} ({cand['kind']}, gate {cand['gate']})"
+    # the trader hosts at most MAX_BOOKS books (primary included; deploy/systemd/paper-trader.service sets it,
+    # crates/data_feed/src/book.rs defaults to 8). a book past the cap is created but skipped at start, so its
+    # trial clock does not run — say so here instead of leaving it to the watchdog's "not hosted" warning.
+    hosted = db.query_one("SELECT count(*) AS n FROM books WHERE enabled")
+    n_books = int((hosted or {}).get("n") or 0)
+    if n_books >= MAX_BOOKS:
+        msg = (f"pipeline: {n_books} books enabled, trader cap MAX_BOOKS={MAX_BOOKS}: shadow {name} (#{cand['id']}) "
+               f"will not be hosted until a shadow retires; raise MAX_BOOKS in paper-trader.service and pipeline.service")
+        log("[warning] " + msg)
+        notify("warning", msg)
     extra_sql = f"""INSERT INTO books (name, role, config_version_id, tickers, capital, enabled, purpose, candidate_id, created_by)
 VALUES ({db.lit(name)}, 'shadow', {db.lit(cfg)}, {db.lit(tickers)}, NULL, true, {db.lit(purpose)}, {int(cand['id'])}, 'pipeline')
 ON CONFLICT (name) DO UPDATE SET enabled = true, retired_at = NULL, retire_reason = NULL, config_version_id = EXCLUDED.config_version_id,
@@ -997,6 +1009,13 @@ def run_regate(cand: dict, new_gate_raw: str, actor: str = "pipeline") -> str:
     sets = {"gate": new_gate, "backtest_result": result, "backtest_at": db.Raw("now()")}
     if passed:
         sets["cooldown_until"] = None
+    else:
+        # a regate that fails must leave the same cooldown a failed backtest does: without this a
+        # backtest_passed candidate regated to a stricter gate landed in backtest_failed with
+        # cooldown_until NULL and could be re-proposed the same night (audit 2026-10-23)
+        prev_cd = cand.get("cooldown_until")
+        if not (prev_cd and dt.date.fromisoformat(str(prev_cd)) >= today_et()):
+            sets["cooldown_until"] = db.Raw(f"current_date + {COOLDOWN_DAYS}")
     extra_sql = ""
     if mid:
         extra_sql = f"UPDATE config_versions SET status = {db.lit('validated' if passed else 'rejected')} WHERE id = {int(mid)};"

@@ -22,9 +22,14 @@ q = sys.argv[1]
 text = open(q).read()
 blocks = re.split(r'(?m)^(?=### RQ-)', text)
 changed = False
+today = datetime.date.today().isoformat()
 for i, b in enumerate(blocks):
-    m = re.match(r'### (RQ-\d+)[^\n]*status:\s*approved', b)
+    # `status: approved` runs tonight; `status: approved from YYYY-MM-DD` waits for that date, so a
+    # week of entries can be queued at once and run one per night (status must be on the header line)
+    m = re.match(r'### (RQ-\d+)[^\n]*status:\s*approved(?:\s+from\s+(\d{4}-\d{2}-\d{2}))?', b)
     if not m:
+        continue
+    if m.group(2) and m.group(2) > today:
         continue
     rq = m.group(1)
     cm = re.search(r'(?ms)^command:\s*(.+?)^(?=accept if:|result:|$)', b)
@@ -32,7 +37,7 @@ for i, b in enumerate(blocks):
         continue
     cmd = ' '.join(l.strip() for l in cm.group(1).strip().splitlines())
     print(f"[research_runner] {rq}: {cmd[:120]}")
-    b = re.sub(r'status:\s*approved', 'status: running', b, count=1)
+    b = re.sub(r'status:\s*approved(?:\s+from\s+\d{4}-\d{2}-\d{2})?', 'status: running', b, count=1)
     open(q, 'w').write(''.join(blocks[:i]) + b + ''.join(blocks[i+1:]))
     t0 = datetime.datetime.now()
     r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=6 * 3600)

@@ -16,11 +16,7 @@ fn make_trade(
         .timestamp_opt(1_700_000_000 + day_offset * 86400 + hold_ms / 1000, 0)
         .unwrap();
     let entry_price = 100.0;
-    let exit_price = if pnl > 0.0 {
-        entry_price + pnl / 100.0
-    } else {
-        entry_price + pnl / 100.0
-    };
+    let exit_price = entry_price + pnl / 100.0;
 
     TradeRecord {
         ticker: "SPY".to_string(),

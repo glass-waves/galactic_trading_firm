@@ -6,7 +6,7 @@ crate `crates/data_feed` only. pre-change binary: `target/release/paper_trader.p
 ## what changed
 
 - `book.rs` (new): `BookSpec` + `load_books(pool)` (enabled `books` rows; exactly one primary or the
-  process refuses to start), `Limits` (`MAX_BOOKS` 8 / `MAX_SYMBOLS` 25: excess *shadows* skipped with
+  process refuses to start), `Limits` (`MAX_BOOKS` 8 by default, 12 in `paper-trader.service` since 2026-10-23 / `MAX_SYMBOLS` 25: excess *shadows* skipped with
   `error!`, never the primary), `Book` = engines per ticker + broker + sink + capacity + daily P&L +
   pending config + gate/near-miss dedupe. `Book::new_shadow` builds its own `SimulatedBroker` (5 bps);
   `new_primary` is the only constructor taking a broker and `main` the only `AlpacaBroker::new` site,
@@ -181,3 +181,32 @@ anyway. the broker kept AMZN −48 all day; the engine thought it was flat. NVDA
    is the one combination that leaves a position nobody is managing.
 3. the broker's positions list is the ground truth; compare it to the engines every
    few minutes in both directions, with a debounce, instead of only at startup.
+
+## 2026-10-23 audit changes and known gaps
+
+changed (`crates/data_feed`, `crates/engine`):
+- `CLOSE_FILL_TIMEOUT_MS` 120 s → 20 s and `HTTP_TIMEOUT` 15 s on every broker call. a broker wait runs inline in the bar
+  loop (every other ticker and book waits), so a close still working at 20 s becomes exit-pending — the heartbeat (30 s) and
+  the next bar re-check it — instead of stalling the loop for two minutes. a timed-out submit is `Unconfirmed` (the broker may
+  have the order), which routes through `handle_failed_entry` → `reconcile_ticker`.
+- shutdown flattens the shadows first and the primary last; `TimeoutStopSec` 90 → 300 s.
+- a ticker with an unreconciled entry blocks new entries until the broker answers (before, only the 5-minute suppression did).
+- a partial entry fill resizes the engine position to the filled quantity (`LiveSession::resize_open`).
+- a hot-reload rebuild carries the per-day state (`TradingEngine::carry_day_state`): breaker, realised P&L, cooldown clocks.
+- a trade the database refuses is appended to `$LOG_DIR/trade_spool.jsonl`; the pool acquire timeout is 5 s (was sqlx's 30 s).
+- actions run under `catch_unwind` like indicators (a panicking action is `Hold`).
+
+known gaps, not yet closed (ordered by how likely they are to bite):
+1. an exit still pending at shutdown loses its trade record if the order fills after the process exits (the next start sees a
+   flat broker and adopts nothing). fix: persist `ExitPending` (order id, reason, entry stash) and resolve it at startup.
+2. startup never lists open orders: a working close left by the previous process is adopted as an orphan and closed a second
+   time. fix: list `gtf-*` open orders at start, seed exit-pending from them, cancel stale entry orders.
+3. an `Unconfirmed` cancel ("still working after cancel") clears the ticker as flat as soon as the positions list is empty,
+   although the order is alive; when it fills later it is found as an orphan 5–10 min on. fix: carry the order id and clear only
+   on a terminal status.
+4. `reconcile_live` compares presence, not quantity/direction.
+5. startup picks the promoted row by `promoted_at`, the watcher by `id > current`; with the documented supersede-first SQL only
+   one row is promoted, so this is moot unless two rows are left promoted.
+6. an orphan adopted outside regular hours is flattened by the heartbeat with a market order (queues to the next open) instead
+   of `close_orphan`'s after-hours limit path.
+7. half-day closes are not modelled (stale-feed alerts and `reconcile_live` keep running 13:00–16:00 ET).

@@ -5,8 +5,16 @@
 # sweeps and fetches inside pipeline.py take logs/.research.lock themselves.
 set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"; cd "$ROOT"
-mkdir -p logs
+mkdir -p logs logs/pipeline
 git pull -q --ff-only 2>/dev/null || true
+# the pipeline's own unit tests (~12 s). a red suite means the gate/metric code is suspect: skip tonight's
+# advance (candidates just wait a day) and say so, rather than moving candidates with broken logic.
+if ! python3 -m unittest discover -s scripts/pipeline/tests -t scripts/pipeline -q > logs/pipeline/unittest.log 2>&1; then
+    tail -20 logs/pipeline/unittest.log >&2
+    "$ROOT/scripts/notify.sh" critical "pipeline: unit tests failed, nightly advance skipped (logs/pipeline/unittest.log)" 2>/dev/null || true
+    python3 scripts/pipeline/pipeline.py report > /dev/null || true
+    exit 1
+fi
 python3 scripts/pipeline/pipeline.py advance --max-backtests "${PIPELINE_MAX_BACKTESTS:-2}"
 rc=$?
 python3 scripts/pipeline/pipeline.py report > /dev/null || true

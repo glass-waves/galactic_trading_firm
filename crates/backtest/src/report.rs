@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use chrono::Datelike;
 use std::fmt::Write as FmtWrite;
 use std::io::Write;
 
@@ -310,7 +311,7 @@ pub fn compute_metrics(
 }
 
 /// build a daily P&L return series from trades.
-/// each calendar day gets the sum of trade P&L that closed on that day,
+/// each weekday gets the sum of trade P&L that closed on that day,
 /// divided by the running equity at start of day.
 /// days with no trade closings get 0.0 return.
 fn compute_daily_returns(trades: &[TradeRecord], initial_capital: f64) -> Vec<f64> {
@@ -329,11 +330,16 @@ fn compute_daily_returns(trades: &[TradeRecord], initial_capital: f64) -> Vec<f6
         *daily_pnl.entry(date).or_insert(0.0) += trade.pnl;
     }
 
-    // iterate over all calendar days in range, compute returns
+    // iterate over the weekdays in range (the series is annualised with sqrt(252), so weekends
+    // must not pad it with zero-return days; exchange holidays still do, a ~9-day/yr residual)
     let mut returns = Vec::new();
     let mut equity = initial_capital;
     let mut date = first_date;
     while date <= last_date {
+        if matches!(date.weekday(), chrono::Weekday::Sat | chrono::Weekday::Sun) {
+            date = date.succ_opt().unwrap_or(date);
+            continue;
+        }
         let pnl = daily_pnl.get(&date).copied().unwrap_or(0.0);
         let daily_return = if equity > 0.0 { pnl / equity } else { 0.0 };
         returns.push(daily_return);

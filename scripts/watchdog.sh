@@ -31,6 +31,7 @@ set -a; [[ -f .env ]] && source .env; set +a
 CAPITAL="${INITIAL_CAPITAL:-10000}"
 DRY_RUN="${DRY_RUN:-0}"
 STATE_DIR="$ROOT/logs/watchdog"; mkdir -p "$STATE_DIR"
+find "$STATE_DIR" -type f -mtime +30 -delete 2>/dev/null   # per-day alert state is useless after a month
 TODAY="$(TZ=America/New_York date +%F)"
 STATE="$STATE_DIR/$TODAY.sent"
 if [[ "$DRY_RUN" == "1" ]]; then STATE="$(mktemp)"; trap 'rm -f "$STATE"' EXIT; fi
@@ -83,12 +84,21 @@ FROM engine_state WHERE book='primary' ORDER BY ticker" 2>/dev/null)"
 if [[ -z "$ROWS" ]]; then
     alert critical no_primary "no engine_state rows for book='primary' at $HM ET (primary not hosted?)"
 fi
+# the promoted config's force_exit_by (ET, "HH:MM"); a primary position still open 5 min past it is a
+# missed flatten — the 16:01 check alone left a 4-hour blind spot on a config that is flat by 11:55
+FE="$("$PSQL" -At -c "SELECT config_blob->'session'->>'force_exit_by' FROM config_versions WHERE status='promoted' ORDER BY promoted_at DESC NULLS LAST, id DESC LIMIT 1" 2>/dev/null)"
+FE_LIMIT=1601
+if [[ "$FE" =~ ^([0-9]{1,2}):([0-9]{2})$ ]]; then
+    FE_LIMIT=$(( 10#${BASH_REMATCH[1]} * 100 + 10#${BASH_REMATCH[2]} + 5 ))
+    (( FE_LIMIT % 100 >= 60 )) && FE_LIMIT=$(( FE_LIMIT + 40 ))
+    (( FE_LIMIT > 1601 )) && FE_LIMIT=1601
+fi
 PRIMARY_TICKERS=""
 while IFS='|' read -r t brk pos hold; do
     [[ -z "$t" ]] && continue
     PRIMARY_TICKERS="${PRIMARY_TICKERS:+$PRIMARY_TICKERS,}$t"
     if [[ "$brk" == "t" ]]; then alert warning "breaker_$t" "$t daily loss breaker active at $HM ET"; fi
-    if [[ -n "$pos" ]] && (( 10#$HM > 1601 )); then alert critical "late_$t" "$t still holds a $pos position at $HM ET (force-exit missed)"; fi
+    if [[ -n "$pos" ]] && (( 10#$HM > FE_LIMIT )); then alert critical "late_$t" "$t still holds a $pos position at $HM ET (force_exit_by ${FE:-16:00} missed)"; fi
 done <<< "$ROWS"
 PNL="$("$PSQL" -At -c "SELECT COALESCE(min(daily_pnl),0) FROM engine_state WHERE book='primary'" 2>/dev/null)"
 if [[ "$PNL" =~ ^-?[0-9.]+$ ]]; then

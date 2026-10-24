@@ -168,7 +168,7 @@ The desktop runs approved entries overnight with the backtest engine and writes 
 under the entry. Format (append only; never delete or reorder others' entries):
 
 ```
-### RQ-<n> <short title>   status: proposed | approved | running | done | rejected
+### RQ-<n> <short title>   status: proposed | approved | approved from YYYY-MM-DD | running | done | rejected
 proposed: <date> by eod-routine
 hypothesis: <one sentence, falsifiable>
 why now: <the evidence from live/replay/reports that motivates it>
@@ -184,7 +184,9 @@ indicators (see `docs/cli_usage_guide.md`, `research/entries/make_variant.py`,
 suggested over ones that re-sweep knobs; a proposal needing new engine code goes in with
 `command: needs code — <one paragraph spec>` and status `proposed`, and becomes a PR only if
 the human approves. Read every `done` entry before proposing; do not re-propose rejected ideas
-without new evidence. The human approves by changing `status: proposed` to `approved`.
+without new evidence. The human approves by changing `status: proposed` to `approved`; `approved from
+YYYY-MM-DD` defers the run to that date so a week can be queued one entry per night (the status must stay
+on the `### RQ-n` header line — the runner only parses it there).
 
 ## 7. Email (Gmail connector)
 

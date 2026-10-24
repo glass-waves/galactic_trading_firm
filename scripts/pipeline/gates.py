@@ -344,7 +344,7 @@ GATES = {
     "additive-ticker": additive_ticker,
     "standalone-strategy": standalone_strategy,
 }
-ALIASES = {"default-config": "volume-config", "default": None}
+ALIASES = {"default-config": "volume-config"}  # "default" itself is resolved by kind in resolve()
 NEEDS_BASELINE = {"volume-config", "quality-config", "stress-mode", "additive-config", "sizing-config", "additive-ticker", "standalone-strategy"}
 NEEDS_MARGINAL = {"additive-config", "sizing-config", "additive-ticker"}
 NEEDS_STANDALONE = {"standalone-strategy"}

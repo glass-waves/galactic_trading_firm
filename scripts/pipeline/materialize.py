@@ -112,10 +112,17 @@ def apply_patch(blob: dict, patch: dict) -> dict:
         for a in out["actions"]:
             if a.get("instance_id") in disable:
                 a["enabled"] = False
-    if patch.get("indicators"):
-        out["indicators"].extend(copy.deepcopy(patch["indicators"]))
-    if patch.get("actions"):
-        out["actions"].extend(copy.deepcopy(patch["actions"]))
+    # an entry whose instance_id already exists replaces that instance in place (a patch can
+    # re-parameterise an indicator or action); new ids are appended in order. the backtest's
+    # --patch-json (crates/backtest/src/main.rs) applies the same rule — keep them in step.
+    for key in ("indicators", "actions"):
+        for item in patch.get(key) or []:
+            item = copy.deepcopy(item)
+            slot = next((i for i, cur in enumerate(out[key]) if cur.get("instance_id") == item.get("instance_id")), None)
+            if slot is None:
+                out[key].append(item)
+            else:
+                out[key][slot] = item
     sess = patch.get("session")
     if isinstance(sess, dict):
         out.setdefault("session", {})

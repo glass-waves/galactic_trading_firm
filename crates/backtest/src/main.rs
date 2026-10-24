@@ -588,15 +588,32 @@ impl ConfigOverrides {
                     }
                 }
             }
+            // an entry whose instance_id already exists replaces that instance in place (so a
+            // patch can re-parameterise an indicator or action); new ids are appended in order.
+            // scripts/pipeline/materialize.py applies the same rule — keep them in step.
             if let Some(inds) = patch.get("indicators") {
                 match serde_json::from_value::<Vec<IndicatorConfig>>(inds.clone()) {
-                    Ok(v) => config.indicators.extend(v),
+                    Ok(v) => {
+                        for ind in v {
+                            match config.indicators.iter_mut().find(|i| i.instance_id == ind.instance_id) {
+                                Some(slot) => *slot = ind,
+                                None => config.indicators.push(ind),
+                            }
+                        }
+                    }
                     Err(e) => { eprintln!("error: --patch-json {file}: indicators: {e}"); std::process::exit(2); }
                 }
             }
             if let Some(acts) = patch.get("actions") {
                 match serde_json::from_value::<Vec<ActionConfig>>(acts.clone()) {
-                    Ok(v) => config.actions.extend(v),
+                    Ok(v) => {
+                        for act in v {
+                            match config.actions.iter_mut().find(|a| a.instance_id == act.instance_id) {
+                                Some(slot) => *slot = act,
+                                None => config.actions.push(act),
+                            }
+                        }
+                    }
                     Err(e) => { eprintln!("error: --patch-json {file}: actions: {e}"); std::process::exit(2); }
                 }
             }
@@ -1604,6 +1621,7 @@ fn run_legacy_mode(args: &[String], capital: f64, cost_config: &Option<BacktestC
         eprintln!("  --commission-per-share <N>  commission per share (e.g. 0.0)");
         eprintln!("  --sec-fee-per-million <N>   SEC fee per million sell-side (e.g. 20.60)");
         eprintln!("  --finra-taf-per-share <N>   FINRA TAF per share sell-side (e.g. 0.000195)");
+        eprintln!("  (no cost flag: 3 bps slippage + $0.005 half spread, the house model; --no-costs for a frictionless run)");
         process::exit(1);
     }
 
@@ -1706,6 +1724,10 @@ fn parse_cost_config(args: &[String]) -> Option<BacktestCostConfig> {
     let sec_fee: Option<f64> = get_arg(args, "--sec-fee-per-million").and_then(|s| s.parse().ok());
     let finra_taf: Option<f64> = get_arg(args, "--finra-taf-per-share").and_then(|s| s.parse().ok());
 
+    if args.iter().any(|a| a == "--no-costs") {
+        eprintln!("costs: NONE (--no-costs): frictionless replay, not comparable with the record");
+        return None;
+    }
     if slippage_bps.is_some() || half_spread.is_some() || commission.is_some() || sec_fee.is_some() || finra_taf.is_some() {
         Some(BacktestCostConfig {
             slippage_bps: slippage_bps.unwrap_or(0.0),
@@ -1715,9 +1737,16 @@ fn parse_cost_config(args: &[String]) -> Option<BacktestCostConfig> {
             finra_taf_per_share: finra_taf.unwrap_or(0.0),
         })
     } else {
-        None
+        // no cost flag at all: use the house model every script and the research record use
+        // (3 bps slippage + $0.005 half spread) instead of a silent frictionless run (audit 2026-10-23).
+        // `--no-costs` asks for the old zero-cost behaviour explicitly.
+        Some(BacktestCostConfig { slippage_bps: DEFAULT_SLIPPAGE_BPS, half_spread: DEFAULT_HALF_SPREAD, ..BacktestCostConfig::default() })
     }
 }
+
+/// the house cost model (docs/paper_trading_plan_2026-09.md §12): applied when no cost flag is given.
+const DEFAULT_SLIPPAGE_BPS: f64 = 3.0;
+const DEFAULT_HALF_SPREAD: f64 = 0.005;
 
 /// default `--lookback-days` when neither the flag nor the config sets it.
 const DEFAULT_LOOKBACK_DAYS: i64 = 5;

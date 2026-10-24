@@ -149,7 +149,13 @@ impl Runtime {
     async fn flatten_all_books(&mut self, reason: ExitReason) {
         let now = self.now();
         let Runtime { books, last_prices, .. } = self;
-        for book in books.iter_mut() {
+        // shadows first (simulated fills, instant), the primary last: if systemd's stop
+        // timeout cuts the shutdown short, the only closes still outstanding are the ones
+        // the broker and the next start's reconciliation can see
+        for book in books.iter_mut().filter(|b| !b.is_primary()) {
+            book.flatten_all(reason.clone(), last_prices, now).await;
+        }
+        for book in books.iter_mut().filter(|b| b.is_primary()) {
             book.flatten_all(reason.clone(), last_prices, now).await;
         }
     }
@@ -295,7 +301,11 @@ async fn main() {
     let shadow_source = if demo_mode { "demo" } else { "shadow" };
 
     // 3. connect to postgres (replay reads books + configs only)
-    let pool = sqlx::PgPool::connect(&database_url)
+    // a short acquire timeout: a postgres stall must not hold the bar loop for sqlx's
+    // 30 s default on every state upsert (32 rows per heartbeat)
+    let pool = sqlx::postgres::PgPoolOptions::new()
+        .acquire_timeout(std::time::Duration::from_secs(5))
+        .connect(&database_url)
         .await
         .expect("failed to connect to database");
     info!("connected to database");

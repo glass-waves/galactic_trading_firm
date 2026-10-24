@@ -28,7 +28,7 @@ galactic_trading_firm/
 │   └── data_feed/                # paper trading binary (phase 7)
 ├── deploy/systemd/               # user-level systemd units + install.sh: trader start/stop, no-LLM watchdog (5 min), pre-open + eod claude check-ins on the claude.ai login
 ├── .claude/skills/               # preopen-check, intraday-review, eod-review — the scheduled claude check-in prompts
-├── scripts/                      # ops: watchdog.sh (no-LLM alerts incl. abnormal moves), export_day.sh, replay_book.sh (one book, one day, IEX cache), repo_report.sh, research_runner.sh, psql.sh, notify.sh
+├── scripts/                      # ops: watchdog.sh (no-LLM alerts incl. abnormal moves), export_day.sh, replay_book.sh (one book, one day, IEX cache), repo_report.sh, research_runner.sh, psql.sh, notify.sh, alpaca_api.sh (read-only GET for the check-ins)
 │   └── pipeline/                 # research pipeline runner: pipeline.py propose → backtest gate → shadow trial → evaluate → promotion proposal (docs/pipeline.md)
 ├── cockpit/                      # next.js monitoring dashboard
 ├── migrations/                   # sqlx migrations (from data_model.sql)
@@ -249,7 +249,7 @@ live market data ingestion, candle aggregation, simulated broker, trade recordin
 | `src/alpaca_feed.rs` | `AlpacaFeed` — websocket client for alpaca market data stream (IEX feed). subscribes to 1-min bars; reconnects on server close with backoff. `fetch_historical_bars(symbol, days)` pages SIP bars (lagged 16 min for the free plan, IEX fallback) to warm 5m/1h windows |
 | `src/candle_aggregator.rs` | `CandleAggregator` — ingests 1-min candles, emits clock-aligned 5-min and hourly candles. rolling window of up to 200 candles per timescale |
 | `src/market_state.rs` | `MarketStateBuilder` — wraps candle aggregator, adds bid/ask spread, computes session VWAP (resets on each new US/Eastern day; candle windows persist), emits `MarketState` snapshots |
-| `src/broker.rs` | `Broker` trait: `SimulatedBroker` (fills at last price ± 5 bps, no limits) and `AlpacaBroker` (real paper orders by hyphenated id + `client_order_id`; entries poll 15 s then cancel, closes poll 120 s and are left working as `BrokerError::Working` — never cancelled; `order_status()` / `open_positions()` for exit-pending checks and reconciliation) |
+| `src/broker.rs` | `Broker` trait: `SimulatedBroker` (fills at last price ± 5 bps, no limits) and `AlpacaBroker` (real paper orders by hyphenated id + `client_order_id`; entries poll 15 s then cancel, closes poll 20 s and are left working as `BrokerError::Working` — never cancelled; every HTTP call is capped at 15 s (`HTTP_TIMEOUT`, a timed-out submit is `Unconfirmed`); `order_status()` / `open_positions()` for exit-pending checks and reconciliation) |
 | `src/account.rs` | `resolve_capital` = min(`INITIAL_CAPITAL`, alpaca equity) in `alpaca_paper` mode; lenient `/v2/account` endpoint (apca's own `Account` type rejects the current payload) |
 | `src/live_session.rs` | `LiveSession` (per ticker) — single intraday position lifecycle. stashes entry scores + entry_reason + broker fill, pairs with exit scores on close; knows its `config_version_id`; `force_close` / `undo_open` for the main loop |
 | `src/session_clock.rs` | US/Eastern helpers: `is_regular_hours`, `eastern_date`, `eastern_minutes`, `parse_hm` |
@@ -278,7 +278,7 @@ managed via sqlx migrations in `migrations/`. reference schema in `docs/data_mod
 | table | purpose | key fields |
 |-------|---------|------------|
 | `config_versions` | immutable append-only config store | id, status (proposed/backtesting/validated/promoted/rejected), config_blob (JSONB), parent_version_id, backtest results |
-| `trades` | completed trade records | ticker, direction, entry/exit prices, PnL, exit_reason, entry/exit scores per timescale, config_version_id, `entry_reason` (which window fired), `source` ('paper' \| 'demo' \| 'shadow' \| 'backtest'), `book` (default 'primary'), broker fill prices |
+| `trades` | completed trade records | ticker, direction, entry/exit prices, PnL, exit_reason, entry/exit scores per timescale, config_version_id, `entry_reason` (which window fired), `source` ('paper' \| 'demo' \| 'shadow' \| 'backtest'; a human sets 'voided' on a row the broker never closed, which drops it from every report), `book` (default 'primary'), broker fill prices |
 | `engine_state` | live per-(book, ticker) state, upserted every bar and every 30s (heartbeat); PK `(book, ticker)` — filter `book='primary'` for the live book | last_bar_at, scores, open position + unrealized P&L, daily_pnl (the book's), loss_breaker_active, entry_blocked_by, near_miss, feed_stale, config_version_id, pending_config_version_id |
 | `entry_block_events` | why entries were not taken (append-only, throttled) | kind ('gate' \| 'near_miss'), reason, scores at the time, `book` |
 | `books` | engines the live trader hosts: the one enabled `primary` plus shadow books (config row or ticker set, simulated fills). changes apply at the next trader start | name, role, config_version_id (NULL = follow promoted), tickers, capital, enabled, candidate_id, retired_at |
@@ -454,6 +454,8 @@ new tool *types* require code changes. *instances* of existing types can be adde
 - the engine resets per-day state (loss breaker, cooldown, avoid-first clock) on the first tick of a new Eastern date; VWAP resets in `MarketStateBuilder`; candle windows persist across days
 - positions are sized in whole shares; `session.max_position_pct` is a hard clamp on any single position
 - `paper_trader` refuses to start without alpaca keys unless `--demo` is passed; demo trades are written with `source='demo'`
+- a trade the database refuses is appended to `$LOG_DIR/trade_spool.jsonl` for a human to insert; a partial entry fill resizes the engine position to the filled quantity; a hot-reload mid-session carries the per-day state (breaker, realised P&L, cooldown clocks) into the rebuilt engine
+- `backtest` without any cost flag uses the house model (3 bps slippage + $0.005 half spread); `--no-costs` is the explicit frictionless run. a `--patch-json` indicator/action whose `instance_id` already exists replaces it in place (same rule in `scripts/pipeline/materialize.py`)
 - trades and hot-reload are keyed on `config_versions.id` (the row), not the blob's `config_id`. a running trader only sees rows with a higher id — rollback = insert a copy of the old blob as a new row
 - all indicator scores normalize to -1.0..+1.0
 - api keys and db credentials must come from environment variables
@@ -465,14 +467,14 @@ new tool *types* require code changes. *instances* of existing types can be adde
 
 - 13:20 PT `export-day.timer` → `scripts/export_day.sh` writes `data/live/<date>/` (engine state, trades, gate events, replay, near-miss replay, alerts, journal excerpt) and pushes.
 - 13:35 PT cloud routine (`docs/routines/eod-report.md`) writes `docs/reports/<date>.md`, `docs/briefings/<next date>.md`, appends `docs/research_queue.md`, emails the owner. proposals only — never touches config, migrations or crates.
-- 20:00 PT `research-runner.timer` → `scripts/research_runner.sh` runs queue entries the human flipped to `status: approved` and writes results back.
+- 20:00 PT `research-runner.timer` → `scripts/research_runner.sh` runs queue entries the human flipped to `status: approved` (or `status: approved from YYYY-MM-DD`, which waits for that date; the status must be on the `### RQ-N` header line) and writes results back.
 - 06:15 PT `preopen-check` pulls first and reads the day's briefing.
-- 20:30 PT `pipeline.timer` → `scripts/pipeline/pipeline.py advance --max-backtests 2 && pipeline.py report` (same lock as the research runner) moves research candidates through the lane — proposed → backtest gate → shadow book (live next day, simulated fills) → evaluation gate → promotion proposal in `docs/pipeline/status.md`. operator guide: `docs/pipeline.md`.
+- 20:30 PT `pipeline.timer` → `scripts/pipeline/nightly.sh` (the pipeline's unit tests first — a red suite skips the night and notifies — then `pipeline.py advance --max-backtests 2 && pipeline.py report`, same lock as the research runner) moves research candidates through the lane — proposed → backtest gate → shadow book (live next day, simulated fills) → evaluation gate → promotion proposal in `docs/pipeline/status.md`. operator guide: `docs/pipeline.md`.
 - 21:15 PT `pretest.timer` → `scripts/pretest_nightly.sh` (same research lock) runs every registered cell in `research/pretest/cells.py`, regenerates `research/pretest/results/summary.md`, appends a dated line to `research/pretest/CHANGELOG.md` for every cell whose verdict changed, and pushes those two files plus `research/edge_matrix.md`. stage-0 of the research pipeline: `research/pretest/README.md`.
 - Sunday 18:00 PT `ideate.timer` → the `ideate` claude check-in (`.claude/skills/ideate/SKILL.md`) reads `docs/edge_catalog.md` / `research/edge_matrix.md` / the pretest summary and proposes up to 3 new pretest cells (appended to `research/pretest/cells.py`, never editing an existing one), a dated note in `research/edge_matrix.md`, and `docs/ideation/<date>.md`; commits only — the next nightly research/pipeline/pretest job pushes it.
 - first trading day of each month, the `eod-review` check-in's mechanics audit (`.claude/skills/eod-review/SKILL.md` §7) reads a month of `data/live/<date>/block_events.json` / `near_miss_replay.txt` / `trades.json` and writes `docs/audits/<month>.md` — block counts, near-miss forward returns, trades per window, proposals only.
 - the export also writes `books.json`, `shadow_trades.json` and one `replay_<book>.csv` per enabled book (`scripts/replay_book.sh`); the EOD routine reports primary vs each shadow and may propose "promote candidate NAME (config row N)".
-- `scripts/watchdog.sh` (every 5 min in-session, no LLM) watches the primary's positions / P&L, any book's heartbeat, shadows not hosted, and abnormal moves (one Alpaca snapshot per run; name ≥ 1.5 % / SPY ≥ 1 % vs open).
+- `scripts/watchdog.sh` (every 5 min in-session, no LLM) watches the primary's positions / P&L (a position still open 5 min after the promoted config's `force_exit_by` is CRITICAL), any book's heartbeat, shadows not hosted, and abnormal moves (one Alpaca snapshot per run; name ≥ 1.5 % / SPY ≥ 1 % vs open). the trader hosts at most `MAX_BOOKS` (12, set in `paper-trader.service`) books; the pipeline warns when a new shadow would exceed it.
 - everything the two sides say to each other is a commit; the human steers by editing the queue/briefing. promotion stays human: `UPDATE config_versions SET status='promoted', promoted_at=now() WHERE id=N` — the pipeline only proposes.
 
 ## repo hygiene

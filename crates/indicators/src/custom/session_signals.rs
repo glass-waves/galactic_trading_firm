@@ -239,6 +239,7 @@ mod tests {
     use chrono::TimeZone;
     use std::collections::HashMap as Map;
 
+    #[allow(clippy::too_many_arguments)]
     fn bar(y: i32, mo: u32, d: u32, h: u32, mi: u32, o: f64, hi: f64, lo: f64, c: f64) -> Candle {
         Candle { timestamp: Utc.with_ymd_and_hms(y, mo, d, h, mi, 0).unwrap(), open: o, high: hi, low: lo, close: c, volume: 1000.0 }
     }

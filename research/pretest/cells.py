@@ -619,3 +619,56 @@ CELLS = [
           "grid": [{"thresh": 0.01, "hold": 15}, {"thresh": 0.015, "hold": 15}, {"thresh": 0.02, "hold": 15}]}],
      "verdict_fn": standard_verdict(4, 1.3), "verdict": cell_verdict},
 ]
+
+# ------------------------------------------------------------------ 14. VWAP-fade afternoon neighbourhood (#22, RQ-10, 2026-10-23)
+# PRE-REGISTRATION (written before the first run): c12's rule unchanged (fade the stretch of price from
+# session VWAP when |close/VWAP - 1| >= z x the name's trailing 20-session mean daily range -- c12's
+# volatility scale, kept so this is c12's neighbourhood -- exit `hold` minutes later or at the close),
+# around c12's only net-positive region (enter 12:30): t in {180, 150, 210} min after 09:30 x hold in
+# {60, 45, 90} x z in {0.75, 1.0, 1.25} = 27 points x {4 home names, c12's 34-name pool} = 54 cells.
+# Kill: net positive in >= 4/5 years and PF > 1.3. Verdict: README standard (dead / sub-cost / decayed /
+# fragile / pass) on the best point. Control: the best point's mean bps vs 5000 random same-size draws
+# from the same-clock fade with no stretch condition (z=0) on the same names -- is the stretch informative?
+def vwap_fade_to_close(b, i, p):
+    return vwap_fade(b, i, dict(p, hold=min(p["hold"], 390 - p["t"])))
+
+
+def c14_verdict(res):
+    from cells_round1b import classify, concentration, pick_best, random_control
+    rows = {f"{v['instrument'] if v['instrument'] == FOUR else 'pool34'}:{lab}": v
+            for v in res["variants"] for lab in v["grid"]}
+    pts = {k: v["grid"][k.split(":", 1)[1]] for k, v in rows.items()}
+    key, best, cleared = pick_best(pts)
+    inst, lab = key.split(":", 1)
+    syms = (FOUR if inst == FOUR else ALL34).split("+")
+    p = {k: float(x) if "." in x else int(x) for k, x in (kv.split("=") for kv in lab.split(","))}
+    obs, _ = run_rule(vwap_fade_to_close, syms, p)
+    pool, _ = run_rule(vwap_fade_to_close, syms, dict(p, z=0.0))
+    conc = concentration(obs)
+    res["cells_scanned"], res["best_label"], res["best"] = len(pts), key, best
+    res["random_session_control"] = random_control([t["bps"] for t in pool], [t["bps"] for t in obs])
+    res["concentration"] = conc
+    status, why = classify(list(pts.values()), best, cleared, conc=conc)
+    # README: a non-primary grid point passes only if LOYO over its variant's grid also clears the bar
+    row, lo = rows[key], rows[key].get("loyo") or {}
+    n_clear = sum(kill(m, 4, 1.3)[0] for m in pts.values())
+    if status == "pass" and lab != next(iter(row["grid"])) and not (lo.get("pnl", 0) > 0 and lo.get("years_pos", 0) >= 4):
+        status, why = "fragile", (f"clears in-sample but is a grid pick: LOYO over its variant {lo.get('pnl', 0):+.0f} "
+                                  f"({lo.get('years_pos')}/5), {n_clear} of {len(pts)} cells clear the bar")
+    ctrl = res["random_session_control"]
+    return status, (f"{len(pts)} cells; best {key}: n={best['n']}, net {best.get('bps', 0):+.1f} / gross "
+                    f"{best.get('gross_bps', 0):+.1f} bps, PF {best['pf']:.2f}, {best['years_pos']}/5 yrs; {why}; "
+                    f"z=0 control p={ctrl.get('p_random')}")
+
+
+C14_GRID = [{"hold": h, "z": z} for h in (60, 45, 90) for z in (0.75, 1.0, 1.25)]
+CELLS.append(
+    {"id": "c14_vwap_fade_pm", "anomaly": "#22 VWAP intraday mean reversion, STOCK class: afternoon neighbourhood of c12 (RQ-10)",
+     "instruments": [FOUR, ALL34],
+     "kill_text": K45 + " -- c12 (dead) had net-positive points at enter 12:30 (pool z=1.0 PF 1.46 3/5; 4 names z=0.75 PF 1.75 3/5). "
+                  "pre-registered neighbourhood: t in {12:30, 12:00, 13:00} x hold in {60, 45, 90} min (or to the close) x "
+                  "z in {0.75, 1.0, 1.25} x trailing 20-session mean daily range, instruments = 4 home names + c12's 34-name pool "
+                  "(54 cells). verdict = README standard on the best point; z=0 same-clock fade is the random-session control",
+     "variants": [{"name": f"fade VWAP stretch, enter {9 + (30 + t) // 60}:{(30 + t) % 60:02d}", "rule": vwap_fade_to_close,
+                   "grid": [{"t": t, **g} for g in C14_GRID]} for t in (180, 150, 210)],
+     "verdict_fn": standard_verdict(4, 1.3), "verdict": c14_verdict})
