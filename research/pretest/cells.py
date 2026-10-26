@@ -672,3 +672,29 @@ CELLS.append(
      "variants": [{"name": f"fade VWAP stretch, enter {9 + (30 + t) // 60}:{(30 + t) % 60:02d}", "rule": vwap_fade_to_close,
                    "grid": [{"t": t, **g} for g in C14_GRID]} for t in (180, 150, 210)],
      "verdict_fn": standard_verdict(4, 1.3), "verdict": c14_verdict})
+
+# ------------------------------------------------------------------ 15. turn-of-month day +2: window and stock-class neighbourhood (#17, ideate 2026-10-25)
+# PRE-REGISTRATION (written before the first run): c11's rule (long on the k-th session of the new month) with the
+# intraday holding window varied, on c11's passing home names plus the stock class. windows: open->close (c11's),
+# open->12:00 (t 0..150), 12:00->close (t 150..390); k in {2, 3, 1}; instruments = QQQ, SPY, the 4 mega-caps pooled,
+# c12's 34-name pool. a sub-window carrying the whole effect says the flow is a morning/afternoon event rather than
+# a day-level drift; a stock pool that fails while QQQ/SPY pass says the effect is index-product specific.
+def tom_day_k_window(b, i, p):
+    return [Order(i, p["t_in"], 1, i, p["t_out"])] if tom_day(b, i) == p["k"] else []
+
+
+CELLS.append(
+    {"id": "c15_tom_day2_window", "anomaly": "#17 turn-of-month day +2: holding-window and stock-class neighbourhood of c11 (Ariel, McConnell-Xu)",
+     "instruments": ["QQQ", "SPY", FOUR, ALL34],
+     "kill_text": K45 + " on the primary point (k=2, open->close, QQQ -- c11's pass re-stated). pre-registered neighbourhood: "
+                  "k in {2, 3, 1} x window in {open->close, open->12:00, 12:00->close}, instruments = QQQ/SPY (home, c11 passed) + "
+                  "the 4 mega-caps pooled + c12's 34-name pool (nearby, not tuned on). pass on a non-primary window or on a "
+                  "stock pool requires LOYO over the variant's grid to clear too (standard_verdict). read the random-session "
+                  "control (extra, 5000 draws, QQQ/SPY open->close) before any engine study. expected ~12 trades/yr/instrument "
+                  "(~400/yr pooled stocks)",
+     "variants": [{"name": f"long {w} on session k of the month", "rule": tom_day_k_window,
+                   "grid": [{"k": k, "t_in": a, "t_out": z} for k in (2, 3, 1)]}
+                  for w, a, z in (("open->close", 0, 390), ("open->12:00", 0, 150), ("12:00->close", 150, 390))],
+     "verdict_fn": standard_verdict(4, 1.3), "verdict": cell_verdict,
+     "extra": calendar_control([(f"k=2 {s} open->close", s, tom_day_k_window, {"k": 2, "t_in": 0, "t_out": 390}, oc(390))
+                                for s in ("QQQ", "SPY")])})
