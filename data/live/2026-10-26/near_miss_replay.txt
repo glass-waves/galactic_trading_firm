@@ -1,0 +1,6 @@
+near-miss bars on 2026-10-26: 4
+  AAPL  09:31 ET  short would have made -0.06% (breakeven at 09:52)   filtered by: 5m thrust short: FiveMinute -0.45 not lagging by 0.10, FiveMinute -0.45>-0.50, vpin_1m.raw
+  AAPL  09:39 ET  short would have made -0.05% (breakeven at 09:52)   filtered by: 5m thrust short: FiveMinute -0.50 not lagging by 0.10, FiveMinute -0.50>-0.50, vpin_1m.raw
+  AAPL  09:44 ET  short would have made -1.01% (max_hold at 10:25)   filtered by: 5m thrust short: FiveMinute -0.58 not lagging by 0.10, vpin_1m.raw_vpin 0.03<0.22
+  AAPL  09:49 ET  short would have made -1.21% (max_hold at 10:30)   filtered by: 5m thrust short: vpin_1m.raw_vpin 0.17<0.22
+sum of hypothetical short returns: -2.33%  (positive = the filters cost us; negative = they saved us)
