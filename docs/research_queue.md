@@ -48,7 +48,7 @@ why: `macd_5min` and `macd_fast_1min` score the MACD histogram in DOLLARS (clamp
 command: add a `normalize_by_price: true` option to the MACD indicator (histogram ÷ close, scaled so the ±1 clamp binds at the same percentage move), then propose a config candidate with both MACD instances switched on, gate quality-config — the pipeline judges it like any other change.
 accept if: PF ≥ baseline + 0.05 with ≥ 4 of 5 years and ≥ 0.6 × baseline trades (quality-config), or trades ≥ baseline with PF ≥ 1.3 (volume-config); either way it must also be positive in every year on the point-in-time record.
 
-### RQ-6 spend the sqrt-band books' PF headroom on volume   status: approved from 2026-10-26
+### RQ-6 spend the sqrt-band books' PF headroom on volume   status: done
 proposed: 2026-10-23 by claude (weekly audit; owner goal "increase volume while keeping PF > 1.4")
 hypothesis: lowering the VPIN floor on the two time-consistent SPY-band candidates (#44 row 20 PF 1.46 / 460, #45 row 21 PF 1.70 / 309) buys ≥ 480 trades at PF ≥ 1.40.
 why now: the VPIN-floor × SPY-band grid was only ever run on thrust-1h15 (research/qualvol) and on v18 before the VWAP parity fix; on thrust-1h15, 0.217 → 0.15 cost ≈ 0.14 PF for +112 trades — a prior, not a result. conditions/6 of the thrust windows and conditions/5 of the core windows are the `vpin_1m.raw_vpin` min_score (checked against rows 20/21 on 2026-10-23).
@@ -56,7 +56,15 @@ cost: 7 five-year sweeps ≈ 30 min.
 command: for c in "20 0.20" "20 0.18" "20 0.15" "21 0.217" "21 0.20" "21 0.18" "21 0.15"; do set -- $c; BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rq6_r$1_v$2 --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --config-id $1 --set-action-param window_5m_thrust_short_am:conditions/6/min_score=$2 --set-action-param window_strong_core_short_am:conditions/5/min_score=$2 --set-action-param window_5m_thrust_short_pm:conditions/6/min_score=$2 --set-action-param window_strong_core_short_pm:conditions/5/min_score=$2; done; python3 research/entries/summarize.py cand_44 cand_45 rq6_r20_v0.20 rq6_r20_v0.18 rq6_r20_v0.15 rq6_r21_v0.217 rq6_r21_v0.20 rq6_r21_v0.18 rq6_r21_v0.15
 accept if: `rq6_r21_v0.217` reproduces `cand_45` (+2,044 / 309; otherwise the override did not apply — stop). a cell passes with PF ≥ 1.40, ≥ 480 trades, ≥ 4/5 years positive, no year < −300, and the same floor chosen by the volume-constrained leave-one-year-out check (`python3 research/timefilter/analyze.py loyo_vol <tags>`).
 next: edit the four floors in the #44 or #45 patch (data/cand_44.args / cand_45.args name the patch files), then `python3 scripts/pipeline/pipeline.py propose --gate volume-config --cells-scanned 24 --study research/timefilter/2026-10-07_time_consistent_filter.md ...` — four shadow slots are free since MAX_BOOKS went to 12.
-
+result: ran 2026-10-26 20:00 PT, 31 min
+```
+== rq6_r$1_v$2: 5y         —
+   2022         —
+   2023         —
+   2024         —
+   2025         —
+   2026         —
+```
 ### RQ-7 stress-core trigger neighbourhood (generated, never swept)   status: approved from 2026-10-27
 proposed: 2026-10-23 by claude (owner: "make sure we aren't tossing aside ideas too quickly")
 hypothesis: a different trigger on the core-only stress window adds more than #6 stress-s15-core's ≈ +275 / 23 trades while leaving the base book untouched.
