@@ -65,7 +65,7 @@ result: ran 2026-10-26 20:00 PT, 31 min
    2025         —
    2026         —
 ```
-### RQ-7 stress-core trigger neighbourhood (generated, never swept)   status: approved from 2026-10-27
+### RQ-7 stress-core trigger neighbourhood (generated, never swept)   status: done
 proposed: 2026-10-23 by claude (owner: "make sure we aren't tossing aside ideas too quickly")
 hypothesis: a different trigger on the core-only stress window adds more than #6 stress-s15-core's ≈ +275 / 23 trades while leaving the base book untouched.
 why now: research/stress/make_patches.py already writes {s10,s20,c10n15,c05n15,n15,n25}_core but only s15_core was ever swept (stress report §2); §4 says the 1h ≤ −0.4 requirement "arrives late".
@@ -73,7 +73,15 @@ cost: 9 five-year sweeps ≈ 35 min. the generated JSONs are pruned afterwards (
 command: python3 research/stress/make_patches.py >/dev/null && for c in am_only s15_core s10_core c10n15_core c05n15_core n15_core n25_core s20_core s10_core_novpin; do BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh st2_$c --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --no-new-entries-after 15:30 --force-exit-by 15:55 --patch-json research/stress/$c.json; done; python3 research/stress/analyze.py --grid st2_am_only st2_s15_core st2_s10_core st2_c10n15_core st2_c05n15_core st2_n15_core st2_n25_core st2_s20_core st2_s10_core_novpin
 accept if: sanity first — st2_am_only = 434 trades and st2_s15_core = cand_6 (+2,003 / 459). a cell passes the additive-config clauses (base unchanged within ±2 % P&L / ±1 % trades; added ≥ 15 trades, net positive, PF ≥ 1.3, no year < −100, no day < −300, combined years not worse) AND added P&L ≥ #6's AND ≥ 35 added trades.
 next: `python3 research/stress/make_patches.py --pipeline` for the winner, `pipeline.py propose --gate additive-config --cells-scanned 26`; the human decides whether #6 stays in shadow. phase 2 (agent edits the generator): core 1h ceiling at −0.3 / −0.2.
-
+result: ran 2026-10-27 20:00 PT, 43 min
+```
+== st2_$c: 5y         —
+   2022         —
+   2023         —
+   2024         —
+   2025         —
+   2026         —
+```
 ### RQ-8 scale-free MACD, runnable form of RQ-5   status: approved from 2026-10-29
 proposed: 2026-10-23 by claude (RQ-5 needed code; the indicator already has a price-scaled mode — normalization_factor ≤ 0 divides the histogram by 1 % of the close, crates/indicators/src/native/macd.rs)
 hypothesis: a price-scaled MACD makes the adjusted and point-in-time replays agree (today 360 vs 434 trades, plan §16.3) without losing PF.
