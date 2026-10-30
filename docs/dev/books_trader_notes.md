@@ -209,4 +209,8 @@ known gaps, not yet closed (ordered by how likely they are to bite):
    one row is promoted, so this is moot unless two rows are left promoted.
 6. an orphan adopted outside regular hours is flattened by the heartbeat with a market order (queues to the next open) instead
    of `close_orphan`'s after-hours limit path.
-7. half-day closes are not modelled (stale-feed alerts and `reconcile_live` keep running 13:00–16:00 ET).
+7. the IEX websocket sometimes never delivers the 15:59 ET bar (engine_state.last_bar_at 15:58 on 10-20, 10-22, 10-28,
+   10-29; 15:59 on 10-23/26/27 — same binary either way, so it is the stream, not the trader: Alpaca closes a minute bar on
+   the next trade and IEX can go quiet after the bell). no book trades after 15:55, so nothing depends on it; the history
+   cache has the bar and the replay harness will differ by that one bar.
+8. half-day closes are not modelled (stale-feed alerts and `reconcile_live` keep running 13:00–16:00 ET).

@@ -154,7 +154,7 @@ if [[ -n "${APCA_API_KEY_ID:-}" && -n "${APCA_API_SECRET_KEY:-}" && -n "$PRIMARY
     SNAP="$(curl -s -m 10 "https://data.alpaca.markets/v2/stocks/snapshots?symbols=$SYMS&feed=iex" \
         -H "APCA-API-KEY-ID: $APCA_API_KEY_ID" -H "APCA-API-SECRET-KEY: $APCA_API_SECRET_KEY" 2>/dev/null)"
     # the script comes in on stdin, so the JSON travels in the environment
-    MOVES="$(SNAP="$SNAP" python3 - "$TODAY" "${MOVE_ALERT_NAME_PCT:-2.0}" "${MOVE_ALERT_SPY_PCT:-1.0}" \
+    MOVES="$(SNAP="$SNAP" HM="$HM" python3 - "$TODAY" "${MOVE_ALERT_NAME_PCT:-2.0}" "${MOVE_ALERT_SPY_PCT:-1.0}" \
             "${MOVE_ALERT_NAME_HIGH_PCT:-2.0}" "${MOVE_ALERT_SPY_HIGH_PCT:-1.5}" "$DRY_RUN" <<'PY'
 import sys, json, os
 today, npct, spct, nhigh, shigh, dry = sys.argv[1:7]
@@ -170,7 +170,16 @@ for sym in sorted(d):
     if not isinstance(s, dict): continue
     db = s.get("dailyBar") or {}
     o, h = db.get("o"), db.get("h")
-    last = (s.get("latestTrade") or {}).get("p") or (s.get("minuteBar") or {}).get("c") or db.get("c")
+    try:
+        hm = int(os.environ.get("HM", "0") or 0)
+    except Exception:
+        hm = 0
+    if 930 <= hm <= 1600:
+        last = (s.get("latestTrade") or {}).get("p") or (s.get("minuteBar") or {}).get("c") or db.get("c")
+    else:
+        # after the close the latest trade is an extended-hours print (2026-10-29 AMZN earnings read as
+        # "-10.8 % intraday"); the day's close is the only honest regular-hours price
+        last = db.get("c")
     if not o or not h or not last: continue
     if not str(db.get("t", "")).startswith(today) and dry != "1": continue  # yesterday's bar: pre-open or stale
     po, ph = (last - o) / o * 100, (last - h) / h * 100

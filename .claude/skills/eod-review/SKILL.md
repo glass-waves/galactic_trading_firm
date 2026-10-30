@@ -71,10 +71,11 @@ fetched them before this check-in started, so do NOT run `--fetch-bars` here (a 
 line is outside the allow-list and is denied). if the replay prints 0 bars for today, say so in the
 verdict instead of fetching:
 ```bash
-./target/release/backtest --date $(TZ=America/New_York date +%F) --lookback-days 8 --capital 10000 \
-  --slippage-bps 3.0 --half-spread 0.005 --verbose \
-  --bars-dir data/bars_iex --cross-index SPY   # live is IEX end-to-end since 2026-09-24; data/bars (SIP) is the research cache
+./scripts/eod_replay.sh    # = backtest --date <today ET> --lookback-days 8 --bars-dir data/bars_iex --cross-index SPY --cross-lag 1, house costs
 ```
+(a bare `./target/release/backtest --date $(date ...)` line is denied under the allow-list because of the
+command substitution; the wrapper exists for that reason. live is IEX end-to-end since 2026-09-24; data/bars
+(SIP) is the research cache.)
 
 ## 2. plumbing verdict (first, always)
 

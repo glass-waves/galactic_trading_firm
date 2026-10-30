@@ -1,6 +1,6 @@
 # research pipeline — status
 
-generated 2026-10-30 03:30 UTC by `scripts/pipeline/pipeline.py report`. do not edit: regenerated nightly. lane: proposed → backtesting → backtest_passed → shadow → shadow_passed → promotion_proposed → promoted (human). failures: backtest_failed / shadow_failed (180 d cooldown), withdrawn (human).
+generated 2026-10-30 04:44 UTC by `scripts/pipeline/pipeline.py report`. do not edit: regenerated nightly. lane: proposed → backtesting → backtest_passed → shadow → shadow_passed → promotion_proposed → promoted (human). failures: backtest_failed / shadow_failed (180 d cooldown), withdrawn (human).
 
 - gate sweeps run at the research sizing (`--sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY`, IEX cache, 3 bps + $0.005); the per-year floor (no year < −300) is stated at 36 %. live and shadow books size at the blob's fraction; parity replays use no sizing override.
 - shadow-book creation: **enabled** (`PIPELINE_SHADOW_BOOKS=1`; while disabled `advance` only prints the books it would create).
@@ -28,17 +28,18 @@ none.
 
 none.
 
-### shadow (7)
+### shadow (8)
 
 | id | name | kind | gate | book | since | trial | backtest |
 |---:|---|---|---|---|---|---|---|
-| 4 | `vpin-0.26` | config | quality-config | shadow:vpin-0.26 | 15 d | 22 sessions / 9 trades / -36 · needs 6 more trades (or 38 sessions to the time limit) | +1646 / 324 / PF 1.48 [1.15-1.92] · p 0.00 · best of 12 cells · 22:+820 23:+42 24:+105 25:+210 26:+469 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 |
-| 6 | `stress-s15-core` | config | additive-config | shadow:stress-s15-core | 15 d | 22 sessions / 10 trades / +5 · needs 5 more trades (or 38 sessions to the time limit) | +2003 / 459 / PF 1.41 [1.15-1.73] · p 0.00 · best of 17 cells · 22:+1226 23:-3 24:-24 25:+376 26:+429 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 · added +274 / 23 / PF 3.32 (worst yr -4, worst day -44) |
-| 28 | `size-vpin26-x1.25` | config | sizing-config | shadow:size-vpin26-x1.25 | 15 d | 19 sessions / 10 trades / -9 · needs 1 more sessions and 5 more trades (or 41 sessions to the time limit) | +2155 / 436 / PF 1.40 [1.13-1.76] · p 0.00 · 22:+1194 23:+46 24:+10 25:+410 26:+496 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 · added +0 / 0 / PF 0.00 (worst yr +0, worst day +0) |
-| 29 | `thrust-1h15` | config | quality-config | shadow:thrust-1h15 | 15 d | 19 sessions / 8 trades / +39 · needs 1 more sessions and 7 more trades (or 41 sessions to the time limit) | +1714 / 278 / PF 1.63 [1.23-2.11] · p 0.00 · best of 19 cells · 22:+644 23:+55 24:-56 25:+396 26:+676 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 |
-| 44 | `spy-sqrt-band` | config | volume-config | shadow:spy-sqrt-band | 15 d | 16 sessions / 10 trades / +5 · needs 4 more sessions and 5 more trades (or 44 sessions to the time limit) | +2195 / 460 / PF 1.46 [1.18-1.80] · p 0.00 · best of 17 cells · 22:+1144 23:+77 24:+116 25:+371 26:+486 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 |
-| 45 | `spy-sqrt-band-1h15` | config | quality-config | shadow:spy-sqrt-band-1h15 | 15 d | 16 sessions / 8 trades / +39 · needs 4 more sessions and 7 more trades (or 44 sessions to the time limit) | +2044 / 309 / PF 1.70 [1.33-2.23] · p 0.00 · best of 17 cells · 22:+708 23:+125 24:+81 25:+428 26:+703 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 |
-| 48 | `qqq-noise-pm-vol` | config | standalone-strategy | shadow:qqq-noise-pm-vol | 15 d | 14 sessions / 3 trades / -22 · needs 6 more sessions and 12 more trades (or 46 sessions to the time limit) | +1095 / 275 / PF 1.50 [1.08-2.11] · p 0.00 · best of 1152 cells · 22:+600 23:+168 24:-22 25:+227 26:+122 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 · corr -0.03 vs iex_v18 · combined PF 1.41 / dd -390 · active days 524 (base 325) · ex-best-yr PF 1.42 (excl 2022) |
+| 4 | `vpin-0.26` | config | quality-config | shadow:vpin-0.26 | 16 d | 22 sessions / 9 trades / -36 · needs 6 more trades (or 38 sessions to the time limit) | +1646 / 324 / PF 1.48 [1.15-1.92] · p 0.00 · best of 12 cells · 22:+820 23:+42 24:+105 25:+210 26:+469 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 |
+| 6 | `stress-s15-core` | config | additive-config | shadow:stress-s15-core | 16 d | 22 sessions / 10 trades / +5 · needs 5 more trades (or 38 sessions to the time limit) | +2003 / 459 / PF 1.41 [1.15-1.73] · p 0.00 · best of 17 cells · 22:+1226 23:-3 24:-24 25:+376 26:+429 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 · added +274 / 23 / PF 3.32 (worst yr -4, worst day -44) |
+| 28 | `size-vpin26-x1.25` | config | sizing-config | shadow:size-vpin26-x1.25 | 16 d | 19 sessions / 10 trades / -9 · needs 1 more sessions and 5 more trades (or 41 sessions to the time limit) | +2155 / 436 / PF 1.40 [1.13-1.76] · p 0.00 · 22:+1194 23:+46 24:+10 25:+410 26:+496 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 · added +0 / 0 / PF 0.00 (worst yr +0, worst day +0) |
+| 29 | `thrust-1h15` | config | quality-config | shadow:thrust-1h15 | 16 d | 19 sessions / 8 trades / +39 · needs 1 more sessions and 7 more trades (or 41 sessions to the time limit) | +1714 / 278 / PF 1.63 [1.23-2.11] · p 0.00 · best of 19 cells · 22:+644 23:+55 24:-56 25:+396 26:+676 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 |
+| 44 | `spy-sqrt-band` | config | volume-config | shadow:spy-sqrt-band | 16 d | 16 sessions / 10 trades / +5 · needs 4 more sessions and 5 more trades (or 44 sessions to the time limit) | +2195 / 460 / PF 1.46 [1.18-1.80] · p 0.00 · best of 17 cells · 22:+1144 23:+77 24:+116 25:+371 26:+486 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 |
+| 45 | `spy-sqrt-band-1h15` | config | quality-config | shadow:spy-sqrt-band-1h15 | 16 d | 16 sessions / 8 trades / +39 · needs 4 more sessions and 7 more trades (or 44 sessions to the time limit) | +2044 / 309 / PF 1.70 [1.33-2.23] · p 0.00 · best of 17 cells · 22:+708 23:+125 24:+81 25:+428 26:+703 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 |
+| 48 | `qqq-noise-pm-vol` | config | standalone-strategy | shadow:qqq-noise-pm-vol | 16 d | 14 sessions / 3 trades / -22 · needs 6 more sessions and 12 more trades (or 46 sessions to the time limit) | +1095 / 275 / PF 1.50 [1.08-2.11] · p 0.00 · best of 1152 cells · 22:+600 23:+168 24:-22 25:+227 26:+122 · **pass** · base iex_v18: +1728 / 436 / PF 1.37 · corr -0.03 vs iex_v18 · combined PF 1.41 / dd -390 · active days 524 (base 325) · ex-best-yr PF 1.42 (excl 2022) |
+| 49 | `spy-sqrt-band-v020` | config | volume-config | shadow:spy-sqrt-band-v020 | 0 m | 0 sessions / 0 trades / +0 · needs 20 more sessions and 15 more trades (or 60 sessions to the time limit) | +2445 / 492 / PF 1.48 [1.19-1.81] · p 0.00 · best of 24 cells · 22:+1275 23:+60 24:+475 25:+166 26:+468 · **pass** · base iex_v18: +1829 / 434 / PF 1.40 |
 
 ### shadow_passed (0)
 
@@ -55,7 +56,7 @@ none.
 | 1 | `bear-bounce-sma50` | config | volume-config | base | 32 d | +2179 / 828 / PF 1.23 · 22:+1422 23:+371 24:-436 25:+61 26:+762 · fail: pf_5y, min_year_pnl · base iex_v18: +1728 / 436 / PF 1.37 · cooldown to 2027-03-26 |
 | 2 | `ticker:AMD` | ticker | additive-ticker | AMD | 22 d | -18 / 158 / PF 0.99 · 22:+476 23:+132 24:-335 25:+171 26:-463 · fail: added_pnl, added_pf, combined_pf, combined_years_not_worse, added_worst_year · base iex_v18: +1728 / 436 / PF 1.37 · added -18 / 158 / PF 0.99 (worst yr -463, worst day -99) · cooldown to 2027-03-26 |
 | 3 | `ticker:META` | ticker | additive-ticker | META | 22 d | -19 / 160 / PF 0.99 · 22:+132 23:-223 24:-76 25:+73 26:+76 · fail: added_pnl, added_pf, combined_pf, combined_years_not_worse, added_worst_year · base iex_v18: +1728 / 436 / PF 1.37 · added -19 / 160 / PF 0.99 (worst yr -223, worst day -102) · cooldown to 2027-03-26 |
-| 5 | `rs-long-x0.3` | config | volume-config | base | 30 d | +1997 / 1586 / PF 1.11 · 22:+1490 23:+238 24:-197 25:-213 26:+679 · fail: pf_5y, years_positive · base iex_v18: +1728 / 436 / PF 1.37 · cooldown to 2027-03-28 |
+| 5 | `rs-long-x0.3` | config | volume-config | base | 31 d | +1997 / 1586 / PF 1.11 · 22:+1490 23:+238 24:-197 25:-213 26:+679 · fail: pf_5y, years_positive · base iex_v18: +1728 / 436 / PF 1.37 · cooldown to 2027-03-28 |
 | 7 | `trend-day-ride` | config | additive-config | base | 29 d | +2142 / 803 / PF 1.23 · 22:+2003 23:-260 24:-307 25:+461 26:+246 · fail: added_pf, added_worst_year, combined_years_not_worse · base iex_v18: +1728 / 436 / PF 1.37 · added +395 / 367 / PF 1.08 (worst yr -287, worst day -273) · cooldown to 2027-03-29 |
 | 8 | `ticker:JPM` | ticker | additive-ticker | JPM | 22 d | +23 / 51 / PF 1.03 · 22:-100 23:+4 24:+45 25:+292 26:-217 · fail: added_pf, combined_pf, combined_years_not_worse, added_worst_year · base iex_v18: +1728 / 436 / PF 1.37 · added +23 / 51 / PF 1.03 (worst yr -217, worst day -75) · cooldown to 2027-04-04 |
 | 9 | `ticker:V` | ticker | additive-ticker | V | 22 d | -245 / 67 / PF 0.64 · 22:-107 23:+6 24:-62 25:+44 26:-128 · fail: added_pnl, added_pf, combined_pf, combined_years_not_worse · base iex_v18: +1728 / 436 / PF 1.37 · added -245 / 67 / PF 0.64 (worst yr -128, worst day -69) · cooldown to 2027-04-04 |
@@ -96,13 +97,19 @@ none.
 
 | id | name | kind | gate | tickers | since | backtest (5y P&L / trades / PF · per year · gate) |
 |---:|---|---|---|---|---|---|
-| 46 | `qqq-noise-pm-vol` | config | quality-config | base | 21 d | — |
+| 46 | `qqq-noise-pm-vol` | config | quality-config | base | 22 d | — |
 | 47 | `qqq-noise-pm-vol` | config | quality-config | base | 21 d | — |
 
 ## last 20 events
 
 | when (UTC) | candidate | transition | actor | detail |
 |---|---|---|---|---|
+| 2026-10-30 04:43 | `spy-sqrt-band-v020` | backtest_passed → shadow | pipeline | shadow_start book=shadow:spy-sqrt-band-v020 |
+| 2026-10-30 04:43 | `spy-sqrt-band-v020` | backtesting → backtest_passed | pipeline | gate tag=cand_49 pass=True |
+| 2026-10-30 04:43 | `spy-sqrt-band-v020` | backtesting → backtesting | pipeline | sweep_done tag=cand_49 |
+| 2026-10-30 04:38 | `spy-sqrt-band-v020` | backtesting → backtesting | pipeline | materialized config_version_id=24 |
+| 2026-10-30 04:38 | `spy-sqrt-band-v020` | proposed → backtesting | pipeline | backtest_start |
+| 2026-10-30 04:37 | `spy-sqrt-band-v020` | ∅ → proposed | human | proposed |
 | 2026-10-14 03:52 | `qqq-noise-pm-vol` | shadow → shadow | human | restat tag=cand_48 |
 | 2026-10-14 03:52 | `spy-sqrt-band-1h15` | shadow → shadow | human | restat tag=cand_45 |
 | 2026-10-14 03:52 | `spy-sqrt-band` | shadow → shadow | human | restat tag=cand_44 |
@@ -117,9 +124,3 @@ none.
 | 2026-10-14 03:51 | `size-vpin26-x1.25` | shadow → shadow | human | set_provenance |
 | 2026-10-14 03:51 | `stress-s15-core` | shadow → shadow | human | set_provenance |
 | 2026-10-14 03:51 | `vpin-0.26` | shadow → shadow | human | set_provenance |
-| 2026-10-10 03:30 | `qqq-noise-pm-vol` | backtest_passed → shadow | pipeline | shadow_start book=shadow:qqq-noise-pm-vol |
-| 2026-10-09 03:33 | `qqq-noise-pm-vol` | backtesting → backtest_passed | pipeline | gate tag=cand_48 pass=True |
-| 2026-10-09 03:33 | `qqq-noise-pm-vol` | backtesting → backtesting | pipeline | sweep_done tag=cand_48 |
-| 2026-10-09 03:30 | `qqq-noise-pm-vol` | backtesting → backtesting | pipeline | materialized config_version_id=23 |
-| 2026-10-09 03:30 | `qqq-noise-pm-vol` | proposed → backtesting | pipeline | backtest_start |
-| 2026-10-08 06:34 | `qqq-noise-pm-vol` | ∅ → proposed | human | proposed |

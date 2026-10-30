@@ -67,7 +67,24 @@ GATE_SWEEP_ARGS = SIZING_ARGS + CROSS_ARGS
 FETCH_START = "2022-01-01"
 COOLDOWN_DAYS = 180
 # must match the trader's MAX_BOOKS (deploy/systemd/paper-trader.service); used only to warn when a new shadow cannot host
-MAX_BOOKS = int(os.environ.get("MAX_BOOKS", "8") or 8)
+def _max_books_default() -> int:
+    """the trader's cap: MAX_BOOKS from the environment (pipeline.service sets it), else the value
+    deploy/systemd/paper-trader.service gives the trader, else the binary's default of 8 — so a manual
+    `pipeline.py advance` from a shell warns about the same cap the trader really has."""
+    v = os.environ.get("MAX_BOOKS")
+    if v and v.isdigit() and int(v) > 0:
+        return int(v)
+    try:
+        unit = (ROOT / "deploy" / "systemd" / "paper-trader.service").read_text()
+        m = re.search(r"(?m)^Environment=MAX_BOOKS=(\d+)", unit)
+        if m:
+            return int(m.group(1))
+    except OSError:
+        pass
+    return 8
+
+
+MAX_BOOKS = _max_books_default()
 MAX_NEW_TICKER_FETCHES = 2
 COVERAGE_RETRY_DAYS = 1  # a stale tail is transient: retry the next night (was 7 until 2026-10-05)
 TERMINAL = {"backtest_failed", "shadow_failed", "rejected", "withdrawn", "promoted"}

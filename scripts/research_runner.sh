@@ -32,7 +32,7 @@ for i, b in enumerate(blocks):
     if m.group(2) and m.group(2) > today:
         continue
     rq = m.group(1)
-    cm = re.search(r'(?ms)^command:\s*(.+?)^(?=accept if:|result:|$)', b)
+    cm = re.search(r'(?ms)^command:\s*(.+?)^(?=accept if\b|cost:|next:|result:|$)', b)
     if not cm or 'needs code' in cm.group(1):
         continue
     cmd = ' '.join(l.strip() for l in cm.group(1).strip().splitlines())
@@ -41,11 +41,25 @@ for i, b in enumerate(blocks):
     open(q, 'w').write(''.join(blocks[:i]) + b + ''.join(blocks[i+1:]))
     t0 = datetime.datetime.now()
     r = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=6 * 3600)
-    tags = re.findall(r'run_cached_sweep\.sh\s+(\S+)', cmd)
+    # tags for the write-back summary: literal ones from the command, else (a shell loop builds the tag
+    # from $-variables) every data/<tag>_<year>_trades.csv written since the command started
+    tags = [t for t in re.findall(r'run_cached_sweep\.sh\s+(\S+)', cmd) if '$' not in t]
+    if not tags:
+        import glob, os
+        seen = set()
+        for f in sorted(glob.glob('data/*_trades.csv')):
+            if os.path.getmtime(f) >= t0.timestamp():
+                tag = re.sub(r'_\d{4}_trades\.csv$', '', os.path.basename(f))
+                if tag not in seen:
+                    seen.add(tag); tags.append(tag)
     summary = ''
     if tags:
         s = subprocess.run(['python3', 'research/entries/summarize.py', *tags], capture_output=True, text=True)
         summary = s.stdout.strip()
+    # the command's own stdout (analysis tables the entry asked for) follows the summary, trimmed
+    own = r.stdout.strip()[-6000:]
+    if own and own not in summary:
+        summary = (summary + "\n--- command output ---\n" + own).strip() if summary else own
     err = "\n".join(l for l in r.stderr.strip().splitlines()[-5:] if not l.startswith("DATA_QUALITY"))
     status = 'done' if r.returncode == 0 else 'done (command exit %d)' % r.returncode
     result = (f"result: ran {t0:%Y-%m-%d %H:%M} PT, {int((datetime.datetime.now()-t0).total_seconds()/60)} min\n"

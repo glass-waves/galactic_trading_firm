@@ -82,7 +82,7 @@ result: ran 2026-10-27 20:00 PT, 43 min
    2025         —
    2026         —
 ```
-### RQ-8 scale-free MACD, runnable form of RQ-5   status: done
+### RQ-8 scale-free MACD, runnable form of RQ-5   status: done — invariance confirmed, strategy fails; phase B is the real test
 proposed: 2026-10-23 by claude (RQ-5 needed code; the indicator already has a price-scaled mode — normalization_factor ≤ 0 divides the histogram by 1 % of the close, crates/indicators/src/native/macd.rs)
 hypothesis: a price-scaled MACD makes the adjusted and point-in-time replays agree (today 360 vs 434 trades, plan §16.3) without losing PF.
 why now: the fixed $1 norm is 0.2–0.9 % of price across the four names and years (cache medians: MSFT $266→$480, AAPL $153→$297), so the existing 1 %-of-price mode damps MACD 1.1–5×: treat it as an invariance test and a lower bracket, not the fair test. patch: research/macd/k01.patch.json (replaces both MACD instances in place — patches replace by instance_id since 2026-10-23).
@@ -105,15 +105,17 @@ result: ran 2026-10-29 20:00 PT, 9 min
    2025     +136 n=  42 win=  36% PF=1.25 dd=  -198
    2026      +83 n=  29 win=  31% PF=1.31 dd=   -68
 ```
-### RQ-9 feed gap: volume or price path?   status: done (command exit 2)
+verdict (2026-10-29): invariance holds — 231 vs 233 trades (0.9 %) on the point-in-time vs adjusted replays, so a price-scaled MACD removes the split sensitivity. as a strategy the 1 %-of-close bracket fails every clause (+421 / 231 / PF 1.15, 2023 −363): it mostly switches the MACD off, exactly as the 10-22 dump predicted. next = phase B, a `normalization_pct` knob so the ±1 clamp binds at the same percentage move as today's $1 does at ~$300 (k ≈ 0.003–0.007), then the same two-sweep invariance check plus the quality-config clause.
+
+### RQ-9 feed gap: volume or price path?   status: approved
 proposed: 2026-10-23 by claude (the SIP-vs-IEX decision, answered from cached data before paying for anything)
 hypothesis: most of the SIP-vs-IEX gap comes from the VPIN gate (volume), not from the price path.
 why now: phase 1 is already computed from the iex_v18 / sip_v18_vwapfix trade CSVs (2026-10-23): the +1,006 gap splits into price path and fills +53 (182 identical entries), timing +342 (337 shared ticker-days, re-timed entries, median −1 min), selection +611 (SIP-only ticker-days +424 vs IEX-only −187). ≈ 95 % of the gap is which bar or day passes the gates.
 cost: 2 dump sweeps ≈ 15 min (delete data/rq9_*_ticks.csv afterwards), then ≈ 1 h of agent analysis.
 command: DUMP_TICKS=1 BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rq9_iex --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --dump-window-only; DUMP_TICKS=1 BARS_DIR=data/bars scripts/run_cached_sweep.sh rq9_sip --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --dump-window-only
-accept if (pre-registered): for each non-shared entry find the condition that flipped on the other feed at that bar. "volume-driven" if bars where only VPIN flips carry ≥ 60 % of the +953 timing+selection gap; "price-driven" if SPY-band and score flips carry ≥ 60 % (`vwap_dist_1hr` is volume-weighted — tag it separately); otherwise mixed.
+accept if: (pre-registered) for each non-shared entry find the condition that flipped on the other feed at that bar. "volume-driven" if bars where only VPIN flips carry ≥ 60 % of the +953 timing+selection gap; "price-driven" if SPY-band and score flips carry ≥ 60 % (`vwap_dist_1hr` is volume-weighted — tag it separately); otherwise mixed.
 next: volume-driven → an IEX-native VPIN neighbourhood (`bucket_divisor` {0.2, 0.4, 0.8} × `lookback_buckets` {20, 40}, never swept) with floors set by matching v18's pass rate, before spending $99/mo. price-driven → nothing on IEX can fix it and the SIP decision rests on PF 1.57 / 510 vs 1.40 / 434.
-result: ran 2026-10-28 20:00 PT, 0 min
+result: 2026-10-28 run failed (header parse, fixed 2026-10-29) — re-approved
 ```
 == rq9_iex: 5y         —
    2022         —
@@ -129,7 +131,7 @@ result: ran 2026-10-28 20:00 PT, 0 min
    2026         —
 ```
 stderr: /bin/sh: -c: line 1: syntax error near unexpected token `('
-/bin/sh: -c: line 1: `DUMP_TICKS=1 BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rq9_iex --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --dump-window-only; DUMP_TICKS=1 BARS_DIR=data/bars scripts/run_cached_sweep.sh rq9_sip --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --dump-window-only accept if (pre-registered): for each non-shared entry find the condition that flipped on the other feed at that bar. "volume-driven" if bars where only VPIN flips carry ≥ 60 % of the +953 timing+selection gap; "price-driven" if SPY-band and score flips carry ≥ 60 % (`vwap_dist_1hr` is volume-weighted — tag it separately); otherwise mixed. next: volume-driven → an IEX-native VPIN neighbourhood (`bucket_divisor` {0.2, 0.4, 0.8} × `lookback_buckets` {20, 40}, never swept) with floors set by matching v18's pass rate, before spending $99/mo. price-driven → nothing on IEX can fix it and the SIP decision rests on PF 1.57 / 510 vs 1.40 / 434.'
+/bin/sh: -c: line 1: `DUMP_TICKS=1 BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rq9_iex --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --dump-window-only; DUMP_TICKS=1 BARS_DIR=data/bars scripts/run_cached_sweep.sh rq9_sip --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --dump-window-only accept if: (pre-registered) for each non-shared entry find the condition that flipped on the other feed at that bar. "volume-driven" if bars where only VPIN flips carry ≥ 60 % of the +953 timing+selection gap; "price-driven" if SPY-band and score flips carry ≥ 60 % (`vwap_dist_1hr` is volume-weighted — tag it separately); otherwise mixed. next: volume-driven → an IEX-native VPIN neighbourhood (`bucket_divisor` {0.2, 0.4, 0.8} × `lookback_buckets` {20, 40}, never swept) with floors set by matching v18's pass rate, before spending $99/mo. price-driven → nothing on IEX can fix it and the SIP decision rests on PF 1.57 / 510 vs 1.40 / 434.'
 ### RQ-10 pretest cell c14: VWAP-fade neighbourhood   status: in pretest (cell c14_vwap_fade_pm added 2026-10-23; first verdict fragile)
 proposed: 2026-10-23 by claude
 why: c12 is labelled dead, but several of its points are net-positive (pretest summary, c12 section: the 4 names at 12:30 +19.8 bps / PF 1.75 / 3 of 5 years, n 57; the 34-name pool at z 1.0 PF 1.46 / 3 of 5). under the README's own vocabulary that is sub-cost, not dead, and it is a fade mechanism, not the thrust trigger that "afternoons never paid" refers to.
