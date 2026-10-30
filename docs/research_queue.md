@@ -82,7 +82,7 @@ result: ran 2026-10-27 20:00 PT, 43 min
    2025         —
    2026         —
 ```
-### RQ-8 scale-free MACD, runnable form of RQ-5   status: approved from 2026-10-29
+### RQ-8 scale-free MACD, runnable form of RQ-5   status: done
 proposed: 2026-10-23 by claude (RQ-5 needed code; the indicator already has a price-scaled mode — normalization_factor ≤ 0 divides the histogram by 1 % of the close, crates/indicators/src/native/macd.rs)
 hypothesis: a price-scaled MACD makes the adjusted and point-in-time replays agree (today 360 vs 434 trades, plan §16.3) without losing PF.
 why now: the fixed $1 norm is 0.2–0.9 % of price across the four names and years (cache medians: MSFT $266→$480, AAPL $153→$297), so the existing 1 %-of-price mode damps MACD 1.1–5×: treat it as an invariance test and a lower bracket, not the fair test. patch: research/macd/k01.patch.json (replaces both MACD instances in place — patches replace by instance_id since 2026-10-23).
@@ -90,7 +90,21 @@ cost: 2 five-year sweeps ≈ 8 min. patch verified 2026-10-23 on 10-22: scores m
 command: BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rq8_k01_pit --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --patch-json research/macd/k01.patch.json; BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rq8_k01_adj --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --patch-json research/macd/k01.patch.json --splits none; python3 research/entries/summarize.py iex_v18 rq8_k01_pit rq8_k01_adj
 accept if: invariance — pit and adj trade counts within 1 % of each other. as a strategy RQ-5's own clause: PF ≥ baseline + 0.05 with ≥ 4/5 years and ≥ 0.6 × baseline trades (quality-config) or trades ≥ baseline with PF ≥ 1.3 (volume-config), positive every year on the point-in-time record.
 next: phase B is a code PR — a `normalization_pct` param so the clamp binds at the same percentage move (sweep k ∈ {0.003, 0.004, 0.005, 0.007}); phase C re-screens the universe near-misses (SHOP PF 1.30, AMD 1.28 / META 1.33 on 1h15, CVX 1.43 n < 60, CAT 1.26) whose dollar MACD made each a different strategy — their cooldowns run to 2027-03/04, re-proposing is the human's call.
-
+result: ran 2026-10-29 20:00 PT, 9 min
+```
+== rq8_k01_pit: 5y     +421 n= 231 win=  35% PF=1.15 dd=  -838
+   2022     +666 n=  62 win=  45% PF=1.86 dd=  -287
+   2023     -363 n=  47 win=  26% PF=0.50 dd=  -471
+   2024     -100 n=  51 win=  35% PF=0.82 dd=  -187
+   2025     +136 n=  42 win=  36% PF=1.25 dd=  -198
+   2026      +83 n=  29 win=  31% PF=1.31 dd=   -68
+== rq8_k01_adj: 5y     +724 n= 233 win=  37% PF=1.25 dd=  -845
+   2022     +895 n=  60 win=  50% PF=2.28 dd=  -364
+   2023     -266 n=  50 win=  30% PF=0.66 dd=  -436
+   2024     -124 n=  52 win=  35% PF=0.80 dd=  -210
+   2025     +136 n=  42 win=  36% PF=1.25 dd=  -198
+   2026      +83 n=  29 win=  31% PF=1.31 dd=   -68
+```
 ### RQ-9 feed gap: volume or price path?   status: done (command exit 2)
 proposed: 2026-10-23 by claude (the SIP-vs-IEX decision, answered from cached data before paying for anything)
 hypothesis: most of the SIP-vs-IEX gap comes from the VPIN gate (volume), not from the price path.
