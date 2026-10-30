@@ -1,0 +1,5 @@
+row_type,date,ticker,direction,entry_time,exit_time,entry_price,exit_price,size,pnl,pnl_pct,hold_duration_ms,exit_reason,entry_reason,candle_pattern,entry_composite,exit_composite,entry_1m,entry_5m,entry_1h,exit_1m,exit_5m,exit_1h,max_composite,max_composite_time,positive_ticks,total_ticks
+summary,2026-10-30,AMZN,,,,,,,0.00,,0,,,,,,,,,,,,0.5761,2026-10-23T16:16:00+00:00,1437,2725
+summary,2026-10-30,AAPL,,,,,,,0.00,,0,,,,,,,,,,,,0.5828,2026-10-22T19:59:00+00:00,1464,2730
+summary,2026-10-30,NVDA,,,,,,,0.00,,0,,,,,,,,,,,,0.8115,2026-10-22T13:34:00+00:00,1241,2730
+summary,2026-10-30,MSFT,,,,,,,0.00,,0,,,,,,,,,,,,0.7430,2026-10-29T13:45:00+00:00,1476,2730

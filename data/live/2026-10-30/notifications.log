@@ -1,0 +1,4 @@
+2026-10-30T06:45:05-07:00 [info] AMZN +2.02% vs today's open (237.24 vs 232.54) at 0945 ET — primary: flat, daily P&L 0.00; shadows in a trade: none
+2026-10-30T09:20:05-07:00 [warning] NVDA -2.07% off its intraday high (204.73 vs 209.06) at 1220 ET — primary: flat, daily P&L -40.90; shadows in a trade: none
+2026-10-30T09:35:05-07:00 [warning] NVDA -2.07% vs today's open (204.38 vs 208.7) at 1235 ET — primary: flat, daily P&L -40.90; shadows in a trade: none
+2026-10-30T11:05:05-07:00 [critical] SPY -1.04% vs today's open (753.47 vs 761.37) at 1405 ET — primary: flat, daily P&L -40.90; shadows in a trade: shadow:qqq-noise-pm-vol
