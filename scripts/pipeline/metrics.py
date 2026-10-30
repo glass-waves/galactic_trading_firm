@@ -159,6 +159,74 @@ def sign_flip_p(candidate_daily_series: dict[str, float], n: int = 5000, seed: i
     return round(hits / n, 4)
 
 
+PAIRED_QUANTILES = (0.001, 0.0025, 0.005, 0.01, 0.02, 0.05, 0.10, 0.25, 0.5, 0.75, 0.9, 0.95)
+
+
+def paired_day_bootstrap(cand_rows: list[dict], base_rows: list[dict], session_list: list[str] | None = None,
+                         n: int = 5000, seed: int = 0) -> dict:
+    """is the candidate better than the baseline, judged on the SAME days? both trade sets become a
+    daily P&L series over `session_list` (every SPY session in the sweep window when available, so
+    days neither traded count as zero differences); trading days are resampled with replacement and
+    the difference in total P&L (candidate − baseline) and in day-level PF is recomputed each time.
+    returns the observed differences, the resampled differences' quantiles (PAIRED_QUANTILES) and
+    P(difference ≤ 0). gates read the lower quantile that matches their Šidák-adjusted level; the
+    report shows p_le_0. pairing by day is what makes small increments between near-identical
+    configs testable at all — an unpaired CI on either side is ±600 on this record (audit 2026-10-29)."""
+    if session_list is None:
+        spy_csv = BARS_DIR / "SPY.csv"
+        session_list = spy_session_list(spy_csv) if spy_csv.exists() else sorted(set(daily_pnl(cand_rows)) | set(daily_pnl(base_rows)))
+    c = daily_series(cand_rows, session_list)
+    b = daily_series(base_rows, session_list)
+    days = list(session_list)
+    nd = len(days)
+    if nd == 0:
+        return {"n_days": 0, "pnl_diff": 0.0, "pf_diff": 0.0, "pnl_quantiles": [], "pf_quantiles": [], "p_le_0": None}
+    cv = [c[d] for d in days]
+    bv = [b[d] for d in days]
+    diff = [x - y for x, y in zip(cv, bv)]
+
+    def day_pf(vals):
+        gw = sum(v for v in vals if v > 0)
+        gl = -sum(v for v in vals if v < 0)
+        return (gw / gl) if gl > 0 else (99.0 if gw > 0 else 0.0)
+
+    observed_pnl = sum(diff)
+    observed_pf = day_pf(cv) - day_pf(bv)
+    rng = random.Random(seed)
+    pnl_samples, pf_samples = [], []
+    for _ in range(n):
+        idx = [rng.randrange(nd) for _ in range(nd)]
+        pnl_samples.append(sum(diff[i] for i in idx))
+        pf_samples.append(day_pf([cv[i] for i in idx]) - day_pf([bv[i] for i in idx]))
+    pnl_samples.sort()
+    pf_samples.sort()
+
+    def q(samples, p):
+        k = min(len(samples) - 1, max(0, int(round(p * (len(samples) - 1)))))
+        return round(samples[k], 2)
+
+    return {
+        "n_days": nd,
+        "pnl_diff": round(observed_pnl, 2),
+        "pf_diff": round(observed_pf, 4),
+        "pnl_quantiles": [[p, q(pnl_samples, p)] for p in PAIRED_QUANTILES],
+        "pf_quantiles": [[p, round(q(pf_samples, p), 4)] for p in PAIRED_QUANTILES],
+        "p_le_0": round(sum(1 for v in pnl_samples if v <= 0) / n, 4),
+    }
+
+
+def name_share(rows: list[dict]) -> dict:
+    """the single ticker carrying the largest share of total P&L (info: NVDA is ~75 % of the record)."""
+    by: dict[str, float] = {}
+    for r in rows:
+        by[r.get("ticker", "?")] = by.get(r.get("ticker", "?"), 0.0) + r["pnl"]
+    total = sum(by.values())
+    if not by or total <= 0:
+        return {"ticker": None, "share": None}
+    t = max(by, key=lambda k: by[k])
+    return {"ticker": t, "share": round(by[t] / total, 3), "pnl": round(by[t], 2)}
+
+
 def candidate_stats(rows: list[dict], data_dir: Path = DATA, n_bootstrap: int = 2000,
                      n_control: int = 5000, seed: int = 0) -> dict:
     """the stats block folded into full_metrics()['stats']: bootstrap PF/P&L 90 % CIs, the day-level
@@ -510,7 +578,7 @@ def marginal_metrics(tag: str, baseline_tag: str, data_dir: Path = DATA) -> dict
 
 def full_metrics(tag: str, tickers: list[str] | None = None, data_dir: Path = DATA,
                  spy_ret: dict[str, float] | None = None, baseline_tag: str | None = None,
-                 want_standalone: bool = False) -> dict:
+                 want_standalone: bool = False, want_marginal: bool = True) -> dict:
     """everything a gate may look at for one sweep tag. baseline_tag, when given, adds the
     base/added marginal split against that tag's trades (metrics['marginal']) — or, when
     want_standalone is also set (the standalone-strategy gate), metrics['standalone']
@@ -522,13 +590,16 @@ def full_metrics(tag: str, tickers: list[str] | None = None, data_dir: Path = DA
     m["stress"] = spy_buckets(rows, spy_ret, -0.01) if spy_ret else None
     m["stress_2pct"] = spy_buckets(rows, spy_ret, -0.02) if spy_ret else None
     m["stats"] = candidate_stats(rows, data_dir)
+    m["name_share"] = name_share(rows)
     if tickers:
         m["tickers"] = list(tickers)
     if baseline_tag:
         if want_standalone:
             m["standalone"] = standalone_metrics(tag, baseline_tag, data_dir)
-        else:
+        elif want_marginal:
             m["marginal"] = marginal_metrics(tag, baseline_tag, data_dir)
+        # every baseline-relative gate reads the paired day bootstrap (gates._paired_check)
+        m["paired"] = paired_day_bootstrap(rows, load_trades(baseline_tag, data_dir))
     return m
 
 

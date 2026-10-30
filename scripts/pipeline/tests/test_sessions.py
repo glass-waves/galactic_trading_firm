@@ -72,17 +72,24 @@ class Edge(unittest.TestCase):
     def t(self, pnl, price=100.0, size=10):
         return {"pnl": pnl, "entry_price": price, "size": size}
 
-    def test_ticker_kind(self):
-        r = shadow.edge("ticker", [self.t(3), self.t(-2)], [self.t(1)])
+    def test_shadow_pf_is_information_not_a_verdict(self):
+        # since 2026-10-29: a losing shadow still "passes" the edge rule — its PF cannot judge edge at this n
+        r = shadow.edge("ticker", [self.t(1), self.t(-1.2)], [self.t(0)])   # fills within 10 bps of the replay
         self.assertTrue(r["pass"], r)
-        r = shadow.edge("ticker", [self.t(1), self.t(-2)], [self.t(1)])
-        self.assertIn("shadow_pf", [c["name"] for c in r["checks"] if not c["ok"]])
+        pf = next(c for c in r["checks"] if c["name"] == "shadow_pf")
+        self.assertTrue(pf.get("info"))
+        self.assertLess(pf["value"], 1.0)
 
-    def test_config_kind_vs_primary(self):
-        r = shadow.edge("config", [self.t(3), self.t(-2)], [self.t(0.5)], primary_pnl=1.25)
-        self.assertTrue(r["pass"], r)
+    def test_fills_vs_replay_still_decide(self):
+        # shadow fills 15 bps worse than the replay of the same days: a plumbing failure, still gated
+        r = shadow.edge("ticker", [self.t(-1.5), self.t(-1.5)], [self.t(0.0), self.t(0.0)])
+        self.assertFalse(r["pass"], r)
+        self.assertEqual([c["name"] for c in r["checks"] if not c["ok"]], ["shadow_bps_vs_replay"])
+
+    def test_config_kind_vs_primary_is_information(self):
         r = shadow.edge("config", [self.t(3), self.t(-2)], [self.t(0.5)], primary_pnl=1.26)
-        self.assertEqual([c["name"] for c in r["checks"] if not c["ok"]], ["shadow_pnl_vs_primary"])
+        self.assertTrue(r["pass"], r)
+        self.assertTrue(next(c for c in r["checks"] if c["name"] == "shadow_pnl_vs_primary").get("info"))
 
 
 def write_bars(path: Path, days: list[dt.date], bars_per_day: int = 2, start_price: float = 100.0, close_delta: float = 0.0):

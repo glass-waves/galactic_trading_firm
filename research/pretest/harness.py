@@ -170,6 +170,38 @@ def metrics(trades, sessions):
             "overnight": any(t["overnight"] for t in trades)}
 
 
+LOYO_YEARS_BAR = 4
+CONTROL_P_BAR = 0.05
+
+
+def enforce_controls(res):
+    """statistics audit 2026-10-29: a `pass-pretest` must also survive (a) its own leave-one-year-out
+    selection (P&L > 0 and >= LOYO_YEARS_BAR years) — including the "primary" point, which the
+    verdict functions exempt because the paper pre-registered it, an exemption two cells re-used for
+    points chosen after the fact — and (b) the cell's random-session control when it has one
+    (p_random < CONTROL_P_BAR on a label naming the passing instrument). a pass that fails either is
+    downgraded to `fragile`, with the reason appended; nothing else changes."""
+    verdict, text = res.get("verdict"), res.get("verdict_text", "")
+    if verdict != "pass-pretest":
+        return verdict, text
+    passing = [v for v in res.get("variants", []) if v.get("pass") and v.get("tradable")]
+    if not passing:
+        return verdict, text
+    v = passing[0]
+    reasons = []
+    lo = v.get("loyo")
+    if lo and not (lo.get("pnl", 0.0) > 0 and lo.get("years_pos", 0) >= LOYO_YEARS_BAR):
+        reasons.append(f"LOYO {lo.get('pnl', 0):+.0f} ({lo.get('years_pos', 0)}/5) fails the {LOYO_YEARS_BAR}/5 bar")
+    extra = res.get("extra") or {}
+    inst = str(v.get("instrument", ""))
+    ps = [e.get("p_random") for lab, e in extra.items() if isinstance(e, dict) and "p_random" in e and inst and inst in lab]
+    if ps and min(p for p in ps if p is not None) >= CONTROL_P_BAR:
+        reasons.append(f"random-session control p {min(ps):.3f} >= {CONTROL_P_BAR} on {inst}")
+    if not reasons:
+        return verdict, text
+    return "fragile", text + " | downgraded (controls): " + "; ".join(reasons)
+
+
 def loyo(by_param):
     """by_param: {param_label: metrics}. for each year pick the label with the best P&L on the
     other four years; report the held-out year's P&L under that pick."""
@@ -235,6 +267,7 @@ def run_cell(cell):
     if cell.get("extra"):
         res["extra"] = cell["extra"]()
     res["verdict"], res["verdict_text"] = cell["verdict"](res)
+    res["verdict"], res["verdict_text"] = enforce_controls(res)
     with open(f"{HERE}/results/{cell['id']}.json", "w") as f:
         json.dump(res, f, indent=1, default=str)
     return res

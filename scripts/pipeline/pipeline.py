@@ -652,10 +652,10 @@ def run_backtest(cand: dict, actor: str = "pipeline", budget: list[int] | None =
             ensure_sweep(baseline_tag, bargs)
         baseline = metrics.full_metrics(baseline_tag)
     want_standalone = gate_name in gates.NEEDS_STANDALONE
-    m = metrics.full_metrics(tag, tickers,
-                              baseline_tag=baseline_tag if (gate_name in gates.NEEDS_MARGINAL or want_standalone) else None,
-                              want_standalone=want_standalone)
-    g = gates.run_gate(gate_name, m, baseline, sweep_args_override=sweep_args_override)
+    m = metrics.full_metrics(tag, tickers, baseline_tag=baseline_tag, want_standalone=want_standalone,
+                              want_marginal=gate_name in gates.NEEDS_MARGINAL)
+    g = gates.run_gate(gate_name, m, baseline, sweep_args_override=sweep_args_override,
+                       cells_scanned=(report.provenance_of(cand) or {}).get("cells_scanned"))
     if mcheck and not mcheck["ok"]:
         g["checks"].append(gates.check("materialize_equals_patch", False, "identical trade rows on the verify days", False))
         g["pass"] = False
@@ -978,8 +978,9 @@ def run_regate(cand: dict, new_gate_raw: str, actor: str = "pipeline") -> str:
     reusing the existing sweep tag and materialized row (no new sweep, no new materialization).
     records a 'regate' event with the old and new gate names."""
     cid = cand["id"]
-    if cand["stage"] not in ("backtest_passed", "backtest_failed"):
-        raise PipelineError(f"#{cid} is in stage '{cand['stage']}'; regate applies to backtest_passed/backtest_failed only")
+    if cand["stage"] not in ("backtest_passed", "backtest_failed", "shadow"):
+        raise PipelineError(f"#{cid} is in stage '{cand['stage']}'; regate applies to backtest_passed/backtest_failed/shadow only")
+    in_shadow = cand["stage"] == "shadow"
     old_gate = cand["gate"]
     new_gate = gates.resolve(new_gate_raw, cand["kind"])
     tag = cand.get("backtest_tag")
@@ -999,10 +1000,10 @@ def run_regate(cand: dict, new_gate_raw: str, actor: str = "pipeline") -> str:
     prev = cand.get("backtest_result") or {}
     sweep_args_override = prev.get("sweep_args_override")
     want_standalone = new_gate in gates.NEEDS_STANDALONE
-    m = metrics.full_metrics(tag, tickers,
-                              baseline_tag=baseline_tag if (new_gate in gates.NEEDS_MARGINAL or want_standalone) else None,
-                              want_standalone=want_standalone)
-    g = gates.run_gate(new_gate, m, baseline, sweep_args_override=sweep_args_override)
+    m = metrics.full_metrics(tag, tickers, baseline_tag=baseline_tag, want_standalone=want_standalone,
+                              want_marginal=new_gate in gates.NEEDS_MARGINAL)
+    g = gates.run_gate(new_gate, m, baseline, sweep_args_override=sweep_args_override,
+                       cells_scanned=(report.provenance_of(cand) or {}).get("cells_scanned"))
     # the materialize-vs-patch check is carried forward unchanged: regate re-runs only the gate math
     # on the existing sweep/materialized row (docs/pipeline.md "regate reuses ... no new sweep and no
     # re-materialization"), and the verify inputs (tag, materialized row, patch, sweep_args_override)
@@ -1022,6 +1023,21 @@ def run_regate(cand: dict, new_gate_raw: str, actor: str = "pipeline") -> str:
         "regated_from": old_gate,
         "computed_at": dt.datetime.now(dt.timezone.utc).isoformat(),
     }
+    if in_shadow:
+        # a shadow candidate re-judged under new gate rules: a pass keeps the trial running with the
+        # refreshed gate result; a fail ends the trial (book retired, cooldown) exactly like a shadow fail
+        failed = gates.failed_names(g)
+        if passed:
+            event_only(cand, actor, {"event": "regate", "from_gate": old_gate, "to_gate": new_gate, "pass": True, "stage": "shadow",
+                                     "pnl": m["pnl"], "n": m["n"], "pf": m["pf"]},
+                       sets={"gate": new_gate, "backtest_result": result, "backtest_at": db.Raw("now()")})
+            log(f"#{cid} {cand['name']}: regate in shadow under {new_gate}: PASS — trial continues")
+            return "shadow"
+        fail_shadow(cand, actor, "regate_failed: " + ",".join(failed),
+                    {"regate": {"gate": new_gate, "failed": failed, "backtest_result": result}},
+                    f"regated under {new_gate}: " + ",".join(failed))
+        log(f"#{cid} {cand['name']}: regate in shadow under {new_gate}: FAIL ({', '.join(failed)}) — trial ended, book retired")
+        return "shadow_failed"
     to = "backtest_passed" if passed else "backtest_failed"
     sets = {"gate": new_gate, "backtest_result": result, "backtest_at": db.Raw("now()")}
     if passed:

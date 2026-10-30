@@ -8,10 +8,20 @@ import gates  # noqa: E402
 YEARS = ["2022", "2023", "2024", "2025", "2026"]
 
 
-def mk(pnl=2154, n=407, pf=1.48, years=(1565, -181, -93, 451, 413), stress=None, ordinary=None, dd=0.0, max_position_fraction=0.0):
+def paired_ok(lo=50.0, hi=900.0, p_le_0=0.02):
+    """a paired-bootstrap block whose every lower quantile is `lo` (> 0 passes any improvement claim)."""
+    return {"n_days": 1175, "pnl_diff": 300.0, "pf_diff": 0.05, "p_le_0": p_le_0,
+            "pnl_quantiles": [[q, (lo if q < 0.5 else hi)] for q in (0.001, 0.0025, 0.005, 0.01, 0.02, 0.05, 0.10, 0.25, 0.5, 0.75, 0.9, 0.95)],
+            "pf_quantiles": []}
+
+
+def mk(pnl=2154, n=407, pf=1.48, years=(1565, -181, -93, 451, 413), stress=None, ordinary=None, dd=-400.0, max_position_fraction=0.0,
+       exb=1.25, paired=None):
     ys = {y: {"pnl": float(p), "n": 10, "pf": 1.0, "dd": 0.0} for y, p in zip(YEARS, years)}
     m = {"pnl": float(pnl), "n": n, "pf": pf, "dd": float(dd), "max_position_fraction": float(max_position_fraction), "years": ys,
-         "years_positive": sum(1 for p in years if p > 0), "min_year_pnl": float(min(years)), "pnl_2026": float(years[-1])}
+         "years_positive": sum(1 for p in years if p > 0), "min_year_pnl": float(min(years)), "pnl_2026": float(years[-1]),
+         "stats": {"ex_best_year": {"pf": exb, "excluded_year": "2022", "excluded_year_pnl": float(years[0])}},
+         "paired": paired if paired is not None else paired_ok(), "name_share": {"ticker": "NVDA", "share": 0.7}}
     if stress is not None:
         m["stress"] = {"stress_days": 60, "stress_pnl": stress[0], "stress_pnl_per_day": stress[0] / 60, "stress_worst_day": stress[1],
                        "ordinary_pnl": ordinary if ordinary is not None else pnl - stress[0], "stress_trades": 30, "stress_pf": 1.5}
@@ -28,13 +38,13 @@ def names(res):
 
 class DefaultTicker(unittest.TestCase):
     def test_boundaries_pass_exactly_at_threshold(self):
-        m = mk(pnl=500, n=100, pf=1.3, years=(100, -300, 100, 100, 100))
+        m = mk(pnl=500, n=100, pf=1.4, years=(100, -300, 100, 100, 100))
         r = gates.default_ticker(m)
         self.assertTrue(r["pass"], names(r))
         self.assertTrue(gates.default_ticker(mk(pf=2, n=100, years=(1, 1, 1, 1, 0)))["pass"])  # 2026 flat is allowed
 
     def test_each_check_fails_alone(self):
-        self.assertEqual(names(gates.default_ticker(mk(pf=1.299, n=100, years=(1, 1, 1, 1, 0)))), ["pf_5y"])
+        self.assertEqual(names(gates.default_ticker(mk(pf=1.399, n=100, years=(1, 1, 1, 1, 0)))), ["pf_5y"])
         self.assertEqual(names(gates.default_ticker(mk(pf=2, n=99, years=(1, 1, 1, 1, 0)))), ["trades_5y"])
         self.assertEqual(names(gates.default_ticker(mk(pf=2, n=100, years=(1, 1, -1, -1, 0)))), ["years_positive"])
         self.assertEqual(names(gates.default_ticker(mk(pf=2, n=100, years=(-301, 1, 1, 1, 1)))), ["min_year_pnl"])
@@ -53,11 +63,11 @@ class VolumeConfig(unittest.TestCase):
         self.assertEqual(names(r), ["baseline"])
 
     def test_boundaries(self):
-        m = mk(pnl=2154 * 0.9, n=407, pf=1.3, years=(1, 1, 1, -300, 1))
+        m = mk(pnl=2154 * 0.9, n=407, pf=1.46, years=(1, 1, 1, -300, 1))
         self.assertTrue(gates.volume_config(m, BASE)["pass"])
         self.assertEqual(names(gates.volume_config(mk(n=406, pf=2, years=(1, 1, 1, 1, 1)), BASE)), ["trades_5y"])
         self.assertEqual(names(gates.volume_config(mk(pnl=2154 * 0.9 - 1, pf=2, years=(1, 1, 1, 1, 1)), BASE)), ["pnl_5y"])
-        self.assertEqual(names(gates.volume_config(mk(pf=1.29, years=(1, 1, 1, 1, 1)), BASE)), ["pf_5y"])
+        self.assertEqual(names(gates.volume_config(mk(pf=1.459, years=(1, 1, 1, 1, 1)), BASE)), ["pf_5y"])
 
     def test_negative_baseline_floor_is_below_it(self):
         b = mk(pnl=-100)
@@ -69,7 +79,7 @@ class QualityConfig(unittest.TestCase):
     def test_boundaries(self):
         ok = mk(pnl=100, n=int(0.6 * 407) + 1, pf=1.53, years=(1, 1, 1, 1, 1))
         self.assertTrue(gates.quality_config(ok, BASE)["pass"], names(gates.quality_config(ok, BASE)))
-        self.assertEqual(names(gates.quality_config(mk(pf=1.529, n=300, years=(1, 1, 1, 1, 1)), BASE)), ["pf_5y"])
+        self.assertEqual(names(gates.quality_config(mk(pf=1.479, n=300, years=(1, 1, 1, 1, 1)), BASE)), ["pf_5y"])
         self.assertEqual(names(gates.quality_config(mk(pf=1.6, n=244, years=(1, 1, 1, 1, 1)), BASE)), ["trades_5y"])
         self.assertTrue(gates.quality_config(mk(pf=1.6, n=245, years=(1, 1, 1, 1, 1)), BASE)["pass"])
 
@@ -85,7 +95,7 @@ class StressMode(unittest.TestCase):
 
     def test_passes_at_boundaries(self):
         # trades 0.9x, stress pnl 3x, per day exactly 40, worst -300, ordinary within 10 %
-        m = mk(pnl=2154 * 0.9 + 3 * 258, n=367, pf=1.3, years=(1, 1, 1, 1, 1), stress=(2400, -300), ordinary=1896 * 0.9)
+        m = mk(pnl=2154 * 0.9 + 3 * 258, n=367, pf=1.46, years=(1, 1, 1, 1, 1), stress=(2400, -300), ordinary=1896 * 0.9)
         r = gates.stress_mode(m, self.b)
         self.assertTrue(r["pass"], names(r))
         self.assertEqual(r["gate"], "stress-mode")
@@ -239,11 +249,11 @@ class AdditiveTicker(unittest.TestCase):
         self.assertEqual(names(r), ["marginal"])
 
     def test_passes_at_boundaries(self):
-        # added trades exactly 40, added PF exactly 1.15, combined PF exactly baseline - 0.02,
+        # added trades exactly 80, added PF exactly 1.15, combined PF exactly baseline - 0.02,
         # every combined year exactly baseline's year - 50, added worst year exactly -150
         combined_years = (991 - 50, -3 - 50, -20 - 50, 332 - 50, 429 - 50)
         m = mk(pnl=2000, n=476, pf=1.3, years=combined_years)
-        m["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=40, added_pf=1.15, combined_pf=1.35,
+        m["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=80, added_pf=1.15, combined_pf=1.35,
                                             combined_years=combined_years, added_worst_year=-150.0)
         r = gates.additive_ticker(m, self.b)
         self.assertTrue(r["pass"], names(r))
@@ -252,30 +262,30 @@ class AdditiveTicker(unittest.TestCase):
     def test_added_trades_threshold(self):
         combined_years = (991, -3, -20, 332, 429)
         m = mk(pnl=1800, n=456, pf=1.4, years=combined_years)
-        m["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=39, added_pf=2.0, combined_pf=1.4, combined_years=combined_years)
+        m["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=79, added_pf=2.0, combined_pf=1.4, combined_years=combined_years)
         self.assertIn("added_trades", names(gates.additive_ticker(m, self.b)))
-        m["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=40, added_pf=2.0, combined_pf=1.4, combined_years=combined_years)
+        m["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=80, added_pf=2.0, combined_pf=1.4, combined_years=combined_years)
         self.assertNotIn("added_trades", names(gates.additive_ticker(m, self.b)))
 
     def test_added_pnl_must_be_positive(self):
         combined_years = (991, -3, -20, 332, 429)
         m = mk(pnl=1728, n=476, pf=1.3, years=combined_years)
-        m["marginal"] = mk_ticker_marginal(added_pnl=0.0, added_n=40, added_pf=2.0, combined_pf=1.4, combined_years=combined_years)
+        m["marginal"] = mk_ticker_marginal(added_pnl=0.0, added_n=80, added_pf=2.0, combined_pf=1.4, combined_years=combined_years)
         self.assertIn("added_pnl", names(gates.additive_ticker(m, self.b)))
-        m["marginal"] = mk_ticker_marginal(added_pnl=0.01, added_n=40, added_pf=2.0, combined_pf=1.4, combined_years=combined_years)
+        m["marginal"] = mk_ticker_marginal(added_pnl=0.01, added_n=80, added_pf=2.0, combined_pf=1.4, combined_years=combined_years)
         self.assertNotIn("added_pnl", names(gates.additive_ticker(m, self.b)))
 
     def test_added_pf_threshold(self):
         combined_years = (991, -3, -20, 332, 429)
         m = mk(pnl=1800, n=476, pf=1.4, years=combined_years)
-        m["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=40, added_pf=1.149, combined_pf=1.4, combined_years=combined_years)
+        m["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=80, added_pf=1.149, combined_pf=1.4, combined_years=combined_years)
         self.assertIn("added_pf", names(gates.additive_ticker(m, self.b)))
-        m["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=40, added_pf=1.15, combined_pf=1.4, combined_years=combined_years)
+        m["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=80, added_pf=1.15, combined_pf=1.4, combined_years=combined_years)
         self.assertNotIn("added_pf", names(gates.additive_ticker(m, self.b)))
 
     def test_combined_pf_not_dilutive_boundary(self):
         combined_years = (991, -3, -20, 332, 429)
-        common = dict(added_pnl=50.0, added_n=40, added_pf=2.0, combined_years=combined_years)
+        common = dict(added_pnl=50.0, added_n=80, added_pf=2.0, combined_years=combined_years)
         m = mk(pnl=1800, n=476, pf=1.35, years=combined_years)
         m["marginal"] = mk_ticker_marginal(combined_pf=1.35, **common)
         self.assertNotIn("combined_pf", names(gates.additive_ticker(m, self.b)))
@@ -287,21 +297,21 @@ class AdditiveTicker(unittest.TestCase):
         # baseline 2023 = -3; combined 2023 = -54 -> margin -51, just past the -50 floor
         combined_years = (991, -54, -20, 332, 429)
         m = mk(pnl=1800, n=476, pf=1.4, years=combined_years)
-        m["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=40, added_pf=2.0, combined_pf=1.4, combined_years=combined_years)
+        m["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=80, added_pf=2.0, combined_pf=1.4, combined_years=combined_years)
         self.assertIn("combined_years_not_worse", names(gates.additive_ticker(m, self.b)))
         # -53 -> margin exactly -50: passes
         combined_years2 = (991, -53, -20, 332, 429)
         m2 = mk(pnl=1800, n=476, pf=1.4, years=combined_years2)
-        m2["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=40, added_pf=2.0, combined_pf=1.4, combined_years=combined_years2)
+        m2["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=80, added_pf=2.0, combined_pf=1.4, combined_years=combined_years2)
         self.assertNotIn("combined_years_not_worse", names(gates.additive_ticker(m2, self.b)))
 
     def test_added_worst_year_threshold(self):
         combined_years = (991, -3, -20, 332, 429)
         m = mk(pnl=1800, n=476, pf=1.4, years=combined_years)
-        m["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=40, added_pf=2.0, combined_pf=1.4,
+        m["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=80, added_pf=2.0, combined_pf=1.4,
                                             combined_years=combined_years, added_worst_year=-150.01)
         self.assertIn("added_worst_year", names(gates.additive_ticker(m, self.b)))
-        m["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=40, added_pf=2.0, combined_pf=1.4,
+        m["marginal"] = mk_ticker_marginal(added_pnl=50.0, added_n=80, added_pf=2.0, combined_pf=1.4,
                                             combined_years=combined_years, added_worst_year=-150.0)
         self.assertNotIn("added_worst_year", names(gates.additive_ticker(m, self.b)))
 
@@ -310,7 +320,7 @@ class AdditiveTicker(unittest.TestCase):
         # the live 3-position cap is reported, never gated
         combined_years = (991, -3, -20, 332, 429)
         m = mk(pnl=2000, n=476, pf=1.4, years=combined_years)
-        m["marginal"] = mk_ticker_marginal(added_pnl=100.0, added_n=40, added_pf=2.0, combined_pf=1.4,
+        m["marginal"] = mk_ticker_marginal(added_pnl=100.0, added_n=80, added_pf=2.0, combined_pf=1.4,
                                             combined_years=combined_years, n_exceedance_days=37)
         r = gates.additive_ticker(m, self.b)
         self.assertTrue(r["pass"], names(r))
@@ -357,7 +367,7 @@ class SizingConfig(unittest.TestCase):
         # trades exactly +2 %, 95 % of baseline's keys matched, P&L exactly x1.10, PF exactly -0.02,
         # dd exactly x1.3, every year exactly -50 vs baseline, fraction exactly the _sweep_args cap
         # (0.45) x 1.02 tolerance
-        m = mk(pnl=2785 * 1.10, n=510, pf=1.62, years=(450, 450, 450, 735, 450), dd=-780, max_position_fraction=0.45 * 1.02)
+        m = mk(pnl=2785 * 1.10, n=510, pf=1.62, years=(450, 450, 450, 735, 450), dd=-700, max_position_fraction=0.45 * 1.02)
         m["marginal"] = mk_marginal(base_pnl=2785 * 1.10, base_n=475, added_pnl=0, added_n=35, added_pf=1.0)
         r = gates.sizing_config(m, self.b, sweep_args_override=SWEEP_125)
         self.assertTrue(r["pass"], names(r))
@@ -399,15 +409,19 @@ class SizingConfig(unittest.TestCase):
         m2["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
         self.assertNotIn("pf_5y", names(gates.sizing_config(m2, self.b, sweep_args_override=SWEEP_125)))
 
-    def test_max_drawdown_threshold(self):
+    def test_drawdown_per_dollar_threshold(self):
+        # baseline |dd|/P&L = 600/2785 = 0.2154; ceiling x1.10 = 0.2370. at P&L 3500 that is dd -829.4
         common = dict(pnl=3500, n=500, pf=1.7, years=(1, 1, 1, 1, 1), max_position_fraction=0.4)
-        m = mk(dd=-780.01, **common)
+        m = mk(dd=-831.0, **common)
         m["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
-        self.assertIn("max_drawdown", names(gates.sizing_config(m, self.b, sweep_args_override=SWEEP_125)))
-        m2 = mk(dd=-780.0, **common)
+        self.assertIn("drawdown_per_dollar", names(gates.sizing_config(m, self.b, sweep_args_override=SWEEP_125)))
+        m2 = mk(dd=-828.0, **common)
         m2["marginal"] = mk_marginal(base_pnl=3500, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
-        self.assertNotIn("max_drawdown", names(gates.sizing_config(m2, self.b, sweep_args_override=SWEEP_125)))
-
+        self.assertNotIn("drawdown_per_dollar", names(gates.sizing_config(m2, self.b, sweep_args_override=SWEEP_125)))
+        # a pure size-up (P&L and drawdown both x1.3) keeps the ratio and passes this check
+        m3 = mk(pnl=2785 * 1.3, dd=-600 * 1.3, n=500, pf=1.64, years=(1, 1, 1, 1, 1), max_position_fraction=0.4)
+        m3["marginal"] = mk_marginal(base_pnl=2785 * 1.3, base_n=500, added_pnl=0, added_n=0, added_pf=1.0)
+        self.assertNotIn("drawdown_per_dollar", names(gates.sizing_config(m3, self.b, sweep_args_override=SWEEP_125)))
     def test_years_not_worse_boundary(self):
         # baseline's 3rd year (2024) = 500; margin exactly -50 passes, -51 fails
         common = dict(pnl=3500, n=500, pf=1.7, dd=-600, max_position_fraction=0.4)
@@ -642,3 +656,48 @@ class Resolve(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PairedAndExBestYear(unittest.TestCase):
+    """the 2026-10-29 additions: ex-best-year PF on every config gate, the paired day-bootstrap as the
+    improvement test (quality/additive/sizing) or the not-worse test (volume)."""
+
+    def test_quality_needs_a_positive_paired_lower_bound(self):
+        good = mk(pnl=2300, n=400, pf=1.6, years=(1, 1, 1, 1, 1))
+        self.assertTrue(gates.quality_config(good, BASE)["pass"], names(gates.quality_config(good, BASE)))
+        noise = mk(pnl=2300, n=400, pf=1.6, years=(1, 1, 1, 1, 1), paired=paired_ok(lo=-50.0, hi=600.0, p_le_0=0.3))
+        self.assertEqual(names(gates.quality_config(noise, BASE)), ["paired_pnl_lower_bound"])
+
+    def test_sidak_level_tightens_with_cells_scanned(self):
+        self.assertAlmostEqual(gates.sidak_alpha(0.10, 1), 0.10)
+        self.assertLess(gates.sidak_alpha(0.10, 24), 0.005)
+        pr = paired_ok(lo=-10.0, hi=600.0)
+        pr["pnl_quantiles"] = [[q, (40.0 if q >= 0.10 else -10.0)] for q, _ in pr["pnl_quantiles"]]
+        m = mk(pnl=2300, n=400, pf=1.6, years=(1, 1, 1, 1, 1), paired=pr)
+        self.assertTrue(gates.quality_config(m, BASE, cells_scanned=1)["pass"])
+        self.assertIn("paired_pnl_lower_bound", names(gates.quality_config(m, BASE, cells_scanned=24)))
+
+    def test_volume_only_requires_not_demonstrably_worse(self):
+        m = mk(pnl=2154 * 0.95, n=450, pf=1.47, years=(1, 1, 1, 1, 1), paired=paired_ok(lo=-200.0, hi=150.0, p_le_0=0.6))
+        self.assertTrue(gates.volume_config(m, BASE)["pass"], names(gates.volume_config(m, BASE)))
+        worse = mk(pnl=2154 * 0.95, n=450, pf=1.47, years=(1, 1, 1, 1, 1), paired=paired_ok(lo=-400.0, hi=-5.0, p_le_0=0.99))
+        self.assertIn("paired_pnl_not_worse", names(gates.volume_config(worse, BASE)))
+
+    def test_volume_guards_drawdown_and_per_trade_edge(self):
+        deep = mk(pnl=2154, n=450, pf=1.47, years=(1, 1, 1, 1, 1), dd=-501.0)   # baseline -400 x 1.25 = -500
+        self.assertIn("max_drawdown", names(gates.volume_config(deep, BASE)))
+        thin = mk(pnl=2154, n=560, pf=1.47, years=(1, 1, 1, 1, 1))              # 3.85/trade vs 0.85 x 5.29 = 4.50
+        self.assertIn("pnl_per_trade", names(gates.volume_config(thin, BASE)))
+
+    def test_ex_best_year_absolute_and_relative(self):
+        self.assertIn("ex_best_year_pf", names(gates.volume_config(mk(pnl=2154, n=450, pf=1.47, years=(1, 1, 1, 1, 1), exb=1.19), BASE)))
+        weak_base = mk(exb=1.19)   # the record: 1.40 with 2022, 1.19 without
+        m = mk(pnl=2154, n=450, pf=1.47, years=(1, 1, 1, 1, 1), exb=1.175)
+        self.assertNotIn("ex_best_year_pf", names(gates.volume_config(m, weak_base)))
+        m2 = mk(pnl=2154, n=450, pf=1.47, years=(1, 1, 1, 1, 1), exb=1.16)
+        self.assertIn("ex_best_year_pf", names(gates.volume_config(m2, weak_base)))
+
+    def test_missing_paired_block_fails_loudly(self):
+        m = mk(pnl=2300, n=400, pf=1.6, years=(1, 1, 1, 1, 1))
+        m.pop("paired")
+        self.assertIn("paired_bootstrap", names(gates.quality_config(m, BASE)))

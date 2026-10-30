@@ -476,3 +476,55 @@ class CandidateStats(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class PairedDayBootstrap(unittest.TestCase):
+    """metrics.paired_day_bootstrap(): candidate vs baseline on the same days."""
+
+    def rows(self, pnls, ticker="NVDA"):
+        return [{"pnl": float(p), "date": f"2024-01-{i + 1:02d}", "year": "2024", "ticker": ticker} for i, p in enumerate(pnls)]
+
+    def test_identical_sets_have_zero_difference_and_p_one(self):
+        a = self.rows([10, -5, 20, -8, 3])
+        pr = metrics.paired_day_bootstrap(a, a, session_list=[r["date"] for r in a], n=500)
+        self.assertEqual(pr["pnl_diff"], 0.0)
+        self.assertEqual(pr["p_le_0"], 1.0)
+        self.assertTrue(all(v == 0.0 for _, v in pr["pnl_quantiles"]))
+
+    def test_uniform_improvement_has_positive_lower_bound(self):
+        base = self.rows([10, -5, 20, -8, 3, 7, -2, 9, -4, 6])
+        cand = self.rows([p + 5 for p in [10, -5, 20, -8, 3, 7, -2, 9, -4, 6]])
+        pr = metrics.paired_day_bootstrap(cand, base, session_list=[r["date"] for r in base], n=1000)
+        self.assertEqual(pr["pnl_diff"], 50.0)
+        self.assertEqual(pr["p_le_0"], 0.0)
+        self.assertTrue(all(v > 0 for _, v in pr["pnl_quantiles"]))
+
+    def test_noise_sized_difference_straddles_zero(self):
+        import random as _r
+        rng = _r.Random(3)
+        base_p = [rng.gauss(0, 30) for _ in range(200)]
+        base = self.rows(base_p)
+        cand = self.rows([p + rng.gauss(0, 30) for p in base_p])   # same mean, independent noise
+        for i, r in enumerate(cand):
+            r["date"] = base[i]["date"]
+        pr = metrics.paired_day_bootstrap(cand, base, session_list=[r["date"] for r in base], n=1000)
+        lo = dict((q, v) for q, v in pr["pnl_quantiles"])[0.05]
+        hi = dict((q, v) for q, v in pr["pnl_quantiles"])[0.95]
+        self.assertLess(lo, 0.0)
+        self.assertGreater(hi, 0.0)
+
+    def test_empty_sessions(self):
+        pr = metrics.paired_day_bootstrap([], [], session_list=[], n=10)
+        self.assertEqual(pr["n_days"], 0)
+        self.assertIsNone(pr["p_le_0"])
+
+
+class NameShare(unittest.TestCase):
+    def test_top_ticker_share(self):
+        rows = [{"pnl": 75.0, "ticker": "NVDA"}, {"pnl": 25.0, "ticker": "AAPL"}, {"pnl": -10.0, "ticker": "MSFT"}]
+        ns = metrics.name_share(rows)
+        self.assertEqual(ns["ticker"], "NVDA")
+        self.assertAlmostEqual(ns["share"], 75.0 / 90.0, places=3)
+
+    def test_no_profit_is_none(self):
+        self.assertIsNone(metrics.name_share([{"pnl": -1.0, "ticker": "X"}])["share"])

@@ -1,4 +1,5 @@
-"""shadow-trial clock, parity and edge rules as pure functions (plan §4.2.3 as amended by §9).
+"""shadow-trial clock, parity and fill rules as pure functions (plan §4.2.3 as amended by §9; since
+2026-10-29 a shadow verdict is a parity/plumbing result, not an edge verdict — see edge()).
 
 sessions come from `book_sessions` (days the trader actually hosted the book); a book that is never
 hosted never times out — it is reported as "not hosted" instead.
@@ -97,17 +98,22 @@ def profit_factor(trades: list[dict]) -> float:
 
 
 def edge(kind: str, shadow_trades: list[dict], replay_trades: list[dict], primary_pnl: float | None = None) -> dict:
-    """the gate-named default edge rule. returns {pass, checks:[...]}."""
+    """what a shadow trial can and cannot decide (audit 2026-10-29). at 15–60 trades the shadow's own
+    PF cannot separate a true PF 1.4 from 1.0 (the ">= 1.0" check passes a no-edge book 49 % of the
+    time and a real one 67–82 %), so `shadow_pf` and `shadow_pnl_vs_primary` are reported as INFO and
+    never decide the verdict. the one check that is informative is paired: the shadow's fills against
+    the replay of the same days (`shadow_bps_vs_replay`) — a plumbing/fill-quality test. returns
+    {pass, checks:[...]} where `pass` is over the non-info checks only."""
     checks = []
     pf = profit_factor(shadow_trades)
-    checks.append({"name": "shadow_pf", "value": round(pf, 3), "threshold": f">= {EDGE_MIN_PF}", "ok": pf >= EDGE_MIN_PF})
+    checks.append({"name": "shadow_pf", "value": round(pf, 3), "threshold": f"info only (was >= {EDGE_MIN_PF}): {len(shadow_trades)} trades cannot judge edge", "ok": True, "info": True})
     sb, rb = mean_bps(shadow_trades), mean_bps(replay_trades)
     if sb is not None and rb is not None:
-        checks.append({"name": "shadow_bps_vs_replay", "value": round(sb - rb, 2), "threshold": f">= -{EDGE_BPS_TOL:.0f} bps", "ok": sb - rb >= -EDGE_BPS_TOL})
+        checks.append({"name": "shadow_bps_vs_replay", "value": round(sb - rb, 2), "threshold": f">= -{EDGE_BPS_TOL:.0f} bps (fills vs the replay of the same days)", "ok": sb - rb >= -EDGE_BPS_TOL})
     else:
         checks.append({"name": "shadow_bps_vs_replay", "value": None, "threshold": "n/a (no replay trades)", "ok": True})
     if kind == "config" and primary_pnl is not None:
         spnl = sum(t["pnl"] for t in shadow_trades)
         floor = primary_pnl - EDGE_PRIMARY_PCT * abs(primary_pnl)
-        checks.append({"name": "shadow_pnl_vs_primary", "value": round(spnl, 2), "threshold": f">= {floor:+.0f} (primary {primary_pnl:+.0f} - 20 %)", "ok": spnl >= floor})
-    return {"pass": all(c["ok"] for c in checks), "checks": checks}
+        checks.append({"name": "shadow_pnl_vs_primary", "value": round(spnl, 2), "threshold": f"info only (was >= {floor:+.0f}, primary {primary_pnl:+.0f} - 20 %): noise at this sample size", "ok": True, "info": True})
+    return {"pass": all(c["ok"] for c in checks if not c.get("info")), "checks": checks}

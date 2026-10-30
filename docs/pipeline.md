@@ -41,11 +41,19 @@ pipeline.py restat NAME                   # recompute backtest_result.metrics.st
 pipeline.py report [--markdown]           # regenerates docs/pipeline/status.md and prints it
 ```
 
-gate names after the review (§9): `default-config` was split into `volume-config` (trades ≥
-baseline, PF ≥ 1.3, ≥ 4 of 5 years positive, P&L ≥ baseline − 10 %, no year < −300) and
-`quality-config` (PF ≥ baseline + 0.05, ≥ 4 of 5 years, trades ≥ 0.6 × baseline, no year < −300);
-`stress-mode` = `volume-config` relaxed to trades ≥ 0.9 × baseline plus the SPY < −1 % day tests;
-`default-ticker` = 5y PF ≥ 1.3, ≥ 4 of 5 years positive, ≥ 100 trades, no year < −300, 2026 ≥ 0.
+gate names after the review (§9), thresholds as recalibrated on 2026-10-29 (statistics audit, §11):
+`default-config` was split into `volume-config` (trades ≥ baseline, PF ≥ max(1.4, baseline − 0.02),
+≥ 4 of 5 years positive, P&L ≥ baseline − 10 %, no year < −300, drawdown no more than 25 % deeper
+than the baseline's, $/trade ≥ 85 % of the baseline's, ex-best-year PF, and the paired day-bootstrap
+upper bound > 0 — a volume claim may not be demonstrably worse) and `quality-config` (an upgrade
+claim: the paired day-bootstrap lower one-sided 90 % bound of the P&L difference vs the baseline > 0
+at the Šidák level for the study's `cells_scanned`, PF ≥ max(1.4, baseline), ≥ 4 of 5 years,
+trades ≥ 0.6 × baseline, no year < −300, ex-best-year PF); `stress-mode` = `volume-config` relaxed
+to trades ≥ 0.9 × baseline plus the SPY < −1 % day tests; `default-ticker` = 5y PF ≥ 1.4, ≥ 4 of 5
+years positive, ≥ 100 trades, no year < −300, 2026 ≥ 0, ex-best-year PF ≥ 1.2. the additive and
+sizing gates carry the paired lower bound too (`gates.py`'s docstring has each gate in full). the
+ex-best-year bar is 1.2 absolute, or baseline − 0.02 when the baseline itself is below 1.2 (the
+record is 1.19 without 2022: an additive or sizing change cannot be asked to repair 2023–2025).
 the baseline for a candidate is the promoted row swept on the **candidate's** ticker set.
 
 `additive-config` is for a candidate that leaves every one of the baseline's trades untouched and
@@ -203,10 +211,13 @@ what `advance` does per stage:
    trades ≥ `shadow_min_trades` (15), or after 60 hosted sessions. parity first: the trial period
    replayed from `data/live/*/replay_<book>.csv` (missing days backfilled with `replay_book.sh`),
    trade count within ±30 % and mean P&L per trade within 10 bps — a parity failure is
-   **plumbing**: it flags the candidate and stops its clock, it does not fail it. then the edge
-   gate: shadow PF ≥ 1.0 and P&L per trade not below the replay's by more than 10 bps; a config
-   candidate also not below the primary's P&L over the same sessions by more than 20 %. after 60
-   sessions with too few trades: `insufficient_activity`, not a verdict.
+   **plumbing**: it flags the candidate and stops its clock, it does not fail it. then the fill
+   rule: P&L per trade not below the replay's by more than 10 bps (paired, so informative). the
+   shadow's own PF and its P&L vs the primary are **reported, never decided on** (since 2026-10-29:
+   at 15–60 trades "PF ≥ 1.0" passes a no-edge book 49 % of the time and a real PF-1.4 book
+   67–82 % — a shadow verdict is a parity/plumbing result; the edge case was made at the backtest
+   gate, with the paired bootstrap). after 60 sessions with too few trades: `insufficient_activity`,
+   not a verdict.
    pass → `shadow_passed` → **promotion_proposed**: the row the human would promote is set in
    `proposed_config_version_id` (ticker kind: a new `validated` row = promoted blob + T, swept on
    the full set first; config kind: the materialized row), a proposal block is appended to
@@ -349,7 +360,7 @@ at 15 / 24 / 60 trades the "shadow PF ≥ 1.0" check passes a true-1.4 book 67 /
 and a true-1.0 book 49 % — separating them at 5 % / 80 % power needs ≈ 450 trades. read a shadow
 verdict as a plumbing and parity result (those are paired and informative), not as an edge verdict.
 live: at 0.4 trades a day, live PF < 1.0 becomes 5 %-level evidence against the backtest only after
-≈ 200 trades (≈ 500–600 sessions). proposed gate changes (human decision, not applied): PF ≥
+≈ 200 trades (≈ 500–600 sessions). gate changes applied 2026-10-29 (the owner asked for everything fixed): PF ≥
 max(1.4, baseline − 0.02) and ex-best-year PF reported next to it; drawdown ≤ 1.25 × baseline and
 $/trade ≥ 0.85 × baseline on volume-config; an "improvement" over its parent only when the paired
 day-bootstrap lower 90 % bound of the P&L difference is > 0 at a level adjusted for
