@@ -402,70 +402,66 @@ class BootstrapPnl(unittest.TestCase):
         self.assertEqual(metrics.bootstrap_pnl(trades, seed=42), metrics.bootstrap_pnl(trades, seed=42))
 
 
-class RandomSessionControl(unittest.TestCase):
-    """metrics.random_session_control(): mirrors research/pretest/cells.py's calendar_control()
-    (same method: random draws, same n, WITHOUT replacement, from the full session population;
-    p = share of draws >= observed) but over daily P&L sums instead of per-trade mean bps."""
+class SignFlipP(unittest.TestCase):
+    """metrics.sign_flip_p(): day-level sign-flip null — each active day's P&L keeps its size and
+    gets a random sign; p = share of flips whose total >= the observed total."""
 
     def test_no_active_days_is_none(self):
-        self.assertIsNone(metrics.random_session_control({"d1": 0.0, "d2": 0.0}, ["d1", "d2", "d3"]))
+        self.assertIsNone(metrics.sign_flip_p({"d1": 0.0, "d2": 0.0}))
 
-    def test_k_larger_than_universe_is_none(self):
-        series = {"d1": 1.0, "d2": 1.0, "d3": 1.0}
-        self.assertIsNone(metrics.random_session_control(series, ["d1", "d2"]))
+    def test_single_day_is_one_half(self):
+        p = metrics.sign_flip_p({"d1": 100.0, "d2": 0.0}, n=5000, seed=0)
+        self.assertAlmostEqual(p, 0.5, delta=0.03)
 
-    def test_active_on_every_session_is_certain(self):
-        # k == len(universe): the only possible draw (without replacement) is the whole universe,
-        # whose total is the observed total exactly -> p = 1.0, deterministically (no seed matters)
-        series = {"d1": 10.0, "d2": -5.0, "d3": 3.0}
-        universe = ["d1", "d2", "d3"]
-        self.assertEqual(metrics.random_session_control(series, universe, seed=0), 1.0)
-        self.assertEqual(metrics.random_session_control(series, universe, seed=99), 1.0)
+    def test_two_equal_days_is_one_quarter(self):
+        # only (+,+) of the four equally likely sign patterns reaches +20
+        p = metrics.sign_flip_p({"d1": 10.0, "d2": 10.0}, n=5000, seed=0)
+        self.assertAlmostEqual(p, 0.25, delta=0.03)
 
-    def test_matches_theoretical_probability_one_third(self):
-        # 2 active days (d1, d2, total 20) out of a 3-day universe: exactly 1 of the
-        # C(3,2) = 3 equally-likely draws (d1&d2) reaches the observed total -> p ~= 1/3
-        series = {"d1": 10.0, "d2": 10.0, "d3": 0.0}
-        p = metrics.random_session_control(series, ["d1", "d2", "d3"], n=5000, seed=0)
-        self.assertAlmostEqual(p, 1 / 3, delta=0.03)
+    def test_losing_total_is_near_certain(self):
+        # observed -20: every pattern but (-,-) beats it -> 3/4, plus (-,-) itself ties -> 1.0
+        p = metrics.sign_flip_p({"d1": -10.0, "d2": -10.0}, n=5000, seed=0)
+        self.assertAlmostEqual(p, 1.0, delta=0.01)
 
-    def test_matches_theoretical_probability_one_tenth(self):
-        # 1 active day (pnl 100) out of a 10-day universe, every other day 0: only the draw that
-        # happens to be that one day (k=1) reaches the observed total -> p ~= 1/10
-        series = {f"d{i}": (100.0 if i == 0 else 0.0) for i in range(10)}
-        universe = [f"d{i}" for i in range(10)]
-        p = metrics.random_session_control(series, universe, n=5000, seed=0)
-        self.assertAlmostEqual(p, 0.1, delta=0.03)
+    def test_zero_edge_series_is_calibrated(self):
+        # 200 zero-edge series of 60 days: about 5 % get p < 0.05 (not 13 %, the old test's rate)
+        import random as _r
+        rng = _r.Random(1)
+        hits = 0
+        for i in range(200):
+            series = {f"d{j}": rng.choice((-1.0, 1.0)) * rng.uniform(1, 50) for j in range(60)}
+            if metrics.sign_flip_p(series, n=400, seed=i) < 0.05:
+                hits += 1
+        self.assertLess(hits / 200, 0.10)
 
     def test_seedable(self):
         series = {"d1": 10.0, "d2": 10.0, "d3": 0.0, "d4": 5.0}
-        universe = ["d1", "d2", "d3", "d4", "d5"]
-        self.assertEqual(metrics.random_session_control(series, universe, seed=7),
-                         metrics.random_session_control(series, universe, seed=7))
+        self.assertEqual(metrics.sign_flip_p(series, seed=7), metrics.sign_flip_p(series, seed=7))
 
 
 class CandidateStats(unittest.TestCase):
     """metrics.candidate_stats() / full_metrics()['stats']: folded in automatically, gracefully
-    absent (random_session_p = None) without a bar cache on disk."""
+    with signflip_p / ex_best_year None for an empty trade list."""
 
     def test_shape_and_n_trades(self):
-        rows = [{"pnl": 10.0, "date": "2024-01-02"}, {"pnl": -5.0, "date": "2024-01-03"}]
+        rows = [{"pnl": 10.0, "date": "2024-01-02", "year": "2024"}, {"pnl": -5.0, "date": "2024-01-03", "year": "2024"}]
         out = metrics.candidate_stats(rows)
         self.assertEqual(out["n_trades"], 2)
         self.assertEqual(len(out["pf_ci90"]), 2)
         self.assertEqual(len(out["pnl_ci90"]), 2)
 
-    def test_no_bar_cache_leaves_random_session_p_none(self):
+    def test_single_trade_has_p_and_ex_best_year(self):
         with tempfile.TemporaryDirectory() as d:
-            rows = [{"pnl": 10.0, "date": "2024-01-02"}]
+            rows = [{"pnl": 10.0, "date": "2024-01-02", "year": "2024"}]
             out = metrics.candidate_stats(rows, data_dir=Path(d))
-        self.assertIsNone(out["random_session_p"])
+        self.assertAlmostEqual(out["signflip_p"], 0.5, delta=0.03)
+        self.assertIsNotNone(out["ex_best_year"])
 
     def test_empty_trades_is_zero_ci_and_no_control(self):
         out = metrics.candidate_stats([])
         self.assertEqual(out["pf_ci90"], [0.0, 0.0])
         self.assertEqual(out["n_trades"], 0)
-        self.assertIsNone(out["random_session_p"])
+        self.assertIsNone(out["signflip_p"])
 
     def test_full_metrics_always_has_a_stats_block(self):
         with tempfile.TemporaryDirectory() as d:

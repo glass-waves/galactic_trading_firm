@@ -9,10 +9,10 @@ statistical honesty (candidate_stats(), folded into full_metrics()['stats']): th
 a candidate as the best cell of a research grid, then reports that cell's point-estimate PF / P&L
 as if it were a single pre-registered test. bootstrap_pf()/bootstrap_pnl() give a 90 % CI over
 trade-level resampling (same count, with replacement) so the point estimate's spread is visible;
-random_session_control() mirrors research/pretest/cells.py's calendar_control() (same method:
-random draws, same n, WITHOUT replacement, from the full session population; p = share of draws
-whose total matches or beats the observed one) so a pipeline candidate and a stage-0 pretest cell
-report the same kind of number. none of this changes any gate's pass/fail threshold (gates.py is
+sign_flip_p() is a day-level sign-flip test (each active day keeps its size and gets a random sign;
+p = share of flips whose total matches or beats the observed one) — calibrated at the day level,
+unlike the random-session draw it replaced on 2026-10-29, which gave p < 0.05 to 13 % of zero-edge
+strategies; ex_best_year_pf() rides along in the same block. none of this changes any gate's pass/fail threshold (gates.py is
 untouched) - it is a second, descriptive opinion sitting next to the point estimate.
 """
 from __future__ import annotations
@@ -136,35 +136,24 @@ def bootstrap_pnl(trades: list[dict], n: int = 2000, seed: int = 0) -> list[floa
     return [round(_percentile(sums, 0.05), 2), round(_percentile(sums, 0.95), 2)]
 
 
-def random_session_control(candidate_daily_series: dict[str, float], spy_sessions: list[str],
-                            n: int = 5000, seed: int = 0) -> float | None:
-    """the p-value that a random set of the same number of active days, drawn from every session
-    (not just the ones the candidate traded), would produce total P&L >= the candidate's own.
-
-    mirrors research/pretest/cells.py's calendar_control() exactly (same method, read there): k =
-    the observed sample size, draw k items WITHOUT replacement from the full population n times,
-    p = the share of draws whose aggregate is >= the observed aggregate. calendar_control() draws
-    from a population of per-session control-trade returns and compares means; here the population
-    is `candidate_daily_series` itself (a day not in it, or present with 0.0, contributes nothing),
-    the draw is k session DATES out of `spy_sessions` (the full universe, so most draws land mostly
-    on days the candidate never traded), and the comparison is the SUM (total P&L), not the mean —
-    the natural reading of "a random set of days would produce this much money".
-
-    `candidate_daily_series` may be the full zero-filled series (daily_series() over spy_sessions)
-    or just the active days; only nonzero/"present" days count toward k and the observed total is
-    always sum(candidate_daily_series.values()) either way. None when there are no active days or
-    no session universe to draw from (nothing to test)."""
-    active_days = [d for d, v in candidate_daily_series.items() if v]
-    k = len(active_days)
-    universe = list(spy_sessions)
-    if k == 0 or not universe or k > len(universe):
+def sign_flip_p(candidate_daily_series: dict[str, float], n: int = 5000, seed: int = 0) -> float | None:
+    """day-level sign-flip test: the p-value that a zero-edge version of the candidate (each active
+    day's P&L kept in size but given a random sign) reaches total P&L >= the observed total. the
+    null keeps the candidate's own day sizes and clustering, so it is calibrated at the day level
+    (an audit on 2026-10-29 found the earlier random-session draw gave p < 0.05 to 13 % of zero-edge
+    strategies: it compared the candidate with a shrunken copy of itself). None without active
+    days. descriptive only — never read by gates.py."""
+    active = [v for v in candidate_daily_series.values() if v]
+    k = len(active)
+    if k == 0:
         return None
-    observed = sum(candidate_daily_series.values())
+    observed = sum(active)
     rng = random.Random(seed)
     hits = 0
     for _ in range(n):
-        draw = rng.sample(universe, k)
-        total = sum(candidate_daily_series.get(d, 0.0) for d in draw)
+        total = 0.0
+        for v in active:
+            total += v if rng.random() < 0.5 else -v
         if total >= observed:
             hits += 1
     return round(hits / n, 4)
@@ -172,17 +161,17 @@ def random_session_control(candidate_daily_series: dict[str, float], spy_session
 
 def candidate_stats(rows: list[dict], data_dir: Path = DATA, n_bootstrap: int = 2000,
                      n_control: int = 5000, seed: int = 0) -> dict:
-    """the stats block folded into full_metrics()['stats']: bootstrap PF/P&L 90 % CIs and the
-    random-session-control p-value (against the SPY session universe in `data_dir`, when its bar
-    cache is on disk — None when it is not, e.g. in a unit test with no bars). purely descriptive;
-    never read by gates.py."""
+    """the stats block folded into full_metrics()['stats']: bootstrap PF/P&L 90 % CIs, the day-level
+    sign-flip p-value (sign_flip_p()) and the PF with the best year excluded (ex_best_year_pf(), the
+    one-year-wonder guard the standalone gate uses, reported here for every candidate). purely
+    descriptive; never read by gates.py. `data_dir` is unused since 2026-10-29 (kept for callers)."""
+    del data_dir
     n_trades = len(rows)
     out = {"pf_ci90": bootstrap_pf(rows, n=n_bootstrap, seed=seed), "pnl_ci90": bootstrap_pnl(rows, n=n_bootstrap, seed=seed),
-           "random_session_p": None, "n_trades": n_trades}
-    spy_csv = data_dir / "bars_iex" / "SPY.csv"
-    if n_trades and spy_csv.exists():
-        universe = spy_session_list(spy_csv)
-        out["random_session_p"] = random_session_control(daily_pnl(rows), universe, n=n_control, seed=seed)
+           "signflip_p": None, "n_trades": n_trades, "ex_best_year": None}
+    if n_trades:
+        out["signflip_p"] = sign_flip_p(daily_pnl(rows), n=n_control, seed=seed)
+        out["ex_best_year"] = ex_best_year_pf(rows)
     return out
 
 

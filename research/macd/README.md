@@ -7,3 +7,7 @@
 **run (one day)** `./target/release/backtest --date 2026-10-22 --lookback-days 8 --capital 10000 --slippage-bps 3.0 --half-spread 0.005 --sizing-fraction 0.36 --max-position-pct 0.36 --bars-dir data/bars_iex --cross-index SPY --cross-lag 1 --output-trades-csv --patch-json research/macd/k01.patch.json` (add `--dump-ticks F` for per-bar macd scores).
 **5y** `scripts/pipeline/pipeline.py propose --name macd-k01 --kind config --patch research/macd/k01.patch.json --gate quality-config` — the pipeline sweeps; do not hand-run 5y sweeps.
 **check 2026-10-22** baseline 3 trades / +89.16; k01 1 trade / +45.75 (AMZN only, entry 4 min later; NVDA and MSFT shorts no longer fire).
+
+## phase B (RQ-12): `pct_<k>.patch.json`
+same two instances, `normalization_factor` back to 1.0 and `normalization_pct` k ∈ {0.003, 0.004, 0.005, 0.007}
+(the histogram is scored against k × close; today's $1 norm ≈ 0.0033 × price at $300). added 2026-10-29.

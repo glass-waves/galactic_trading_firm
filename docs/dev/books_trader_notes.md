@@ -213,4 +213,10 @@ known gaps, not yet closed (ordered by how likely they are to bite):
    10-29; 15:59 on 10-23/26/27 — same binary either way, so it is the stream, not the trader: Alpaca closes a minute bar on
    the next trade and IEX can go quiet after the bell). no book trades after 15:55, so nothing depends on it; the history
    cache has the bar and the replay harness will differ by that one bar.
-8. half-day closes are not modelled (stale-feed alerts and `reconcile_live` keep running 13:00–16:00 ET).
+8. max-hold clock: live starts the hold at the SIGNAL bar, the backtest at the FILL bar (next bar's open,
+   `crates/backtest/src/replay.rs` deferred fill), so live max-hold exits land one bar earlier than the replay
+   (10-29: 11:08/11:17/11:34/11:36 live vs 11:09/11:18/11:35/11:37). a parity fix moves every max-hold exit in the
+   record by a bar, so it goes into the next restatement bundle (research_queue RQ-14), not a quiet patch.
+9. warm-up: 8 calendar days leaves the 1h ADX (29 hourly candles) missing until ~11:00 ET on the session after a
+   holiday weekend (2025-12-01), and the 1h sum silently re-weights; `session.warmup_days` 12 fixes it (RQ-14).
+10. half-day closes are not modelled (stale-feed alerts and `reconcile_live` keep running 13:00–16:00 ET).

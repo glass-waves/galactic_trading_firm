@@ -14,6 +14,11 @@ pub struct MacdIndicator {
     timescale: Timescale,
     instance_id: String,
     normalization_factor: f64,
+    /// when above 0, the histogram is scored against `close × normalization_pct` (a 1 × score = a histogram
+    /// of that fraction of price), which makes the score invariant to the price level; the default
+    /// 0 keeps `normalization_factor` ($1 for every promoted config so far — a hidden price-level
+    /// parameter, docs/research_queue.md RQ-5/RQ-8).
+    normalization_pct: f64,
 }
 
 impl MacdIndicator {
@@ -31,7 +36,13 @@ impl MacdIndicator {
             timescale,
             instance_id,
             normalization_factor: 1.0,
+            normalization_pct: 0.0,
         }
+    }
+
+    pub fn with_normalization_pct(mut self, pct: f64) -> Self {
+        self.normalization_pct = pct;
+        self
     }
 }
 
@@ -69,7 +80,9 @@ impl Indicator for MacdIndicator {
         let output = last_output?;
         let histogram = output.histogram;
         let avg_price = candles.last()?.close;
-        let norm = if self.normalization_factor > 0.0 {
+        let norm = if self.normalization_pct > 0.0 {
+            avg_price * self.normalization_pct
+        } else if self.normalization_factor > 0.0 {
             self.normalization_factor
         } else {
             avg_price * 0.01
@@ -111,7 +124,28 @@ pub fn macd_factory(config: &IndicatorConfig) -> Box<dyn Indicator> {
         .and_then(|v| v.as_f64())
         .unwrap_or(1.0);
 
-    let mut ind = MacdIndicator::new(fast, slow, signal, config.timescale, config.instance_id.clone());
+    let pct = config.params.get("normalization_pct").and_then(|v| v.as_f64()).unwrap_or(0.0);
+
+    let mut ind = MacdIndicator::new(fast, slow, signal, config.timescale, config.instance_id.clone()).with_normalization_pct(pct);
     ind.normalization_factor = norm;
     Box::new(ind)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn market(closes: &[f64]) -> MarketState {
+        types::test_fixtures::make_market_state(Timescale::FiveMinute, closes)
+    }
+
+    #[test]
+    fn pct_normalisation_is_invariant_to_the_price_level_and_dollar_is_not() {
+        let base: Vec<f64> = (0..60).map(|i| 100.0 + (i as f64 * 0.3).sin() * 1.5 + i as f64 * 0.05).collect();
+        let x10: Vec<f64> = base.iter().map(|c| c * 10.0).collect();
+        let dollar = |m: &MarketState| MacdIndicator::new(12, 26, 9, Timescale::FiveMinute, "m".into()).compute(m).unwrap().score;
+        let pct = |m: &MarketState| MacdIndicator::new(12, 26, 9, Timescale::FiveMinute, "m".into()).with_normalization_pct(0.005).compute(m).unwrap().score;
+        assert!((pct(&market(&base)) - pct(&market(&x10))).abs() < 1e-9);
+        assert!((dollar(&market(&base)) - dollar(&market(&x10))).abs() > 1e-3, "the $1 norm scores a 10x price differently");
+    }
 }

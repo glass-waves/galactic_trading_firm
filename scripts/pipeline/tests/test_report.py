@@ -29,28 +29,28 @@ class StatsSuffix(unittest.TestCase):
         self.assertEqual(report._stats_suffix({}, {}), "")
 
     def test_ci_only_no_provenance(self):
-        stats = {"pf_ci90": [1.31, 1.63], "random_session_p": None, "n_trades": 460}
+        stats = {"pf_ci90": [1.31, 1.63], "signflip_p": None, "n_trades": 460}
         self.assertEqual(report._stats_suffix(stats, {}), " [1.31-1.63]")
 
     def test_ci_and_p_no_provenance(self):
-        stats = {"pf_ci90": [1.31, 1.63], "random_session_p": 0.02, "n_trades": 460}
-        self.assertEqual(report._stats_suffix(stats, {}), " [1.31-1.63] · p 0.02")
+        stats = {"pf_ci90": [1.31, 1.63], "signflip_p": 0.02, "n_trades": 460}
+        self.assertEqual(report._stats_suffix(stats, {}), " [1.31-1.63] · sign-flip p 0.02")
 
     def test_full_line_matches_the_documented_example(self):
-        stats = {"pf_ci90": [1.31, 1.63], "random_session_p": 0.02, "n_trades": 460}
+        stats = {"pf_ci90": [1.31, 1.63], "signflip_p": 0.02, "n_trades": 460}
         prov = {"cells_scanned": 20, "study": "research/trigger/2026-10-02_entry_trigger_study.md", "loyo": "stable"}
-        self.assertEqual(report._stats_suffix(stats, prov), " [1.31-1.63] · p 0.02 · best of 20 cells")
+        self.assertEqual(report._stats_suffix(stats, prov), " [1.31-1.63] · sign-flip p 0.02 · best of 20 cells")
 
     def test_cells_scanned_of_one_is_not_a_selection_discount(self):
         # a single-cell "grid" is not a best-of-N search; no "best of 1 cells" noise
-        stats = {"pf_ci90": [1.0, 1.0], "random_session_p": 0.5, "n_trades": 10}
+        stats = {"pf_ci90": [1.0, 1.0], "signflip_p": 0.5, "n_trades": 10}
         out = report._stats_suffix(stats, {"cells_scanned": 1})
         self.assertNotIn("best of", out)
 
     def test_missing_ci_still_shows_p_and_best_of(self):
-        stats = {"random_session_p": 0.1}
+        stats = {"signflip_p": 0.1}
         out = report._stats_suffix(stats, {"cells_scanned": 5})
-        self.assertEqual(out, " · p 0.10 · best of 5 cells")
+        self.assertEqual(out, " · sign-flip p 0.10 · best of 5 cells")
 
 
 class BtCellStatsLine(unittest.TestCase):
@@ -66,10 +66,10 @@ class BtCellStatsLine(unittest.TestCase):
         return c
 
     def test_with_stats_and_provenance(self):
-        stats = {"pf_ci90": [1.31, 1.63], "random_session_p": 0.02, "n_trades": 460}
+        stats = {"pf_ci90": [1.31, 1.63], "signflip_p": 0.02, "n_trades": 460}
         prov = {"cells_scanned": 20}
         line = report._bt_cell(self._candidate(stats, prov))
-        self.assertIn("PF 1.46 [1.31-1.63] · p 0.02 · best of 20 cells", line)
+        self.assertIn("PF 1.46 [1.31-1.63] · sign-flip p 0.02 · best of 20 cells", line)
         self.assertTrue(line.startswith("+2195 / 460 / PF 1.46 [1.31-1.63]"))
 
     def test_without_stats_falls_back_to_plain_pf(self):

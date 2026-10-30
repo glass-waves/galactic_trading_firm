@@ -48,7 +48,7 @@ why: `macd_5min` and `macd_fast_1min` score the MACD histogram in DOLLARS (clamp
 command: add a `normalize_by_price: true` option to the MACD indicator (histogram ÷ close, scaled so the ±1 clamp binds at the same percentage move), then propose a config candidate with both MACD instances switched on, gate quality-config — the pipeline judges it like any other change.
 accept if: PF ≥ baseline + 0.05 with ≥ 4 of 5 years and ≥ 0.6 × baseline trades (quality-config), or trades ≥ baseline with PF ≥ 1.3 (volume-config); either way it must also be positive in every year on the point-in-time record.
 
-### RQ-6 spend the sqrt-band books' PF headroom on volume   status: done
+### RQ-6 spend the sqrt-band books' PF headroom on volume   status: done — gate pass, but noise-sized vs its parent (see verdict)
 proposed: 2026-10-23 by claude (weekly audit; owner goal "increase volume while keeping PF > 1.4")
 hypothesis: lowering the VPIN floor on the two time-consistent SPY-band candidates (#44 row 20 PF 1.46 / 460, #45 row 21 PF 1.70 / 309) buys ≥ 480 trades at PF ≥ 1.40.
 why now: the VPIN-floor × SPY-band grid was only ever run on thrust-1h15 (research/qualvol) and on v18 before the VWAP parity fix; on thrust-1h15, 0.217 → 0.15 cost ≈ 0.14 PF for +112 trades — a prior, not a result. conditions/6 of the thrust windows and conditions/5 of the core windows are the `vpin_1m.raw_vpin` min_score (checked against rows 20/21 on 2026-10-23).
@@ -65,6 +65,8 @@ result: ran 2026-10-26 20:00 PT, 31 min
    2025         —
    2026         —
 ```
+verdict (2026-10-29, statistics audit): the cell clears the volume-config gate and is candidate #49 (shadow from 10-30), but a paired day-bootstrap against its parent cand_44 says the improvement is noise: P&L +149, 90 % CI [−291, +603], P(≤ 0) 0.30; PF −0.009 [−0.13, +0.11]. the two share 409 trades; RQ-6 adds 83 (+266, PF 1.33) and drops 49 (+117, PF 1.28), and the "every year positive" comes from 2024 (+355) at 2025's expense (−205). with cand_44 in the LOYO candidate set the pick is 3 of 5, not 4 of 5, and the out-of-sample sum (+2,107) is below cand_44's own. NVDA is 73 % of the P&L. read #49's shadow as a parity trial of a 492-trade variant, not as an edge upgrade; ex-2022 PF 1.28 for both.
+
 ### RQ-7 stress-core trigger neighbourhood (generated, never swept)   status: done
 proposed: 2026-10-23 by claude (owner: "make sure we aren't tossing aside ideas too quickly")
 hypothesis: a different trigger on the core-only stress window adds more than #6 stress-s15-core's ≈ +275 / 23 trades while leaving the base book untouched.
@@ -147,3 +149,26 @@ method: research/tom/tom_long.patch.json — `event_calendar` date list (60 date
 command: BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rq11_tom --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --patch-json research/tom/tom_long.patch.json; python3 research/entries/summarize.py rq11_tom
 accept if: net bps within 3 bps of the pretest, PF > 1.3, ≥ 4/5 years.
 caveat (human decision before any proposal): the standalone-strategy gate's `combined_active_days ≥ 1.25 × base` needs ≈ 81 extra active days and this rule adds at most ≈ 58, so it fails by construction; either an `event-strategy` gate variant without that clause, or run it as a shadow ticker-set on its own.
+
+### RQ-12 scale-free MACD phase B: `normalization_pct` sweep   status: approved from 2026-11-02
+proposed: 2026-10-29 by claude (engine-numerics audit: on 2022-05-05 AMZN at $2,338 had macd_5min pinned at ±1 on 75 % of bars; pre-split AMZN/NVDA are 116 of 470 trades but 48 % of the e_v17_lag1 P&L, $10.7/trade vs $3.8 for the rest — the live regime looks like the $3.8 half)
+hypothesis: scoring the 5m/1m histogram against a fraction of price (`normalization_pct`, added 2026-10-29, default off) keeps the record's edge at today's price levels, i.e. PF ≥ 1.4 ex-2022 is not reached but the ex-best-year PF does not fall below cand_44's 1.27, and the pit/adj replays agree within 1 %.
+why now: RQ-8 showed the 1 %-of-close bracket switches the MACD off (|score| 0.21 → 0.04). at ~$300 the $1 norm equals 0.33 % of price, so the fair bracket is 0.3–0.7 %.
+cost: 4 five-year sweeps ≈ 20 min. patch files research/macd/pct_<k>.patch.json replace both MACD instances in place (same ids, timescales, weights as row 12) with `normalization_pct` k; an agent writes them from k01.patch.json before the run (one-line edits).
+command: for k in 0.003 0.004 0.005 0.007; do BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rq12_pct$k --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --patch-json research/macd/pct_$k.patch.json; done; python3 research/entries/summarize.py iex_v18 rq12_pct0.003 rq12_pct0.004 rq12_pct0.005 rq12_pct0.007
+accept if: the k closest to today's effective scale (0.0033) reproduces 2026's trade count within 15 % of iex_v18's 75 AND its 2022 share of P&L falls below 50 % AND ex-best-year PF ≥ 1.25; then the adj-vs-pit invariance check (RQ-8's two-sweep form) on that k.
+next: propose the winner with gate quality-config and `--cells-scanned 4`; it is a candidate for the RQ-14 restatement baseline.
+
+### RQ-13 a directional 1h sum: standard supertrend + signed ADX   status: approved from 2026-11-03
+proposed: 2026-10-29 by claude (engine-numerics audit: `supertrend` never turns bearish — is_bullish = 1 on 100 % of 10.7k dumped bars incl. −2.8 % and −3.5 % days — and `adx` is scored direction-free, so 60 % of the 1h weight is a +0.125 offset; the short windows' `s1h ≤ 0` gate passes 40.5 % of bars where the directional part alone would pass 59.9 %)
+hypothesis: with `supertrend.standard: true` and `adx.signed: true` (both added 2026-10-29, defaults unchanged) the 1h gate admits more genuine down-trends; trades rise toward 500 with PF ≥ 1.4 after the thresholds are re-fitted.
+cost: 3 five-year sweeps ≈ 15 min (patch alone; then the 1h threshold neighbourhood).
+command: BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rq13_dir1h --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --patch-json research/dir1h/dir1h.patch.json; BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rq13_dir1h_m04 --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --patch-json research/dir1h/dir1h.patch.json --set-action-param window_5m_thrust_short:conditions/3/max_score=-0.4; BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rq13_dir1h_p02 --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --patch-json research/dir1h/dir1h.patch.json --set-action-param window_5m_thrust_short:conditions/3/max_score=0.2; python3 research/entries/summarize.py iex_v18 rq13_dir1h rq13_dir1h_m04 rq13_dir1h_p02
+accept if: any cell with PF ≥ 1.40, trades ≥ 434, ex-best-year PF ≥ 1.25 and the paired day-bootstrap lower 90 % bound of the P&L difference vs iex_v18 > 0.
+next: an agent writes research/dir1h/dir1h.patch.json before the run (replace the 1h supertrend and adx instances of row 12 in place with the two flags; verify on one day with --dump-ticks that is_bullish takes both values). the windows' `timescale_max OneHour` condition index (3 for the thrust window) must be checked against row 12 first.
+
+### RQ-14 restatement bundle (human decision)   status: proposed
+proposed: 2026-10-29 by claude
+why: three parity/robustness fixes each move the record a little and must land together with a re-run baseline and a regate of every open candidate, not one at a time: (a) the backtest's max-hold clock starts at the fill bar, live at the signal bar (one bar late in every replay); (b) `warmup_days` 8 → 12 so the 1h ADX exists from the open after holiday weekends; (c) the VPIN sigma window straddles the overnight gap and the lookback carries yesterday's last 20 bars into 09:30–09:49 (the 0.217 gate is 30 % pass in the first 20 minutes and 6 % in the next 20 — it is largely a time-of-day filter; 70 % of trades enter in the first 20 minutes). (c) needs a `session_sigma: true` option in vpin.rs (not written yet) and a re-fit of 0.217.
+method: one evening — fix (a) and (b) in code, add (c) behind a flag, rebuild, re-run `iex_v18` into data/, `pipeline.py regate` every shadow candidate against the new baseline, restate docs/pipeline/status.md and plan §16; parity check = `paper_trader --replay-bars` on a traded day must now match the live exit bars exactly.
+accept if: the restated baseline is within ±5 % P&L of +1,829 / 434 (if not, the plan §16 record is rewritten with the explanation, as on 10-14); every open candidate keeps its gate verdict or the change is explained per candidate.

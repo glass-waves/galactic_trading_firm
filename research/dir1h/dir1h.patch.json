@@ -1,0 +1,33 @@
+{
+ "indicators": [
+  {
+   "params": {
+    "period": 10,
+    "multiplier": 3.0,
+    "standard": true
+   },
+   "weight": 0.3,
+   "enabled": true,
+   "timescale": "OneHour",
+   "instance_id": "supertrend_1hr",
+   "indicator_type": "supertrend",
+   "last_modified_at": "2026-03-02T00:00:00Z",
+   "last_modified_by": "human",
+   "modification_reason": "rebalanced for ADX"
+  },
+  {
+   "params": {
+    "period": 14,
+    "signed": true
+   },
+   "weight": 0.2,
+   "enabled": true,
+   "timescale": "OneHour",
+   "instance_id": "adx_14_1hr",
+   "indicator_type": "adx",
+   "last_modified_at": "2026-03-02T00:00:00Z",
+   "last_modified_by": "human",
+   "modification_reason": "ADX trend strength for hourly hard gate"
+  }
+ ]
+}

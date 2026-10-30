@@ -39,7 +39,7 @@ def provenance_of(c: dict) -> dict:
 
 def _stats_suffix(stats: dict | None, prov: dict) -> str:
     """' [1.31-1.63] · p 0.02 · best of 20 cells' appended right after the PF number: the bootstrap
-    90 % CI, the random-session-control p-value (metrics.candidate_stats(), never a gate input), and
+    90 % CI, the day-level sign-flip p-value and the PF ex its best year (metrics.candidate_stats(), never gate inputs), and
     - only when the candidate's own provenance says it was chosen out of more than one cell - a
     reminder that a best-of-N point estimate is biased upward (the selection-discount note; see
     pipeline.py cmd_show for the fuller prose version). empty string when there is no stats block
@@ -51,9 +51,12 @@ def _stats_suffix(stats: dict | None, prov: dict) -> str:
     if ci:
         out += f" [{ci[0]:.2f}-{ci[1]:.2f}]"
     tail = []
-    p = stats.get("random_session_p")
+    p = stats.get("signflip_p")
     if p is not None:
-        tail.append(f"p {p:.2f}")
+        tail.append(f"sign-flip p {p:.2f}")
+    exb = stats.get("ex_best_year")
+    if exb and exb.get("pf") is not None:
+        tail.append(f"ex-{str(exb.get('excluded_year'))[2:]} PF {exb['pf']:.2f}")
     n = prov.get("cells_scanned")
     if n and n > 1:
         tail.append(f"best of {n} cells")
@@ -163,14 +166,15 @@ def render(cands: list[dict], events: list[dict], baseline: dict | None, meta: d
             out.append("| id | name | kind | gate | book | since | trial | backtest |")
             out.append("|---:|---|---|---|---|---|---|---|")
             for c in rows:
-                out.append(f"| {c['id']} | `{c['name']}` | {c['kind']} | {c['gate']} | {c.get('shadow_book') or '—'} | {_age(c.get('updated_at'), now)} | {_shadow_cell(c)} | {_bt_cell(c)} |")
+                # "since" = time in the shadow stage (a restat or note bumps updated_at without moving the trial)
+                out.append(f"| {c['id']} | `{c['name']}` | {c['kind']} | {c['gate']} | {c.get('shadow_book') or '—'} | {_age(c.get('shadow_started_at') or c.get('updated_at'), now)} | {_shadow_cell(c)} | {_bt_cell(c)} |")
         else:
             out.append("| id | name | kind | gate | tickers | since | backtest (5y P&L / trades / PF · per year · gate) |")
             out.append("|---:|---|---|---|---|---|---|")
             for c in rows:
                 t = ",".join(c["tickers"]) if c.get("tickers") else "base"
                 extra = f" · cooldown to {c['cooldown_until']}" if c.get("cooldown_until") and s in ("backtest_failed", "shadow_failed") else ""
-                out.append(f"| {c['id']} | `{c['name']}` | {c['kind']} | {c['gate']} | {t} | {_age(c.get('updated_at'), now)} | {_bt_cell(c)}{extra} |")
+                out.append(f"| {c['id']} | `{c['name']}` | {c['kind']} | {c['gate']} | {t} | {_age(c.get('backtest_at') or c.get('updated_at'), now)} | {_bt_cell(c)}{extra} |")
         out.append("")
 
     out.append("## last 20 events")

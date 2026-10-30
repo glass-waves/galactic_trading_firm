@@ -1099,10 +1099,10 @@ def cmd_restat(a) -> int:
         m["stats"] = new_stats
         br["metrics"] = m
         event_only(cand, actor_for("human"), {"event": "restat", "tag": tag, "n_trades": new_stats["n_trades"],
-                                              "random_session_p": new_stats.get("random_session_p")},
+                                              "signflip_p": new_stats.get("signflip_p")},
                    sets={"backtest_result": br})
     log(f"#{cand['id']} {cand['name']}: restat {tag} -> PF CI {new_stats['pf_ci90']}, "
-        f"P&L CI {new_stats['pnl_ci90']}, random-session p={new_stats.get('random_session_p')}")
+        f"P&L CI {new_stats['pnl_ci90']}, sign-flip p={new_stats.get('signflip_p')}, ex-best-year PF={(new_stats.get('ex_best_year') or {}).get('pf')}")
     write_status()
     return 0
 
@@ -1285,7 +1285,8 @@ def cmd_show(a) -> int:
         if stats:
             summary["pf_ci90"] = stats.get("pf_ci90")
             summary["pnl_ci90"] = stats.get("pnl_ci90")
-            summary["random_session_p"] = stats.get("random_session_p")
+            summary["signflip_p"] = stats.get("signflip_p")
+            summary["ex_best_year_pf"] = (stats.get("ex_best_year") or {}).get("pf")
             summary["n_trades"] = stats.get("n_trades")
         n = prov.get("cells_scanned")
         if n and n > 1 and stats and stats.get("pf_ci90"):

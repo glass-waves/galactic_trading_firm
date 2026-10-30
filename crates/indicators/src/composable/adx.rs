@@ -14,6 +14,10 @@ pub struct AdxIndicator {
     period: usize,
     timescale: Timescale,
     instance_id: String,
+    /// `signed: true` gives the trend strength the SIGN of (+DI − −DI), so a strong down-trend
+    /// scores negative. the default (`false`) is the legacy non-directional `adx/50 − 1`, which adds
+    /// a direction-free offset to any directional sum it sits in (audit 2026-10-29).
+    signed: bool,
 }
 
 impl AdxIndicator {
@@ -22,7 +26,13 @@ impl AdxIndicator {
             period,
             timescale,
             instance_id,
+            signed: false,
         }
+    }
+
+    pub fn with_signed(mut self, signed: bool) -> Self {
+        self.signed = signed;
+        self
     }
 }
 
@@ -91,7 +101,14 @@ impl Indicator for AdxIndicator {
         // ADX ranges 0-100. score = adx/50 - 1.0
         // ADX > 50 → strong trend → positive score
         // ADX < 50 → weak trend → negative score
-        let score = (last_adx / 50.0 - 1.0).clamp(-1.0, 1.0);
+        let score = if self.signed {
+            // direction from the DI balance, magnitude from the trend strength (ADX 50 = full)
+            let di_sum = last_plus_di + last_minus_di;
+            let direction = if di_sum.abs() > f64::EPSILON { (last_plus_di - last_minus_di) / di_sum } else { 0.0 };
+            (direction * (last_adx / 50.0).min(1.0)).clamp(-1.0, 1.0)
+        } else {
+            (last_adx / 50.0 - 1.0).clamp(-1.0, 1.0)
+        };
 
         let mut metadata = HashMap::new();
         metadata.insert("plus_di".to_string(), last_plus_di);
@@ -107,5 +124,27 @@ impl Indicator for AdxIndicator {
 
 pub fn adx_factory(config: &IndicatorConfig) -> Box<dyn Indicator> {
     let period = config.params.get("period").and_then(|v| v.as_u64()).unwrap_or(14) as usize;
-    Box::new(AdxIndicator::new(period, config.timescale, config.instance_id.clone()))
+    let signed = config.params.get("signed").and_then(|v| v.as_bool()).unwrap_or(false);
+    Box::new(AdxIndicator::new(period, config.timescale, config.instance_id.clone()).with_signed(signed))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn market(closes: &[f64]) -> MarketState {
+        types::test_fixtures::make_market_state(Timescale::OneHour, closes)
+    }
+
+    #[test]
+    fn signed_score_follows_the_direction_of_a_strong_trend() {
+        let down: Vec<f64> = (0..40).map(|i| 100.0 - i as f64 * 2.0).collect();
+        let legacy = AdxIndicator::new(14, Timescale::OneHour, "adx".into()).compute(&market(&down)).unwrap();
+        let signed = AdxIndicator::new(14, Timescale::OneHour, "adx".into()).with_signed(true).compute(&market(&down)).unwrap();
+        assert!(legacy.score > 0.0, "legacy: a strong trend scores positive whatever its direction");
+        assert!(signed.score < 0.0, "signed: a strong DOWN-trend scores negative");
+        let up: Vec<f64> = (0..40).map(|i| 20.0 + i as f64 * 2.0).collect();
+        let signed_up = AdxIndicator::new(14, Timescale::OneHour, "adx".into()).with_signed(true).compute(&market(&up)).unwrap();
+        assert!(signed_up.score > 0.0);
+    }
 }

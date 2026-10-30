@@ -58,6 +58,11 @@ UNION="$(Q "select string_agg(t, ',' order by t) from (
   from books b where b.enabled
   union select 'SPY') s" || true)"
 UNION="${UNION:-AAPL,AMZN,NVDA,MSFT,SPY}"
+# every symbol already in a cache dir is kept current too (the nightly pretest and the universe
+# screens read them; 35 names silently froze on 2026-10-13 when only the live union was fetched)
+cached() { ls "$1"/*.csv 2>/dev/null | xargs -n1 basename 2>/dev/null | sed 's/\.csv$//' | paste -sd, -; }
+ALL_SIP="$(python3 -c "import sys; print(','.join(sorted(set(sys.argv[1].split(',')) | set(filter(None, sys.argv[2].split(','))))))" "AAPL,AMZN,NVDA,MSFT,SPY" "$(cached data/bars)")"
+ALL_IEX="$(python3 -c "import sys; print(','.join(sorted(set(sys.argv[1].split(',')) | set(filter(None, sys.argv[2].split(','))))))" "$UNION" "$(cached data/bars_iex)")"
 # split-adjusted by default (since 2026-10-14; no flag needed). appending never re-adjusts the
 # older bars, so a split after the cache was built shows up as a WARNING from --fetch-bars: surface it.
 # the _raw dirs (unadjusted) are permanent inputs to point-in-time replay, not a temporary backup:
@@ -66,10 +71,10 @@ UNION="${UNION:-AAPL,AMZN,NVDA,MSFT,SPY}"
 # kept current every day — not just around a known split — since the next split date isn't known
 # in advance; post-split days fetch identically into both dirs, so this is a no-op once a name has
 # had its most recent split.
-{ ./target/release/backtest --fetch-bars data/bars --start "$D" --end "$D" --tickers AAPL,AMZN,NVDA,MSFT,SPY 2>&1
-  ./target/release/backtest --fetch-bars data/bars_iex --start "$D" --end "$D" --tickers "$UNION" --feed iex 2>&1
-  ./target/release/backtest --fetch-bars data/bars_raw --start "$D" --end "$D" --tickers AAPL,AMZN,NVDA,MSFT,SPY --adjustment raw 2>&1
-  ./target/release/backtest --fetch-bars data/bars_iex_raw --start "$D" --end "$D" --tickers "$UNION" --feed iex --adjustment raw 2>&1
+{ ./target/release/backtest --fetch-bars data/bars --start "$D" --end "$D" --tickers "$ALL_SIP" 2>&1
+  ./target/release/backtest --fetch-bars data/bars_iex --start "$D" --end "$D" --tickers "$ALL_IEX" --feed iex 2>&1
+  ./target/release/backtest --fetch-bars data/bars_raw --start "$D" --end "$D" --tickers "$ALL_SIP" --adjustment raw 2>&1
+  ./target/release/backtest --fetch-bars data/bars_iex_raw --start "$D" --end "$D" --tickers "$ALL_IEX" --feed iex --adjustment raw 2>&1
 } | grep -F WARNING > "$OUT/bar_cache_warnings.log" || true
 if [[ -s "$OUT/bar_cache_warnings.log" ]]; then
     ./scripts/notify.sh warning "bar cache: split/basis break — refetch the named symbol(s) in full: $(head -c 400 "$OUT/bar_cache_warnings.log")" >/dev/null || true

@@ -322,21 +322,39 @@ descriptive layer that sits next to the point estimate without touching any gate
   resample draws `len(trades)` trade P&Ls WITH replacement from the trades' own P&Ls (the standard
   bootstrap). seeded with python's own `random` (this package is stdlib only, no numpy) so the CI is
   reproducible across runs and in tests.
-- **`metrics.random_session_control(candidate_daily_series, spy_sessions, n=5000, seed=0)`** — the
-  p-value that a random set of the same number of active days, drawn from every session (not just
-  the ones the candidate traded), would produce total P&L ≥ the candidate's own. mirrors
-  `research/pretest/cells.py`'s `calendar_control()` **exactly** (same method, so a pipeline
-  candidate and a stage-0 pretest cell report the same kind of number): draw `k` (the candidate's
-  active-day count) items WITHOUT replacement from the full session population, `n` times; p = the
-  share of draws whose aggregate is ≥ the observed one. the one difference from `calendar_control()`
-  is the aggregate itself — SUM (total P&L), the natural reading of "a random set of days would
-  produce this much money", vs `calendar_control()`'s MEAN bps per trade (its population is a
-  control *trade* per session, not a P&L series); the random-without-replacement, same-n, p =
-  share-≥-observed structure is identical.
-- both are folded into every `metrics.full_metrics()` call automatically, under
-  `metrics['stats'] = {"pf_ci90": [lo, hi], "pnl_ci90": [lo, hi], "random_session_p": p, "n_trades": n}`.
-  `random_session_p` is `None` when the tag's `data/bars_iex/SPY.csv` isn't on disk (e.g. a unit
-  test with no bar cache) or there are no trades — nothing to test against.
+- **`metrics.sign_flip_p(candidate_daily_series, n=5000, seed=0)`** — the p-value that a zero-edge
+  version of the candidate (every active day keeps its P&L size and gets a random sign) reaches
+  total P&L ≥ the observed one. it replaced a random-session draw on 2026-10-29: that test compared
+  the candidate with a shrunken copy of itself and gave p < 0.05 to 13 % of zero-edge strategies
+  (5.5 % got p < 0.01); the sign-flip null keeps the candidate's own day sizes and clustering and is
+  calibrated at the day level. still a single-test number: it knows nothing about how many cells
+  were searched before this one.
+- **`metrics.ex_best_year_pf(trades)`** — PF with the single best year removed (the standalone
+  gate's one-year-wonder guard), now reported for every candidate because the record's edge is
+  concentrated: iex_v18 is PF 1.40 with 2022 (59 % of the P&L) and 1.19 without it.
+- all three are folded into every `metrics.full_metrics()` call automatically, under
+  `metrics['stats'] = {"pf_ci90": [lo, hi], "pnl_ci90": [lo, hi], "signflip_p": p, "ex_best_year": {...}, "n_trades": n}`
+  (`None` entries when there are no trades — nothing to test).
+
+**what the numbers can and cannot say (statistics audit, 2026-10-29; scripts in that session's
+scratchpad, method: day-block sign flips over the 218 complete five-year cells on disk).** ≥ ~2,100
+configurations have been evaluated on the same 2022–2026 data (370 engine cells, ≥ 594 pretest
+points, 1,152 index-momentum cells); the effective number of independent tests among the 218
+engine cells is 44–134. the best of those 218 under a joint zero-edge null reaches PF 1.25 (median),
+1.42 (90th pct), 1.48 (95th): volume-config's PF ≥ 1.3 floor is beaten by luck one time in three,
+and quality-config's "+0.05 PF" is 0.27 standard deviations of a 450-trade cell. the family is not
+null as a whole (16 of 218 cells beat the null's 95th percentile) — the problem is that the
+*increments* being promoted are noise-sized. the shadow stage cannot tell PF 1.4 from PF 1.0 either:
+at 15 / 24 / 60 trades the "shadow PF ≥ 1.0" check passes a true-1.4 book 67 / 72 / 82 % of the time
+and a true-1.0 book 49 % — separating them at 5 % / 80 % power needs ≈ 450 trades. read a shadow
+verdict as a plumbing and parity result (those are paired and informative), not as an edge verdict.
+live: at 0.4 trades a day, live PF < 1.0 becomes 5 %-level evidence against the backtest only after
+≈ 200 trades (≈ 500–600 sessions). proposed gate changes (human decision, not applied): PF ≥
+max(1.4, baseline − 0.02) and ex-best-year PF reported next to it; drawdown ≤ 1.25 × baseline and
+$/trade ≥ 0.85 × baseline on volume-config; an "improvement" over its parent only when the paired
+day-bootstrap lower 90 % bound of the P&L difference is > 0 at a level adjusted for
+`cells_scanned`; added-trade minimums of 60–100 (the 15 / 40 floors admit about a third of
+zero-edge additions); a single-name share report.
 
 **provenance.** a candidate's patch json may carry an optional `_provenance` meta key (ignored by
 the materializer exactly like `_sweep_args` — never reaches the config blob):
@@ -355,10 +373,10 @@ a ticker candidate, or any candidate proposed by hand rather than out of a grid 
 no `_provenance` — `cells_scanned` is never required and nothing defaults it to 1.
 
 **where it shows up.** `pipeline.py show NAME` prints a `provenance` block (the three fields plus
-the current `pf_ci90`/`pnl_ci90`/`random_session_p`, and — only when `cells_scanned > 1` — a
+the current `pf_ci90`/`pnl_ci90`/`signflip_p`/ex-best-year PF, and — only when `cells_scanned > 1` — a
 `selection_discount` sentence spelling out that the headline PF is biased high and naming the CI's
 low end). `pipeline.py report` / `docs/pipeline/status.md`'s per-candidate line appends the same
-numbers right after the PF figure: `PF 1.46 [1.31–1.63] · p 0.02 · best of 20 cells`. none of this
+numbers right after the PF figure: `PF 1.46 [1.31–1.63] · sign-flip p 0.02 · ex-22 PF 1.27 · best of 20 cells`. none of this
 changes `gate_result.pass` — the gate still runs on the flat point estimate, exactly as before this
 section existed.
 

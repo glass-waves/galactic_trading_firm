@@ -126,7 +126,7 @@ the foundation crate. defines all traits, types, and configs used by every other
 | `src/native/rsi.rs` | RSI | period (14), overbought/oversold (70/30) |
 | `src/native/ema.rs` | EMA | period |
 | `src/native/sma.rs` | SMA | period |
-| `src/native/macd.rs` | MACD | fast (12), slow (26), signal (9) |
+| `src/native/macd.rs` | MACD | fast (12), slow (26), signal (9), `normalization_factor` ($1 default — a hidden price-level parameter), `normalization_pct` (> 0: score vs k × close, opt-in since 2026-10-29) |
 | `src/native/bollinger.rs` | bollinger bands | period, std_dev multiplier |
 | `src/native/atr.rs` | ATR | period |
 | `src/native/keltner.rs` | keltner channels | ema period, atr multiplier |
@@ -146,8 +146,8 @@ the foundation crate. defines all traits, types, and configs used by every other
 | `src/composable/williams_r.rs` | williams %R | highest high / lowest low |
 | `src/composable/donchian.rs` | donchian channels | max/min over period |
 | `src/composable/dema.rs` | DEMA | 2×EMA − EMA(EMA) |
-| `src/composable/adx.rs` | ADX | DI+/DI- agreement |
-| `src/composable/supertrend.rs` | supertrend | HL2 ± ATR×multiplier |
+| `src/composable/adx.rs` | ADX | DI+/DI- agreement; default score is direction-free `adx/50 − 1`; `signed: true` gives it the sign of +DI − −DI (opt-in since 2026-10-29) |
+| `src/composable/supertrend.rs` | supertrend | HL2 ± ATR×multiplier; the default computation never turns bearish (fitted configs depend on it); `standard: true` is the textbook algorithm (opt-in since 2026-10-29) |
 | `src/composable/ttm_squeeze.rs` | TTM squeeze | bollinger inside keltner detection |
 | `src/composable/vwap_distance.rs` | VWAP distance | (close − VWAP) / VWAP |
 | `src/composable/awesome_oscillator.rs` | awesome oscillator | SMA(HL2, 5) − SMA(HL2, 34) |
