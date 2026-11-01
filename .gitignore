@@ -68,3 +68,7 @@ data/live/ticks_*.csv
 
 # per-cell pre-test outputs are regenerated nightly; summary.md and CHANGELOG.md are the record
 research/pretest/results/c*.json
+
+# lab per-day result cache (regenerable)
+data/lab_cache/
+research/lab/runs/
