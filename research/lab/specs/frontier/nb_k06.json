@@ -1,0 +1,22 @@
+{
+ "name": "frontier/nb_k06",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/frontier/nb_k06.json"
+ ],
+ "args": [
+  "--max-position-pct",
+  "0.45"
+ ],
+ "note": "frontier: am_end=10:00, k=0.06, t1h_am=-0.1, t1h_pm=-0.1, vpin=0.2, tier=1.25, stress=1.5, noadx=1.0",
+ "_params": {
+  "am_end": "10:00",
+  "k": 0.06,
+  "t1h_am": -0.1,
+  "t1h_pm": -0.1,
+  "vpin": 0.2,
+  "tier": 1.25,
+  "stress": 1.5,
+  "noadx": 1.0
+ }
+}

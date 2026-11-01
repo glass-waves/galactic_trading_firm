@@ -78,3 +78,14 @@ with the exact spec files. desks do not touch the holdout, the promoted row, the
    to itself, longer when shared — screen on `2025h1`, confirm on `train`).
 2. synthesis: ledger review, finalists chosen on train strength + diversity + simplicity.
 3. holdout reveal, tests 1–6, REPORT.md, pipeline candidate(s) + shadow book(s).
+
+## finalists (fixed 2026-11-01 before the holdout reveal; ledger at this point: ~230 runs / ~195 distinct specs)
+
+1. `frontier/na_bundle` — noADX row-21 core + stress-s15-core window + ×1.25 tier at VPIN ≥ 0.26 (frontier nomination 1)
+2. `frontier/nb_v15` — the same at VPIN 0.15 (volume alternative)
+3. `indicators/r21_v020_noadx_t10` — the core alone, no sizing levers (indicators nomination 1)
+4. `universe/nt10_b3` — the core without AAPL (universe's single nomination; NVDA-heavy)
+5. `frontier/na_pdl10` — the core + prior-day-low exclusion (quality alternative, low volume)
+6. `frontier/na_bundle` + `meta/qqq_noise_pm_dm07` — two books (diversification value; QQQ book needs warm-up 22)
+
+not revealed: tom-event (no nomination), signals-new (no nomination), long-2026 afternoon long (3 trades/month, warm-up 22 — kept for a later round).

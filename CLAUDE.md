@@ -29,6 +29,7 @@ galactic_trading_firm/
 ├── deploy/systemd/               # user-level systemd units + install.sh: trader start/stop, no-LLM watchdog (5 min), pre-open + eod claude check-ins on the claude.ai login
 ├── .claude/skills/               # preopen-check, intraday-review, eod-review — the scheduled claude check-in prompts
 ├── scripts/                      # ops: watchdog.sh (no-LLM alerts incl. abnormal moves), export_day.sh, replay_book.sh (one book, one day, IEX cache), repo_report.sh, research_runner.sh, psql.sh, notify.sh, alpaca_api.sh (read-only GET for the check-ins), eod_replay.sh (same-day IEX replay for the eod-review check-in; both exist because the check-ins' allow-list only matches a single leading token — no `$(...)`, no `VAR=..;` prefixes)
+│   ├── lab/                      # lab.py: parallel cached per-day replays with a pre-registered train/holdout split (research/lab/PLAN.md); judge.py applies its tests. holdout windows need LAB_REVEAL=1
 │   └── pipeline/                 # research pipeline runner: pipeline.py propose → backtest gate → shadow trial → evaluate → promotion proposal (docs/pipeline.md)
 ├── cockpit/                      # next.js monitoring dashboard
 ├── migrations/                   # sqlx migrations (from data_model.sql)
@@ -476,6 +477,10 @@ new tool *types* require code changes. *instances* of existing types can be adde
 - the export also writes `books.json`, `shadow_trades.json` and one `replay_<book>.csv` per enabled book (`scripts/replay_book.sh`); the EOD routine reports primary vs each shadow and may propose "promote candidate NAME (config row N)".
 - `scripts/watchdog.sh` (every 5 min in-session, no LLM) watches the primary's positions / P&L (a position still open 5 min after the promoted config's `force_exit_by` is CRITICAL), any book's heartbeat, shadows not hosted, and abnormal moves (one Alpaca snapshot per run; name ≥ 1.5 % / SPY ≥ 1 % vs open; after 16:00 ET the day's close is used, never the extended-hours print). the trader hosts at most `MAX_BOOKS` (12, set in `paper-trader.service`) books; the pipeline warns when a new shadow would exceed it.
 - everything the two sides say to each other is a commit; the human steers by editing the queue/briefing. promotion stays human: `UPDATE config_versions SET status='promoted', promoted_at=now() WHERE id=N` — the pipeline only proposes.
+
+## research lab (since 2026-10-31)
+
+`scripts/lab/lab.py run SPEC.json --window train` replays one session per process across all cores (slot semaphore in /tmp/lab_slots, `nice 19`), caches every (spec, day) under `data/lab_cache/`, prints the verdict block and appends to `research/lab/ledger.jsonl` (the cells-scanned count). windows: `train` 2022-01-03→2025-06-30, `holdout` 2025-07-01→2026-10-30 (refused without `LAB_REVEAL=1`), `2023_25h1`, `2024h2_25h1`, `2025h1`, or `YYYY-MM-DD:YYYY-MM-DD`. `scripts/lab/judge.py` applies the six tests in `research/lab/PLAN.md`. the 2026-10-31 round (seven desk agents, 198 specs) is written up in `research/lab/REPORT.md`; desk reports under `research/lab/desks/`. pitfall: a patch's `disable` list only applies to actions — an indicator is switched off by re-declaring it with `"enabled": false`.
 
 ## repo hygiene
 

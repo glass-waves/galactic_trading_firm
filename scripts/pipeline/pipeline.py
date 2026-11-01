@@ -445,7 +445,7 @@ def cmd_propose(a) -> int:
             ids = [x.get("instance_id") for x in patch.get(key, [])]
             dup = sorted({i for i in ids if ids.count(i) > 1 or i in {x.get("instance_id") for x in base_blob.get(key, [])}})
             if dup:
-                log(f"warning: {key} instance ids already present (appended, not replaced): {', '.join(dup)}")
+                log(f"warning: {key} instance ids already present in the base row (materialize replaces them in place): {', '.join(dup)}")
     prov = provenance_from_args(a)
     if prov:
         patch = dict(patch, _provenance=prov)

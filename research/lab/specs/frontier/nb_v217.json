@@ -1,0 +1,21 @@
+{
+ "name": "frontier/nb_v217",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/frontier/nb_v217.json"
+ ],
+ "args": [
+  "--max-position-pct",
+  "0.45"
+ ],
+ "note": "frontier: am_end=10:00, k=0.05, t1h_am=-0.1, t1h_pm=-0.1, tier=1.25, stress=1.5, noadx=1.0",
+ "_params": {
+  "am_end": "10:00",
+  "k": 0.05,
+  "t1h_am": -0.1,
+  "t1h_pm": -0.1,
+  "tier": 1.25,
+  "stress": 1.5,
+  "noadx": 1.0
+ }
+}
