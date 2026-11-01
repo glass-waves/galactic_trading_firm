@@ -1,0 +1,14 @@
+{
+ "indicators": [
+  {
+   "instance_id": "vpin_1m",
+   "indicator_type": "vpin",
+   "timescale": "OneMinute",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "bucket_divisor": 0.8
+   }
+  }
+ ]
+}

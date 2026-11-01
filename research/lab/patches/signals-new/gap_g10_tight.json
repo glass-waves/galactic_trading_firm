@@ -1,0 +1,64 @@
+{
+ "indicators": [
+  {
+   "indicator_type": "gap",
+   "instance_id": "gap_1m",
+   "timescale": "OneMinute",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "scale_pct": 1.0
+   }
+  }
+ ],
+ "actions": [
+  {
+   "instance_id": "gap_fade_short",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 30,
+   "enabled": true,
+   "params": {
+    "name": "gap fade short",
+    "direction": "short",
+    "conditions": [
+     {
+      "type": "indicator_min",
+      "min_score": 1.0,
+      "instance_id": "gap_1m.gap_pct"
+     },
+     {
+      "type": "indicator_max",
+      "max_score": 0.0,
+      "instance_id": "gap_1m.above_open"
+     },
+     {
+      "type": "indicator_max",
+      "max_score": 0.4,
+      "instance_id": "cross_1m"
+     },
+     {
+      "type": "indicator_max",
+      "max_score": 0.3,
+      "instance_id": "cross_1m.index_ret_prior_close"
+     },
+     {
+      "type": "composite_max",
+      "max_score": -0.35
+     },
+     {
+      "type": "timescale_lag",
+      "lag_by": 0.1,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_max",
+      "max_score": -0.5,
+      "timescale": "FiveMinute"
+     }
+    ],
+    "entry_before": "10:30"
+   }
+  }
+ ]
+}

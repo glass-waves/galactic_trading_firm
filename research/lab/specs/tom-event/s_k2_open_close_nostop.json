@@ -1,0 +1,19 @@
+{
+ "name": "tom-event/s_k2_open_close_nostop",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/tom-event/s_k2_open_close_nostop.json"
+ ],
+ "args": [],
+ "tickers": "SPY,QQQ,IWM,XLK,XLF,XLE,SMH,AAPL,ABBV,ADBE,AMAT,AMD,AMZN,AVGO,CAT,COIN,COST,CRM,CVX,GS,HD,JPM,LLY,MA,META,MRK,MSFT,MU,NFLX,NVDA,ORCL,PG,PLTR,QCOM,SHOP,TSLA,TXN,UBER,UNH,V,XOM",
+ "capital": 100000,
+ "sizing": [
+  "--sizing-fraction",
+  "0.02",
+  "--max-position-pct",
+  "0.02",
+  "--cross-index",
+  "SPY"
+ ],
+ "note": "screen, 41 names, 2 %/name on 100k: k=2 open->close, no hard stop (20 %)"
+}

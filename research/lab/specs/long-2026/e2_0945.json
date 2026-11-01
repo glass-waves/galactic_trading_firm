@@ -1,0 +1,8 @@
+{
+ "name": "long-2026/e2_0945",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/long-2026/e2_0945.json"
+ ],
+ "note": "a1, first 15 min excluded (both sides)"
+}

@@ -1,0 +1,13 @@
+{
+ "name": "frontier/sq06",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/frontier/sq06.json"
+ ],
+ "args": [],
+ "note": "frontier: am_end=10:00, k=0.06",
+ "_params": {
+  "am_end": "10:00",
+  "k": 0.06
+ }
+}

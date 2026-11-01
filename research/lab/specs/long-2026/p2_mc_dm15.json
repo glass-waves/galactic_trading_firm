@@ -1,0 +1,10 @@
+{
+ "name": "long-2026/p2_mc_dm15",
+ "config_id": 23,
+ "lookback": 22,
+ "tickers": "AAPL,AMZN,NVDA,MSFT",
+ "patches": [
+  "research/lab/patches/long-2026/p2_mc_dm15.json"
+ ],
+ "note": "p1 with the high-vol gate at day_move_pct>=1.5 (mega-caps move ~2x QQQ)"
+}

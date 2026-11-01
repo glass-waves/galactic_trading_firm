@@ -1,0 +1,8 @@
+{
+ "name": "indicators/macd_p003",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/indicators/macd_p003.json"
+ ],
+ "note": "(c) both MACDs normalization_pct 0.003 (histogram vs k x close)"
+}

@@ -1,0 +1,9 @@
+{
+ "name": "signals-new/gap_g05_tight",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/signals-new/gap_g05_tight.json"
+ ],
+ "tickers": "AMZN,AAPL,NVDA,MSFT",
+ "note": "gap >= 0.5% with the thrust shape (comp <= -0.35, 5m lags 0.1, 5m <= -0.5), no 1h condition"
+}

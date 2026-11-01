@@ -1,0 +1,9 @@
+{
+ "name": "signals-new/eng_band_vpin",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/signals-new/eng_band_vpin.json"
+ ],
+ "tickers": "AMZN,AAPL,NVDA,MSFT",
+ "note": "v18 + 5m bearish engulfing inside SPY band + VPIN floor"
+}

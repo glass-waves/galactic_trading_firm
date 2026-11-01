@@ -1,0 +1,22 @@
+{
+ "name": "indicators/r21_v020_noadx_t10",
+ "config_id": 21,
+ "patches": [
+  "research/lab/patches/indicators/r21_v020_noadx.json"
+ ],
+ "args": [
+  "--set-action-param",
+  "window_5m_thrust_short_am:conditions/6/min_score=0.20",
+  "--set-action-param",
+  "window_strong_core_short_am:conditions/5/min_score=0.20",
+  "--set-action-param",
+  "window_5m_thrust_short_pm:conditions/6/min_score=0.20",
+  "--set-action-param",
+  "window_strong_core_short_pm:conditions/5/min_score=0.20",
+  "--set-action-param",
+  "window_5m_thrust_short_am:conditions/3/max_score=-0.10",
+  "--set-action-param",
+  "window_5m_thrust_short_pm:conditions/3/max_score=-0.10"
+ ],
+ "note": "r21_v020_noadx neighbour: thrust 1h<=-0.10"
+}

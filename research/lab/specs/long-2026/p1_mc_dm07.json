@@ -1,0 +1,10 @@
+{
+ "name": "long-2026/p1_mc_dm07",
+ "config_id": 23,
+ "lookback": 22,
+ "tickers": "AAPL,AMZN,NVDA,MSFT",
+ "patches": [
+  "research/lab/patches/long-2026/p1_mc_dm07.json"
+ ],
+ "note": "row 23 (cand_48 noise-area pm, day_move>=0.7) on AAPL AMZN NVDA MSFT; long side = target, im short = twin"
+}

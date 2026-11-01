@@ -1,0 +1,8 @@
+{
+ "name": "indicators/dir1h_c60",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/indicators/dir1h_c60.json"
+ ],
+ "note": "dir1h, strong core 1h<=-0.6 (v18-volume-equivalent by conditional quantile is -0.82); thrust unchanged (its 5m-lags-1h clause binds under a directional 1h)"
+}

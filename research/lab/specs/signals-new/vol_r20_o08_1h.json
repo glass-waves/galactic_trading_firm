@@ -1,0 +1,9 @@
+{
+ "name": "signals-new/vol_r20_o08_1h",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/signals-new/vol_r20_o08_1h.json"
+ ],
+ "tickers": "AMZN,AAPL,NVDA,MSFT",
+ "note": "rvol >= 2, OFI <= -0.8, loose shape, 1h <= 0"
+}

@@ -1,0 +1,9 @@
+{
+ "name": "signals-new/vol_ofi08_vpin",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/signals-new/vol_ofi08_vpin.json"
+ ],
+ "tickers": "AMZN,AAPL,NVDA,MSFT",
+ "note": "OFI-led without rvol: OFI <= -0.8, loose shape, VPIN floor"
+}

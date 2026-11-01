@@ -1,0 +1,8 @@
+{
+ "name": "long-2026/c3_gapup",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/long-2026/c3_gapup.json"
+ ],
+ "note": "a1 + ticker gapped up (gap_pct >= 0) | twin + gapped down"
+}

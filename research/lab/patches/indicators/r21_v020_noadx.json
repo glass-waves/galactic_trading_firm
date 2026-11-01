@@ -1,0 +1,14 @@
+{
+ "indicators": [
+  {
+   "instance_id": "adx_14_1hr",
+   "indicator_type": "adx",
+   "timescale": "OneHour",
+   "weight": 0.2,
+   "enabled": false,
+   "params": {
+    "period": 14
+   }
+  }
+ ]
+}

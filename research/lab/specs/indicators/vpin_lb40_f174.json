@@ -1,0 +1,8 @@
+{
+ "name": "indicators/vpin_lb40_f174",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/indicators/vpin_lb40_f174.json"
+ ],
+ "note": "VPIN lookback 40 bars, floor 0.174 = same 82nd pctile as 0.217 at lb20 (73-day tick sample)"
+}

@@ -1,0 +1,9 @@
+{
+ "name": "signals-new/scaffold",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/signals-new/scaffold.json"
+ ],
+ "tickers": "AMZN,AAPL,NVDA,MSFT",
+ "note": "v18 windows re-clocked (entry_before 11:30, force 11:55) with the session opened to 15:30/15:55; must equal base/v18"
+}

@@ -210,7 +210,7 @@ def run_day(spec: dict, fp: str, day: dt.date) -> tuple[dt.date, str, str | None
         return day, out.read_text(), None
     if errf.exists():
         return day, "", errf.read_text()
-    cmd = backtest_cmd(spec, day)
+    cmd = ["nice", "-n", "19"] + backtest_cmd(spec, day)  # the box is a desktop: yield to the owner
     with Slot():
         try:
             p = subprocess.run(cmd, capture_output=True, text=True, timeout=600, env=env(), cwd=ROOT)

@@ -1,0 +1,9 @@
+{
+ "name": "long-2026/k3_comb_w1",
+ "config_id": 12,
+ "lookback": 22,
+ "patches": [
+  "research/lab/patches/long-2026/k3_comb_w1.json"
+ ],
+ "note": "v18 + w1 (afternoon breakout long, day_move>=1.5, VPIN>=0.217, 1h st bullish) as an added window; lookback 22"
+}

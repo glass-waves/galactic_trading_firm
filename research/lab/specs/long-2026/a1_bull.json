@@ -1,0 +1,8 @@
+{
+ "name": "long-2026/a1_bull",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/long-2026/a1_bull.json"
+ ],
+ "note": "longs + 1h supertrend(standard) bullish | shorts + bearish"
+}

@@ -1,0 +1,17 @@
+{
+ "name": "frontier/na_t05",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/frontier/na_t05.json"
+ ],
+ "args": [],
+ "note": "frontier: am_end=10:00, k=0.05, t1h_am=-0.05, t1h_pm=-0.05, vpin=0.2, noadx=1.0",
+ "_params": {
+  "am_end": "10:00",
+  "k": 0.05,
+  "t1h_am": -0.05,
+  "t1h_pm": -0.05,
+  "vpin": 0.2,
+  "noadx": 1.0
+ }
+}

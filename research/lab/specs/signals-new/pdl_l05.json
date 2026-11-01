@@ -1,0 +1,9 @@
+{
+ "name": "signals-new/pdl_l05",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/signals-new/pdl_l05.json"
+ ],
+ "tickers": "AMZN,AAPL,NVDA,MSFT",
+ "note": "v18 + short within 0.5% below the prior-day low, 5m <= -0.3, SPY band"
+}

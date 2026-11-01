@@ -1,0 +1,19 @@
+{
+ "name": "frontier/na00_bundle",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/frontier/na00_bundle.json"
+ ],
+ "args": [
+  "--max-position-pct",
+  "0.45"
+ ],
+ "note": "frontier: am_end=10:00, k=0.05, tier=1.25, stress=1.5, noadx=1.0",
+ "_params": {
+  "am_end": "10:00",
+  "k": 0.05,
+  "tier": 1.25,
+  "stress": 1.5,
+  "noadx": 1.0
+ }
+}

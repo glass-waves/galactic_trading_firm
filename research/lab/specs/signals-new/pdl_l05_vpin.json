@@ -1,0 +1,9 @@
+{
+ "name": "signals-new/pdl_l05_vpin",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/signals-new/pdl_l05_vpin.json"
+ ],
+ "tickers": "AMZN,AAPL,NVDA,MSFT",
+ "note": "pdl_l05 + VPIN floor"
+}

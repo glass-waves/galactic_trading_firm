@@ -1,0 +1,27 @@
+{
+ "indicators": [
+  {
+   "instance_id": "supertrend_1hr",
+   "indicator_type": "supertrend",
+   "timescale": "OneHour",
+   "weight": 0.3,
+   "enabled": true,
+   "params": {
+    "period": 10,
+    "multiplier": 3.0,
+    "standard": true
+   }
+  },
+  {
+   "instance_id": "adx_14_1hr",
+   "indicator_type": "adx",
+   "timescale": "OneHour",
+   "weight": 0.2,
+   "enabled": true,
+   "params": {
+    "period": 14,
+    "signed": true
+   }
+  }
+ ]
+}

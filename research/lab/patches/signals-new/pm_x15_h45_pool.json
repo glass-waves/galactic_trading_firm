@@ -1,0 +1,62 @@
+{
+ "disable": [
+  "window_5m_thrust_short",
+  "window_strong_core_short"
+ ],
+ "actions": [
+  {
+   "instance_id": "pm_fade_short",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": -5,
+   "enabled": true,
+   "params": {
+    "name": "pm vwap fade short",
+    "direction": "short",
+    "conditions": [
+     {
+      "type": "indicator_min",
+      "min_score": 1.5,
+      "instance_id": "vwap_dist_1hr.dist_pct"
+     }
+    ],
+    "entry_after": "12:30",
+    "entry_before": "12:31",
+    "exit_overrides": {
+     "force_exit_by": "13:15",
+     "score_exit_threshold": -10.0,
+     "max_hold_ms": 2700000
+    }
+   }
+  },
+  {
+   "instance_id": "pm_fade_long",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": -5,
+   "enabled": true,
+   "params": {
+    "name": "pm vwap fade long",
+    "direction": "long",
+    "conditions": [
+     {
+      "type": "indicator_max",
+      "max_score": -1.5,
+      "instance_id": "vwap_dist_1hr.dist_pct"
+     }
+    ],
+    "entry_after": "12:30",
+    "entry_before": "12:31",
+    "exit_overrides": {
+     "force_exit_by": "13:15",
+     "score_exit_threshold": -10.0,
+     "max_hold_ms": 2700000
+    }
+   }
+  }
+ ],
+ "session": {
+  "no_new_entries_after": "15:30",
+  "force_exit_by": "15:55"
+ }
+}

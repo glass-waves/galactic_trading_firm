@@ -1,0 +1,8 @@
+{
+ "name": "long-2026/c2_spypc",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/long-2026/c2_spypc.json"
+ ],
+ "note": "a1 + SPY above prior close | twin + below prior close"
+}

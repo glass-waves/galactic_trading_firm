@@ -1,0 +1,9 @@
+{
+ "name": "signals-new/vol_r20_o05_1hpos",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/signals-new/vol_r20_o05_1hpos.json"
+ ],
+ "tickers": "AMZN,AAPL,NVDA,MSFT",
+ "note": "rvol >= 2, OFI <= -0.5, loose shape, SPY band, 1h > 0 (disjoint)"
+}

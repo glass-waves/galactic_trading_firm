@@ -1,0 +1,10 @@
+{
+ "name": "long-2026/v3_dm125_vp217",
+ "config_id": 23,
+ "lookback": 22,
+ "tickers": "AAPL,AMZN,NVDA,MSFT",
+ "patches": [
+  "research/lab/patches/long-2026/v3_dm125_vp217.json"
+ ],
+ "note": "r3 neighbour: day_move>=1.25"
+}

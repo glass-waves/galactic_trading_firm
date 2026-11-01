@@ -1,0 +1,51 @@
+{
+ "indicators": [
+  {
+   "indicator_type": "candle_sequence",
+   "instance_id": "seq_5m",
+   "timescale": "FiveMinute",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "pattern": "engulfing",
+    "direction": "bearish"
+   }
+  }
+ ],
+ "actions": [
+  {
+   "instance_id": "seq_short",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 30,
+   "enabled": true,
+   "params": {
+    "name": "engulfing 5m short",
+    "direction": "short",
+    "conditions": [
+     {
+      "type": "indicator_max",
+      "max_score": -0.5,
+      "instance_id": "seq_5m"
+     },
+     {
+      "type": "indicator_min",
+      "min_score": -0.4,
+      "instance_id": "cross_1m"
+     },
+     {
+      "type": "indicator_max",
+      "max_score": 0.4,
+      "instance_id": "cross_1m"
+     },
+     {
+      "type": "indicator_min",
+      "min_score": 0.217,
+      "instance_id": "vpin_1m.raw_vpin"
+     }
+    ],
+    "entry_before": "11:30"
+   }
+  }
+ ]
+}

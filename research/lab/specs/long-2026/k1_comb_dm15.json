@@ -1,0 +1,9 @@
+{
+ "name": "long-2026/k1_comb_dm15",
+ "config_id": 12,
+ "lookback": 22,
+ "patches": [
+  "research/lab/patches/long-2026/k1_comb_dm15.json"
+ ],
+ "note": "v18 + afternoon noise-area breakout long (day_move>=1.5) as an added window"
+}

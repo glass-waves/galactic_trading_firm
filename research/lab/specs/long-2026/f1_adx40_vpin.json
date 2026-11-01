@@ -1,0 +1,8 @@
+{
+ "name": "long-2026/f1_adx40_vpin",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/long-2026/f1_adx40_vpin.json"
+ ],
+ "note": "a3 (st bullish + signed ADX>=0.4) + VPIN>=0.217 | twin = st bearish + ADX<=-0.4, shorts without VPIN"
+}

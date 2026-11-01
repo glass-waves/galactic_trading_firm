@@ -1,0 +1,9 @@
+{
+ "name": "signals-new/pm_x15_gated_pool",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/signals-new/pm_x15_gated_pool.json"
+ ],
+ "tickers": "AAPL,ABBV,ADBE,AMAT,AMD,AMZN,AVGO,CAT,COIN,COST,CRM,CVX,GS,HD,JPM,LLY,MA,META,MRK,MSFT,MU,NFLX,NVDA,ORCL,PG,PLTR,QCOM,SHOP,TSLA,TXN,UBER,UNH,V,XOM",
+ "note": "fade-only, |dist| >= 1.5%, hold 60, priority 30 (behind v18's 1m-noise reject gates), 34-name pool"
+}

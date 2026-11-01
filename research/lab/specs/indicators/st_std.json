@@ -1,0 +1,8 @@
+{
+ "name": "indicators/st_std",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/indicators/st_std.json"
+ ],
+ "note": "(a) supertrend_1hr standard:true (textbook, can turn bearish); nothing else changed"
+}

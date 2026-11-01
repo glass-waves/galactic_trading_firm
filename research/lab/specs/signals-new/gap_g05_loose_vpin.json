@@ -1,0 +1,9 @@
+{
+ "name": "signals-new/gap_g05_loose_vpin",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/signals-new/gap_g05_loose_vpin.json"
+ ],
+ "tickers": "AMZN,AAPL,NVDA,MSFT",
+ "note": "gap_g05_loose + VPIN floor 0.217"
+}

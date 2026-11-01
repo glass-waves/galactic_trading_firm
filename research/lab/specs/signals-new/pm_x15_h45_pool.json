@@ -1,0 +1,9 @@
+{
+ "name": "signals-new/pm_x15_h45_pool",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/signals-new/pm_x15_h45_pool.json"
+ ],
+ "tickers": "AAPL,ABBV,ADBE,AMAT,AMD,AMZN,AVGO,CAT,COIN,COST,CRM,CVX,GS,HD,JPM,LLY,MA,META,MRK,MSFT,MU,NFLX,NVDA,ORCL,PG,PLTR,QCOM,SHOP,TSLA,TXN,UBER,UNH,V,XOM",
+ "note": "fade-only, |dist| >= 1.5%, hold 45 (pretest best hold), 34-name pool"
+}

@@ -1,0 +1,8 @@
+{
+ "name": "indicators/vpin_lb10_f285",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/indicators/vpin_lb10_f285.json"
+ ],
+ "note": "VPIN lookback 10 bars, floor 0.285 = same 82nd pctile"
+}

@@ -1,0 +1,9 @@
+{
+ "name": "indicators/v18_noadx",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/indicators/r21_v020_noadx.json"
+ ],
+ "args": [],
+ "note": "v18 with adx_14_1hr enabled:false (1h = vwap/supertrend/ema/bbw, renormalised)"
+}

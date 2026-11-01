@@ -1,0 +1,1 @@
+{"name": "universe/b4_1h15", "config_id": 12, "args": ["--set-action-param", "window_5m_thrust_short:conditions/3/max_score=-0.15"], "note": "four-name v18 with thrust window 1h <= -0.15 (thrust-1h15, #29); validates the trade-filter emulation used for the per-name 1h15 screen"}

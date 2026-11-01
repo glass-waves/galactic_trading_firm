@@ -1,0 +1,8 @@
+{
+ "name": "indicators/adx_signed_t15_c40",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/indicators/adx_signed_t15_c40.json"
+ ],
+ "note": "signed ADX, thrust 1h<=-0.15, core 1h<=-0.4 (v18-equivalent quantiles: thrust 0.02, core -0.47)"
+}

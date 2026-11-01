@@ -1,0 +1,9 @@
+{
+ "name": "signals-new/vol_r20_o05_flow",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/signals-new/vol_r20_o05_flow.json"
+ ],
+ "tickers": "AMZN,AAPL,NVDA,MSFT",
+ "note": "pure flow: rvol >= 2, OFI <= -0.5, 1h <= -0.2, no composite / 5m condition"
+}

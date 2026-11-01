@@ -1,0 +1,9 @@
+{
+ "name": "signals-new/crows_band_vpin",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/signals-new/crows_band_vpin.json"
+ ],
+ "tickers": "AMZN,AAPL,NVDA,MSFT",
+ "note": "v18 + 5m three black crows inside SPY band + VPIN floor"
+}

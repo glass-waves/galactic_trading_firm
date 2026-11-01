@@ -1,0 +1,19 @@
+{
+ "name": "tom-event/b_pool34_k2",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/tom-event/b_pool34_k2.json"
+ ],
+ "args": [],
+ "tickers": "AAPL,ABBV,ADBE,AMAT,AMD,AMZN,AVGO,CAT,COIN,COST,CRM,CVX,GS,HD,JPM,LLY,MA,META,MRK,MSFT,MU,NFLX,NVDA,ORCL,PG,PLTR,QCOM,SHOP,TSLA,TXN,UBER,UNH,V,XOM",
+ "capital": 100000,
+ "sizing": [
+  "--sizing-fraction",
+  "0.0265",
+  "--max-position-pct",
+  "0.0265",
+  "--cross-index",
+  "SPY"
+ ],
+ "note": "standalone: 34-name pool long open->15:55 on session 2, 100k book 0.0265 each (scale /10 for 10k)"
+}

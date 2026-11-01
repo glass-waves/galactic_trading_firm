@@ -1,0 +1,1 @@
+{"name": "meta/v18_pdl10", "config_id": 12, "patches": ["research/lab/patches/meta/v18_pdl10.json"], "note": "PORT, not a reproduction: the prior-day-low exclusion (pdl_5m.dist_low_pct >= -1.0) from e_spy02_pdl10_vpin_cond (SIP, pre-VWAP-fix, v16 base: train +1903/212/PF 2.10, 2023-25h1 PF 2.03) added to both v18 windows on IEX"}

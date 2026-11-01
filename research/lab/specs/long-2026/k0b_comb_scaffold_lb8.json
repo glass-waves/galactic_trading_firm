@@ -1,0 +1,9 @@
+{
+ "name": "long-2026/k0b_comb_scaffold_lb8",
+ "config_id": 12,
+ "lookback": 8,
+ "patches": [
+  "research/lab/patches/long-2026/k0b_comb_scaffold_lb8.json"
+ ],
+ "note": "k0 at lookback 8: isolates the patch mechanics from the lookback-22 warm-up difference"
+}

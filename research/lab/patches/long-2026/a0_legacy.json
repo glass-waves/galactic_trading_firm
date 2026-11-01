@@ -1,0 +1,126 @@
+{
+ "indicators": [
+  {
+   "instance_id": "st1h_std",
+   "indicator_type": "supertrend",
+   "timescale": "OneHour",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "period": 10,
+    "multiplier": 3.0,
+    "standard": true
+   }
+  },
+  {
+   "instance_id": "adx1h_s",
+   "indicator_type": "adx",
+   "timescale": "OneHour",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "period": 14,
+    "signed": true
+   }
+  },
+  {
+   "instance_id": "gap_1m",
+   "indicator_type": "gap",
+   "timescale": "OneMinute",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "scale_pct": 1.0
+   }
+  }
+ ],
+ "actions": [
+  {
+   "instance_id": "window_5m_thrust",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 10,
+   "enabled": true,
+   "params": {
+    "name": "5m thrust",
+    "direction": "long",
+    "conditions": [
+     {
+      "type": "composite_min",
+      "min_score": 0.35
+     },
+     {
+      "type": "timescale_lead",
+      "lead_by": 0.1,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_min",
+      "timescale": "FiveMinute",
+      "min_score": 0.5
+     },
+     {
+      "type": "timescale_min",
+      "timescale": "OneHour",
+      "min_score": 0.0
+     }
+    ]
+   }
+  },
+  {
+   "instance_id": "window_candle_reversal",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 15,
+   "enabled": true,
+   "params": {
+    "name": "candle reversal",
+    "direction": "long",
+    "conditions": [
+     {
+      "type": "indicator_min",
+      "instance_id": "candle_5min",
+      "min_score": 0.4
+     },
+     {
+      "type": "timescale_min",
+      "timescale": "OneHour",
+      "min_score": 0.2
+     },
+     {
+      "type": "composite_min",
+      "min_score": 0.3
+     }
+    ]
+   }
+  },
+  {
+   "instance_id": "window_strong_core",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 20,
+   "enabled": true,
+   "params": {
+    "name": "strong core",
+    "direction": "long",
+    "conditions": [
+     {
+      "type": "composite_min",
+      "min_score": 0.35
+     },
+     {
+      "type": "timescale_min",
+      "timescale": "FiveMinute",
+      "min_score": 0.4
+     },
+     {
+      "type": "timescale_min",
+      "timescale": "OneHour",
+      "min_score": 0.3
+     }
+    ]
+   }
+  }
+ ],
+ "disable": []
+}

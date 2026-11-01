@@ -1,0 +1,8 @@
+{
+ "name": "long-2026/a4_dir1h_global",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/long-2026/a4_dir1h_global.json"
+ ],
+ "note": "dir1h patch applied to the 1h sum (both sides), windows as in row 12 | shorts v18 windows"
+}

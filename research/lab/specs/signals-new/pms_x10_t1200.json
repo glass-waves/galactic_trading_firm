@@ -1,0 +1,9 @@
+{
+ "name": "signals-new/pms_x10_t1200",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/signals-new/pms_x10_t1200.json"
+ ],
+ "tickers": "AMZN,AAPL,NVDA,MSFT",
+ "note": "pms_x10 entered on the 12:00 bar"
+}

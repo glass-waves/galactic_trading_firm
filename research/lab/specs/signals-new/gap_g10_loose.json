@@ -1,0 +1,9 @@
+{
+ "name": "signals-new/gap_g10_loose",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/signals-new/gap_g10_loose.json"
+ ],
+ "tickers": "AMZN,AAPL,NVDA,MSFT",
+ "note": "as gap_g05_loose with gap >= 1.0%"
+}

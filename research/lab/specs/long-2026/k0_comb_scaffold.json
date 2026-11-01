@@ -1,0 +1,9 @@
+{
+ "name": "long-2026/k0_comb_scaffold",
+ "config_id": 12,
+ "lookback": 22,
+ "patches": [
+  "research/lab/patches/long-2026/k0_comb_scaffold.json"
+ ],
+ "note": "scaffold for the combined form: v18 re-created with entry_before 11:30, session open to 15:30, exit_session disabled, noise added, lookback 22, no new window; must equal base/v18"
+}

@@ -1,0 +1,19 @@
+{
+ "name": "tom-event/b_idx3_k2",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/tom-event/b_idx3_k2.json"
+ ],
+ "args": [],
+ "tickers": "SPY,QQQ,IWM",
+ "capital": 10000,
+ "sizing": [
+  "--sizing-fraction",
+  "0.3",
+  "--max-position-pct",
+  "0.3",
+  "--cross-index",
+  "SPY"
+ ],
+ "note": "standalone: SPY/QQQ/IWM long open->15:55 on session 2, 0.30 each, stop 2.5 %"
+}

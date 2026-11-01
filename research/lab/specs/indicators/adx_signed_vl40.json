@@ -1,0 +1,8 @@
+{
+ "name": "indicators/adx_signed_vl40",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/indicators/adx_signed_vl40.json"
+ ],
+ "note": "signed ADX + VPIN lookback 40 / floor 0.174; v18 gates"
+}

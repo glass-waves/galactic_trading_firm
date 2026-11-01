@@ -1,0 +1,14 @@
+{
+ "name": "frontier/sq05_1h15am",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/frontier/sq05_1h15am.json"
+ ],
+ "args": [],
+ "note": "frontier: am_end=10:00, k=0.05, t1h_am=-0.15",
+ "_params": {
+  "am_end": "10:00",
+  "k": 0.05,
+  "t1h_am": -0.15
+ }
+}

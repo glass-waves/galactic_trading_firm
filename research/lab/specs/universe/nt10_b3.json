@@ -1,0 +1,23 @@
+{
+ "name": "universe/nt10_b3",
+ "config_id": 21,
+ "patches": [
+  "research/lab/patches/indicators/r21_v020_noadx.json"
+ ],
+ "args": [
+  "--set-action-param",
+  "window_5m_thrust_short_am:conditions/6/min_score=0.20",
+  "--set-action-param",
+  "window_strong_core_short_am:conditions/5/min_score=0.20",
+  "--set-action-param",
+  "window_5m_thrust_short_pm:conditions/6/min_score=0.20",
+  "--set-action-param",
+  "window_strong_core_short_pm:conditions/5/min_score=0.20",
+  "--set-action-param",
+  "window_5m_thrust_short_am:conditions/3/max_score=-0.10",
+  "--set-action-param",
+  "window_5m_thrust_short_pm:conditions/3/max_score=-0.10"
+ ],
+ "tickers": "AMZN,NVDA,MSFT",
+ "note": "indicators-desk best engine (r21_v020_noadx_t10) without AAPL (coordinator request). AAPL dropped post hoc (negative 2023_25h1 on all four engines tested) - best-of-4 single-name drop, selection-biased"
+}

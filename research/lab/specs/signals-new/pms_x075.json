@@ -1,0 +1,9 @@
+{
+ "name": "signals-new/pms_x075",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/signals-new/pms_x075.json"
+ ],
+ "tickers": "AMZN,AAPL,NVDA,MSFT",
+ "note": "scaffold + short-only afternoon VWAP fade: dist >= 0.75% on the 12:30 bar, hold 60, 4 names"
+}

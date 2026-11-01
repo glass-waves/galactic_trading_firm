@@ -1,0 +1,10 @@
+{
+ "name": "long-2026/v1_dm15_vp18",
+ "config_id": 23,
+ "lookback": 22,
+ "tickers": "AAPL,AMZN,NVDA,MSFT",
+ "patches": [
+  "research/lab/patches/long-2026/v1_dm15_vp18.json"
+ ],
+ "note": "r3 neighbour: VPIN floor 0.18"
+}

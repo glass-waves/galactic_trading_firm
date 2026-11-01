@@ -1,0 +1,8 @@
+{
+ "name": "long-2026/c5_vpin",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/long-2026/c5_vpin.json"
+ ],
+ "note": "a1 + VPIN >= 0.217 | twin = shorts without the VPIN floor"
+}

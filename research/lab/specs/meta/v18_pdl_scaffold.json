@@ -1,0 +1,1 @@
+{"name": "meta/v18_pdl_scaffold", "config_id": 12, "patches": ["research/lab/patches/meta/v18_pdl_scaffold.json"], "note": "scaffold: v18 + weight-0 pdl_5m only; must equal base/v18"}

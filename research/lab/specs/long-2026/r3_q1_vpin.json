@@ -1,0 +1,10 @@
+{
+ "name": "long-2026/r3_q1_vpin",
+ "config_id": 23,
+ "lookback": 22,
+ "tickers": "AAPL,AMZN,NVDA,MSFT",
+ "patches": [
+  "research/lab/patches/long-2026/r3_q1_vpin.json"
+ ],
+ "note": "q1 + VPIN >= 0.217"
+}

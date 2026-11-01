@@ -1,0 +1,15 @@
+{
+ "indicators": [
+  {
+   "instance_id": "bb_bw_20_1hr",
+   "indicator_type": "bollinger_bandwidth",
+   "timescale": "OneHour",
+   "weight": 0.1,
+   "enabled": false,
+   "params": {
+    "period": 20,
+    "std_dev": 2.0
+   }
+  }
+ ]
+}

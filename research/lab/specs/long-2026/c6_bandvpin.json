@@ -1,0 +1,8 @@
+{
+ "name": "long-2026/c6_bandvpin",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/long-2026/c6_bandvpin.json"
+ ],
+ "note": "a1 + band + VPIN (the full v18 filter mirror) | twin = shorts with neither"
+}

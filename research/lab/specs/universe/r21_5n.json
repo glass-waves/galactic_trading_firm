@@ -1,0 +1,1 @@
+{"name": "universe/r21_5n", "config_id": 21, "tickers": "AAPL,AMZN,NVDA,MSFT,LLY", "note": "row-21 engine on the four + LLY; sliced by ticker for the 4-name, no-AAPL and LLY-swap books (tickers replay independently)"}

@@ -1,0 +1,9 @@
+{
+ "name": "signals-new/vol_r20_o05_vpin",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/signals-new/vol_r20_o05_vpin.json"
+ ],
+ "tickers": "AMZN,AAPL,NVDA,MSFT",
+ "note": "vol_r20_o05 + VPIN floor"
+}

@@ -1,0 +1,10 @@
+{
+ "name": "frontier/scaffold",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/frontier/scaffold.json"
+ ],
+ "args": [],
+ "note": "frontier: scaffold (v18 as _am windows)",
+ "_params": {}
+}

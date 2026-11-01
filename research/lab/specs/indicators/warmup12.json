@@ -1,0 +1,7 @@
+{
+ "name": "indicators/warmup12",
+ "config_id": 12,
+ "patches": [],
+ "note": "warm-up 12 calendar days instead of 8 (RQ-14)",
+ "lookback": 12
+}

@@ -1,0 +1,1 @@
+{"name": "universe/u8", "config_id": 12, "tickers": "AAPL,AMZN,NVDA,MSFT,LLY,JPM,PLTR,TSLA", "note": "v18 basket: baseline four + top-4 new names by 2023_25h1 P&L (n>=15). reported numbers are the union of the single-name cells (tickers replay independently, verified trade-for-trade by v18_lly) with a post-hoc 3-concurrent / 95%-deployed cap; not run as its own cell"}

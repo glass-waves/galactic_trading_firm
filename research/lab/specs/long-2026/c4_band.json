@@ -1,0 +1,8 @@
+{
+ "name": "long-2026/c4_band",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/long-2026/c4_band.json"
+ ],
+ "note": "a1 + SPY-flat band (cross_1m in [-0.4,0.4]) | twin = shorts without the band"
+}

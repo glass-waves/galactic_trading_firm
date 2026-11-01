@@ -1,0 +1,8 @@
+{
+ "name": "long-2026/a2_bull_adx20",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/long-2026/a2_bull_adx20.json"
+ ],
+ "note": "longs + st bullish + signed ADX >= 0.2 | shorts mirror"
+}

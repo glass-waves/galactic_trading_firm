@@ -1,0 +1,10 @@
+{
+ "name": "long-2026/t1_r3_short_twin",
+ "config_id": 23,
+ "lookback": 22,
+ "tickers": "AAPL,AMZN,NVDA,MSFT",
+ "patches": [
+  "research/lab/patches/long-2026/t1_r3_short_twin.json"
+ ],
+ "note": "short twin of r3: im short (pos<=-1, below VWAP, day_move>=1.5) + VPIN>=0.217"
+}

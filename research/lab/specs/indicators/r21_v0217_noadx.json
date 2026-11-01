@@ -1,0 +1,9 @@
+{
+ "name": "indicators/r21_v0217_noadx",
+ "config_id": 21,
+ "patches": [
+  "research/lab/patches/indicators/r21_v020_noadx.json"
+ ],
+ "args": [],
+ "note": "row 21 at its own VPIN 0.217 (= meta/cand45_r21) with ADX off: VPIN neighbour of r21_v020_noadx"
+}

@@ -1,0 +1,8 @@
+{
+ "name": "long-2026/a0_legacy",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/long-2026/a0_legacy.json"
+ ],
+ "note": "row-12 long windows re-enabled as-is (legacy 1h) | shorts = v18"
+}

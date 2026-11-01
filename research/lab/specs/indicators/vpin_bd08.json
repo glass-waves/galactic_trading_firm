@@ -1,0 +1,8 @@
+{
+ "name": "indicators/vpin_bd08",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/indicators/vpin_bd08.json"
+ ],
+ "note": "bucket_divisor 0.8: code says inert (bucket_volume only used in an epsilon check) - proof run"
+}

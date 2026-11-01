@@ -1,0 +1,8 @@
+{
+ "name": "long-2026/s0_scaffold",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/long-2026/s0_scaffold.json"
+ ],
+ "note": "scaffold: v18 + weight-0 st1h_std/adx1h_s/gap_1m, long windows still disabled; must equal base/v18"
+}

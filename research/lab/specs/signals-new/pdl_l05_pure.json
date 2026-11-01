@@ -1,0 +1,9 @@
+{
+ "name": "signals-new/pdl_l05_pure",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/signals-new/pdl_l05_pure.json"
+ ],
+ "tickers": "AMZN,AAPL,NVDA,MSFT",
+ "note": "pure break: within 0.5% below prior low, SPY band, VPIN; no score condition"
+}

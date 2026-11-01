@@ -1,0 +1,1 @@
+{"name": "universe/sel_q", "config_id": 12, "tickers": "LLY,MSFT,NFLX,NVDA,PLTR", "note": "v18 basket: names positive on 2023_25h1 with >=30 trades and PF>=1.2 (selected in-sample). reported numbers are the union of the single-name cells (tickers replay independently, verified trade-for-trade by v18_lly) with a post-hoc 3-concurrent / 95%-deployed cap; not run as its own cell"}

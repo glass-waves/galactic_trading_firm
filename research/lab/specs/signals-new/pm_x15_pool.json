@@ -1,0 +1,9 @@
+{
+ "name": "signals-new/pm_x15_pool",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/signals-new/pm_x15_pool.json"
+ ],
+ "tickers": "AAPL,ABBV,ADBE,AMAT,AMD,AMZN,AVGO,CAT,COIN,COST,CRM,CVX,GS,HD,JPM,LLY,MA,META,MRK,MSFT,MU,NFLX,NVDA,ORCL,PG,PLTR,QCOM,SHOP,TSLA,TXN,UBER,UNH,V,XOM",
+ "note": "fade-only (v18 windows off): |dist| >= 1.5% at 12:30, hold 60, both sides, 34-name pool (added population)"
+}

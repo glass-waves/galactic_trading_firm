@@ -1,0 +1,8 @@
+{
+ "name": "indicators/scaffold",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/indicators/scaffold.json"
+ ],
+ "note": "re-creates v18's two short windows in place; must match base/v18 trade for trade"
+}

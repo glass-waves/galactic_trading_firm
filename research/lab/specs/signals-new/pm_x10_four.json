@@ -1,0 +1,9 @@
+{
+ "name": "signals-new/pm_x10_four",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/signals-new/pm_x10_four.json"
+ ],
+ "tickers": "AMZN,AAPL,NVDA,MSFT",
+ "note": "scaffold + afternoon VWAP fade, |dist| >= 1.0% at 12:30, hold 60, both sides, 4 home names (combined book)"
+}

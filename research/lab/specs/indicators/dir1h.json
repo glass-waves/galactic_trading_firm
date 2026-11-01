@@ -1,0 +1,8 @@
+{
+ "name": "indicators/dir1h",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/indicators/dir1h.json"
+ ],
+ "note": "(a)+(b) = research/dir1h/dir1h.patch.json; v18 gates unchanged"
+}

@@ -1,0 +1,9 @@
+{
+ "name": "signals-new/gap_g05_loose",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/signals-new/gap_g05_loose.json"
+ ],
+ "tickers": "AMZN,AAPL,NVDA,MSFT",
+ "note": "v18 + gap-fade short: gap >= 0.5%, below open, SPY <= +0.2% (session) and <= +0.3% vs prior close, 5m <= -0.3, comp <= -0.25, to 10:30"
+}

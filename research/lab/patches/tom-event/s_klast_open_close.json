@@ -1,0 +1,136 @@
+{
+ "disable": [
+  "window_5m_thrust_short",
+  "window_strong_core_short",
+  "reject_1m_noise",
+  "reject_1m_noise_short",
+  "breakeven",
+  "trailing_stop_atr"
+ ],
+ "indicators": [
+  {
+   "instance_id": "tom_cal",
+   "indicator_type": "event_calendar",
+   "timescale": "OneMinute",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "dates": [
+     "2022-01-31",
+     "2022-02-28",
+     "2022-03-31",
+     "2022-04-29",
+     "2022-05-31",
+     "2022-06-30",
+     "2022-07-29",
+     "2022-08-31",
+     "2022-09-30",
+     "2022-10-31",
+     "2022-11-30",
+     "2022-12-30",
+     "2023-01-31",
+     "2023-02-28",
+     "2023-03-31",
+     "2023-04-28",
+     "2023-05-31",
+     "2023-06-30",
+     "2023-07-31",
+     "2023-08-31",
+     "2023-09-29",
+     "2023-10-31",
+     "2023-11-30",
+     "2023-12-29",
+     "2024-01-31",
+     "2024-02-29",
+     "2024-03-28",
+     "2024-04-30",
+     "2024-05-31",
+     "2024-06-28",
+     "2024-07-31",
+     "2024-08-30",
+     "2024-09-30",
+     "2024-10-31",
+     "2024-11-29",
+     "2024-12-31",
+     "2025-01-31",
+     "2025-02-28",
+     "2025-03-31",
+     "2025-04-30",
+     "2025-05-30",
+     "2025-06-30",
+     "2025-07-31",
+     "2025-08-29",
+     "2025-09-30",
+     "2025-10-31",
+     "2025-11-28",
+     "2025-12-31",
+     "2026-01-30",
+     "2026-02-27",
+     "2026-03-31",
+     "2026-04-30",
+     "2026-05-29",
+     "2026-06-30",
+     "2026-07-31",
+     "2026-08-31",
+     "2026-09-30",
+     "2026-10-30",
+     "2026-11-30",
+     "2026-12-31"
+    ]
+   }
+  }
+ ],
+ "actions": [
+  {
+   "instance_id": "window_tom_long",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 5,
+   "enabled": true,
+   "params": {
+    "name": "tom long",
+    "direction": "long",
+    "conditions": [
+     {
+      "type": "indicator_max",
+      "instance_id": "tom_cal",
+      "max_score": 0.0
+     }
+    ],
+    "entry_after": "09:30",
+    "entry_before": "09:35",
+    "exit_overrides": {
+     "force_exit_by": "15:55",
+     "max_hold_ms": 23400000,
+     "score_exit_threshold": -2.0
+    }
+   }
+  },
+  {
+   "instance_id": "hard_stop",
+   "action_type": "fixed_pct_stop",
+   "phase": "Exit",
+   "priority": 1,
+   "enabled": true,
+   "params": {
+    "stop_loss_pct": 0.025
+   }
+  },
+  {
+   "instance_id": "exit_session",
+   "action_type": "session_close",
+   "phase": "Exit",
+   "priority": 0,
+   "enabled": true,
+   "params": {
+    "force_exit_by": "15:55"
+   }
+  }
+ ],
+ "session": {
+  "no_new_entries_after": "09:35",
+  "force_exit_by": "15:55",
+  "max_concurrent_positions": 41,
+  "max_capital_deployed_pct": 0.95
+ }
+}

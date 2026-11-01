@@ -1,0 +1,39 @@
+{
+ "indicators": [
+  {
+   "instance_id": "st1h_std",
+   "indicator_type": "supertrend",
+   "timescale": "OneHour",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "period": 10,
+    "multiplier": 3.0,
+    "standard": true
+   }
+  },
+  {
+   "instance_id": "adx1h_s",
+   "indicator_type": "adx",
+   "timescale": "OneHour",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "period": 14,
+    "signed": true
+   }
+  },
+  {
+   "instance_id": "gap_1m",
+   "indicator_type": "gap",
+   "timescale": "OneMinute",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "scale_pct": 1.0
+   }
+  }
+ ],
+ "actions": [],
+ "disable": []
+}

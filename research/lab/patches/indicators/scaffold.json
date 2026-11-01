@@ -1,0 +1,93 @@
+{
+ "actions": [
+  {
+   "phase": "Entry",
+   "action_type": "entry_window",
+   "instance_id": "window_5m_thrust_short",
+   "enabled": true,
+   "priority": 11,
+   "params": {
+    "name": "5m thrust short",
+    "direction": "short",
+    "conditions": [
+     {
+      "type": "composite_max",
+      "max_score": -0.35
+     },
+     {
+      "type": "timescale_lag",
+      "lag_by": 0.1,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_max",
+      "max_score": -0.5,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_max",
+      "max_score": 0.0,
+      "timescale": "OneHour"
+     },
+     {
+      "type": "indicator_min",
+      "min_score": -0.4,
+      "instance_id": "cross_1m"
+     },
+     {
+      "type": "indicator_max",
+      "max_score": 0.4,
+      "instance_id": "cross_1m"
+     },
+     {
+      "type": "indicator_min",
+      "min_score": 0.217,
+      "instance_id": "vpin_1m.raw_vpin"
+     }
+    ]
+   }
+  },
+  {
+   "phase": "Entry",
+   "action_type": "entry_window",
+   "instance_id": "window_strong_core_short",
+   "enabled": true,
+   "priority": 21,
+   "params": {
+    "name": "strong core short",
+    "direction": "short",
+    "conditions": [
+     {
+      "type": "composite_max",
+      "max_score": -0.35
+     },
+     {
+      "type": "timescale_max",
+      "max_score": -0.4,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_max",
+      "max_score": -0.4,
+      "timescale": "OneHour"
+     },
+     {
+      "type": "indicator_min",
+      "min_score": -0.4,
+      "instance_id": "cross_1m"
+     },
+     {
+      "type": "indicator_max",
+      "max_score": 0.4,
+      "instance_id": "cross_1m"
+     },
+     {
+      "type": "indicator_min",
+      "min_score": 0.217,
+      "instance_id": "vpin_1m.raw_vpin"
+     }
+    ]
+   }
+  }
+ ]
+}

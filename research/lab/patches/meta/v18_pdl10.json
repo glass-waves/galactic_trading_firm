@@ -1,0 +1,115 @@
+{
+ "indicators": [
+  {
+   "indicator_type": "prior_day_levels",
+   "instance_id": "pdl_5m",
+   "timescale": "FiveMinute",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "scale_pct": 0.005
+   }
+  }
+ ],
+ "actions": [
+  {
+   "phase": "Entry",
+   "params": {
+    "name": "5m thrust short",
+    "direction": "short",
+    "conditions": [
+     {
+      "type": "composite_max",
+      "max_score": -0.35
+     },
+     {
+      "type": "timescale_lag",
+      "lag_by": 0.1,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_max",
+      "max_score": -0.5,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_max",
+      "max_score": 0.0,
+      "timescale": "OneHour"
+     },
+     {
+      "type": "indicator_min",
+      "min_score": -0.4,
+      "instance_id": "cross_1m"
+     },
+     {
+      "type": "indicator_max",
+      "max_score": 0.4,
+      "instance_id": "cross_1m"
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "pdl_5m.dist_low_pct",
+      "min_score": -1.0
+     },
+     {
+      "type": "indicator_min",
+      "min_score": 0.217,
+      "instance_id": "vpin_1m.raw_vpin"
+     }
+    ]
+   },
+   "enabled": true,
+   "priority": 11,
+   "action_type": "entry_window",
+   "instance_id": "window_5m_thrust_short"
+  },
+  {
+   "phase": "Entry",
+   "params": {
+    "name": "strong core short",
+    "direction": "short",
+    "conditions": [
+     {
+      "type": "composite_max",
+      "max_score": -0.35
+     },
+     {
+      "type": "timescale_max",
+      "max_score": -0.4,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_max",
+      "max_score": -0.4,
+      "timescale": "OneHour"
+     },
+     {
+      "type": "indicator_min",
+      "min_score": -0.4,
+      "instance_id": "cross_1m"
+     },
+     {
+      "type": "indicator_max",
+      "max_score": 0.4,
+      "instance_id": "cross_1m"
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "pdl_5m.dist_low_pct",
+      "min_score": -1.0
+     },
+     {
+      "type": "indicator_min",
+      "min_score": 0.217,
+      "instance_id": "vpin_1m.raw_vpin"
+     }
+    ]
+   },
+   "enabled": true,
+   "priority": 21,
+   "action_type": "entry_window",
+   "instance_id": "window_strong_core_short"
+  }
+ ]
+}

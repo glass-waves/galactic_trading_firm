@@ -1,0 +1,16 @@
+{
+ "name": "frontier/na_pm0",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/frontier/na_pm0.json"
+ ],
+ "args": [],
+ "note": "frontier: am_end=10:00, k=0.05, t1h_am=-0.1, vpin=0.2, noadx=1.0",
+ "_params": {
+  "am_end": "10:00",
+  "k": 0.05,
+  "t1h_am": -0.1,
+  "vpin": 0.2,
+  "noadx": 1.0
+ }
+}

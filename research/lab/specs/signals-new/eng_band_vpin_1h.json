@@ -1,0 +1,9 @@
+{
+ "name": "signals-new/eng_band_vpin_1h",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/signals-new/eng_band_vpin_1h.json"
+ ],
+ "tickers": "AMZN,AAPL,NVDA,MSFT",
+ "note": "eng_band_vpin + 1h <= 0"
+}

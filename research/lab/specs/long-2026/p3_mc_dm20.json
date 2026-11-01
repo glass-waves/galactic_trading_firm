@@ -1,0 +1,10 @@
+{
+ "name": "long-2026/p3_mc_dm20",
+ "config_id": 23,
+ "lookback": 22,
+ "tickers": "AAPL,AMZN,NVDA,MSFT",
+ "patches": [
+  "research/lab/patches/long-2026/p3_mc_dm20.json"
+ ],
+ "note": "p1 with day_move_pct>=2.0"
+}

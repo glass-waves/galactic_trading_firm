@@ -1,0 +1,179 @@
+{
+ "indicators": [
+  {
+   "instance_id": "noise",
+   "indicator_type": "noise_area",
+   "timescale": "OneMinute",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "band_mult": 1.0,
+    "gap_adjust": true,
+    "lookback_sessions": 14,
+    "decision_every_min": 30,
+    "decision_tolerance_min": 2
+   }
+  },
+  {
+   "instance_id": "st1h_std",
+   "indicator_type": "supertrend",
+   "timescale": "OneHour",
+   "weight": 0.0,
+   "enabled": true,
+   "params": {
+    "period": 10,
+    "multiplier": 3.0,
+    "standard": true
+   }
+  }
+ ],
+ "actions": [
+  {
+   "instance_id": "window_5m_thrust_short",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 11,
+   "enabled": true,
+   "params": {
+    "name": "5m thrust short",
+    "direction": "short",
+    "conditions": [
+     {
+      "type": "composite_max",
+      "max_score": -0.35
+     },
+     {
+      "type": "timescale_lag",
+      "lag_by": 0.1,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_max",
+      "timescale": "FiveMinute",
+      "max_score": -0.5
+     },
+     {
+      "type": "timescale_max",
+      "timescale": "OneHour",
+      "max_score": 0.0
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "cross_1m",
+      "min_score": -0.4
+     },
+     {
+      "type": "indicator_max",
+      "instance_id": "cross_1m",
+      "max_score": 0.4
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "vpin_1m.raw_vpin",
+      "min_score": 0.217
+     }
+    ],
+    "entry_before": "11:30"
+   }
+  },
+  {
+   "instance_id": "window_strong_core_short",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 21,
+   "enabled": true,
+   "params": {
+    "name": "strong core short",
+    "direction": "short",
+    "conditions": [
+     {
+      "type": "composite_max",
+      "max_score": -0.35
+     },
+     {
+      "type": "timescale_max",
+      "timescale": "FiveMinute",
+      "max_score": -0.4
+     },
+     {
+      "type": "timescale_max",
+      "timescale": "OneHour",
+      "max_score": -0.4
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "cross_1m",
+      "min_score": -0.4
+     },
+     {
+      "type": "indicator_max",
+      "instance_id": "cross_1m",
+      "max_score": 0.4
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "vpin_1m.raw_vpin",
+      "min_score": 0.217
+     }
+    ],
+    "entry_before": "11:30"
+   }
+  },
+  {
+   "instance_id": "window_im_long",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 10,
+   "enabled": true,
+   "params": {
+    "name": "im long",
+    "direction": "long",
+    "conditions": [
+     {
+      "type": "indicator_min",
+      "instance_id": "noise.decision",
+      "min_score": 0.5
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "noise.pos",
+      "min_score": 1.0
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "noise.vwap_pct",
+      "min_score": 0.0
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "noise.day_move_pct",
+      "min_score": 1.5
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "vpin_1m.raw_vpin",
+      "min_score": 0.217
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "st1h_std.is_bullish",
+      "min_score": 0.5
+     }
+    ],
+    "entry_after": "11:59",
+    "entry_before": "15:30",
+    "exit_overrides": {
+     "max_hold_ms": 25200000,
+     "force_exit_by": "15:58",
+     "score_exit_threshold": -1000000000.0
+    }
+   }
+  }
+ ],
+ "disable": [
+  "exit_session"
+ ],
+ "session": {
+  "no_new_entries_after": "15:30"
+ }
+}

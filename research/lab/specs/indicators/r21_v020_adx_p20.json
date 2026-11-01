@@ -1,0 +1,18 @@
+{
+ "name": "indicators/r21_v020_adx_p20",
+ "config_id": 21,
+ "patches": [
+  "research/lab/patches/indicators/r21_v020_adx_p20.json"
+ ],
+ "args": [
+  "--set-action-param",
+  "window_5m_thrust_short_am:conditions/6/min_score=0.20",
+  "--set-action-param",
+  "window_strong_core_short_am:conditions/5/min_score=0.20",
+  "--set-action-param",
+  "window_5m_thrust_short_pm:conditions/6/min_score=0.20",
+  "--set-action-param",
+  "window_strong_core_short_pm:conditions/5/min_score=0.20"
+ ],
+ "note": "r21_v020_adx neighbour: signed ADX period 20"
+}

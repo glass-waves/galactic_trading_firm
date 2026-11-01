@@ -1,0 +1,9 @@
+{
+ "name": "signals-new/pdl_l10",
+ "config_id": 12,
+ "patches": [
+  "research/lab/patches/signals-new/pdl_l10.json"
+ ],
+ "tickers": "AMZN,AAPL,NVDA,MSFT",
+ "note": "as pdl_l05 within 1.0% below"
+}

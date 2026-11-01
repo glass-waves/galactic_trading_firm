@@ -1,0 +1,10 @@
+{
+ "name": "long-2026/q1_dm15_long",
+ "config_id": 23,
+ "lookback": 22,
+ "tickers": "AAPL,AMZN,NVDA,MSFT",
+ "patches": [
+  "research/lab/patches/long-2026/q1_dm15_long.json"
+ ],
+ "note": "afternoon noise-area breakout LONG only, day_move_pct>=1.5, AAPL AMZN NVDA MSFT (row 23 exits)"
+}
