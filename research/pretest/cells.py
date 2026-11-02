@@ -698,3 +698,65 @@ CELLS.append(
      "verdict_fn": standard_verdict(4, 1.3), "verdict": cell_verdict,
      "extra": calendar_control([(f"k=2 {s} open->close", s, tom_day_k_window, {"k": 2, "t_in": 0, "t_out": 390}, oc(390))
                                 for s in ("QQQ", "SPY")])})
+
+# ------------------------------------------------------------------ 16. turn-of-month day +2: quarter-turn stratification and mid-month placebo (#17, ideate 2026-11-01)
+# PRE-REGISTRATION (written before the first run): c11/c15 found day +2 open->close on QQQ/SPY/pools. two questions the
+# earlier cells cannot answer: (a) is it a calendar-flow effect (pension/quarter-turn rebalancing: should be stronger in
+# the first month of a quarter, Jan/Apr/Jul/Oct) or a generic drift of the 2022-26 sample? (b) does a placebo session
+# deep in the month (k=10..12, no flow story) show the same return? if the placebo matches day +2, the "edge" is sample drift.
+def tom_day_k_months(b, i, p):
+    """long open->close on session k of the month, restricted to a month set (None = all months)."""
+    if tom_day(b, i) != p["k"]:
+        return []
+    if p["months"] is not None and b.dates[i].month not in p["months"]:
+        return []
+    return [Order(i, 0, 1, i, 390)]
+
+
+QTR_START = (1, 4, 7, 10)
+OTHER_MONTHS = (2, 3, 5, 6, 8, 9, 11, 12)
+
+CELLS.append(
+    {"id": "c16_tom_day2_quarter", "anomaly": "#17 turn-of-month day +2: quarter-turn stratification and mid-month placebo (Ariel; McConnell-Xu; ideate 2026-11-01)",
+     "instruments": ["QQQ", "SPY", FOUR, ALL34],
+     "kill_text": K45 + " on the primary point (k=2, open->close, new-quarter months only, pooled 34-name book). "
+                  "pre-registered neighbourhood: k=2 in {Jan/Apr/Jul/Oct}, k=2 in the other 8 months, k in {10, 11, 12} placebo (all months), "
+                  "instruments = QQQ/SPY + the 4 mega-caps pooled + the 34-name pool. a calendar-flow story requires the "
+                  "new-quarter stratum >= the other-months stratum AND every placebo k to fail the bar (PF <= 1.3 or < 4/5 yrs) on "
+                  "the same instrument; if any placebo k passes, c11/c15 are sample drift -> downgrade. index strata have only "
+                  "~20 (new-quarter) / ~38 (other) trades, so a pass on QQQ/SPY alone is fragile by construction; the verdict is "
+                  "read on the pools. expected ~4-8 trades/yr/index stratum (~130-270/yr pooled stocks)",
+     "variants": [
+         {"name": "long open->close, day +2, new-quarter months", "rule": tom_day_k_months,
+          "grid": [{"k": 2, "months": QTR_START}]},
+         {"name": "long open->close, day +2, other months", "rule": tom_day_k_months,
+          "grid": [{"k": 2, "months": OTHER_MONTHS}]},
+         {"name": "long open->close, mid-month placebo", "rule": tom_day_k_months,
+          "grid": [{"k": 10, "months": None}, {"k": 11, "months": None}, {"k": 12, "months": None}]}],
+     "verdict_fn": standard_verdict(4, 1.3), "verdict": cell_verdict})
+
+# ------------------------------------------------------------------ 17. turn-of-month day +2: weekday confound (#17 / #21, ideate 2026-11-01)
+# PRE-REGISTRATION (written before the first run): day +2 lands on a different weekday each month. #21 (Monday effect) is
+# decayed, but a weekday mix skewed to Tue/Thu in this sample could masquerade as a calendar edge. split c15's open->close
+# day +2 trade into Mon/Fri vs Tue/Wed/Thu sessions; a real month-position effect must clear the bar in both strata on
+# the pools (strata are too thin on single index ETFs, so those are the cell's controls, not its verdict).
+def tom_day_k_dow(b, i, p):
+    if tom_day(b, i) != p["k"] or b.dates[i].weekday() not in p["dow"]:
+        return []
+    return [Order(i, 0, 1, i, 390)]
+
+
+CELLS.append(
+    {"id": "c17_tom_day2_weekday", "anomaly": "#17 turn-of-month day +2 weekday-mix confound (cf. #21 Monday effect; ideate 2026-11-01)",
+     "instruments": [FOUR, ALL34, "QQQ"],
+     "kill_text": K45 + " on the primary point (k=2, open->close, Tue/Wed/Thu stratum, pooled 34-name book). pre-registered "
+                  "neighbourhood: k in {2, 3} x weekday stratum {Mon/Fri, Tue/Wed/Thu}, instruments = 4 mega-caps pooled + "
+                  "34-name pool + QQQ (QQQ strata ~20-35 trades: control only). a month-position effect must pass in BOTH "
+                  "weekday strata on the 34-name pool (PF > 1.3, >= 4/5 yrs positive each); one stratum carrying all of "
+                  "it means a weekday artefact -> downgrade c11/c15. expected ~100-190 trades/yr/stratum pooled stocks",
+     "variants": [
+         {"name": "long open->close, Mon/Fri sessions", "rule": tom_day_k_dow,
+          "grid": [{"k": 2, "dow": (0, 4)}, {"k": 3, "dow": (0, 4)}]},
+         {"name": "long open->close, Tue/Wed/Thu sessions", "rule": tom_day_k_dow,
+          "grid": [{"k": 2, "dow": (1, 2, 3)}, {"k": 3, "dow": (1, 2, 3)}]}],
+     "verdict_fn": standard_verdict(4, 1.3), "verdict": cell_verdict})
