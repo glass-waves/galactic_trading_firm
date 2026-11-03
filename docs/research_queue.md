@@ -159,7 +159,7 @@ command: BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rq11_tom --sizing-fr
 accept if: net bps within 3 bps of the pretest, PF > 1.3, ≥ 4/5 years.
 caveat (human decision before any proposal): the standalone-strategy gate's `combined_active_days ≥ 1.25 × base` needs ≈ 81 extra active days and this rule adds at most ≈ 58, so it fails by construction; either an `event-strategy` gate variant without that clause, or run it as a shadow ticker-set on its own.
 
-### RQ-12 scale-free MACD phase B: `normalization_pct` sweep   status: approved from 2026-11-02
+### RQ-12 scale-free MACD phase B: `normalization_pct` sweep   status: done
 proposed: 2026-10-29 by claude (engine-numerics audit: on 2022-05-05 AMZN at $2,338 had macd_5min pinned at ±1 on 75 % of bars; pre-split AMZN/NVDA are 116 of 470 trades but 48 % of the e_v17_lag1 P&L, $10.7/trade vs $3.8 for the rest — the live regime looks like the $3.8 half)
 hypothesis: scoring the 5m/1m histogram against a fraction of price (`normalization_pct`, added 2026-10-29, default off) keeps the record's edge at today's price levels, i.e. PF ≥ 1.4 ex-2022 is not reached but the ex-best-year PF does not fall below cand_44's 1.27, and the pit/adj replays agree within 1 %.
 why now: RQ-8 showed the 1 %-of-close bracket switches the MACD off (|score| 0.21 → 0.04). at ~$300 the $1 norm equals 0.33 % of price, so the fair bracket is 0.3–0.7 %.
@@ -167,7 +167,84 @@ cost: 4 five-year sweeps ≈ 20 min. patch files research/macd/pct_<k>.patch.jso
 command: for k in 0.003 0.004 0.005 0.007; do BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rq12_pct$k --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --patch-json research/macd/pct_$k.patch.json; done; python3 research/entries/summarize.py iex_v18 rq12_pct0.003 rq12_pct0.004 rq12_pct0.005 rq12_pct0.007
 accept if: the k closest to today's effective scale (0.0033) reproduces 2026's trade count within 15 % of iex_v18's 75 AND its 2022 share of P&L falls below 50 % AND ex-best-year PF ≥ 1.25; then the adj-vs-pit invariance check (RQ-8's two-sweep form) on that k.
 next: propose the winner with gate quality-config and `--cells-scanned 4`; it is a candidate for the RQ-14 restatement baseline.
-
+result: ran 2026-11-02 20:00 PT, 18 min
+```
+== rq12_pct0.003: 5y    +1376 n= 515 win=  36% PF=1.24 dd=  -588
+   2022     +818 n= 113 win=  38% PF=1.66 dd=  -390
+   2023      -11 n= 120 win=  32% PF=0.99 dd=  -252
+   2024     -111 n= 110 win=  36% PF=0.91 dd=  -281
+   2025     +375 n=  97 win=  38% PF=1.36 dd=  -211
+   2026     +305 n=  75 win=  36% PF=1.41 dd=  -131
+== rq12_pct0.004: 5y    +1628 n= 421 win=  38% PF=1.35 dd=  -513
+   2022     +919 n=  98 win=  43% PF=1.95 dd=  -351
+   2023     -132 n=  96 win=  32% PF=0.89 dd=  -304
+   2024      +17 n=  88 win=  38% PF=1.02 dd=  -313
+   2025     +389 n=  78 win=  38% PF=1.45 dd=  -181
+   2026     +435 n=  61 win=  39% PF=1.82 dd=  -102
+== rq12_pct0.005: 5y    +1304 n= 366 win=  37% PF=1.32 dd=  -712
+   2022    +1152 n=  86 win=  45% PF=2.56 dd=  -313
+   2023     -268 n=  85 win=  31% PF=0.75 dd=  -373
+   2024     -115 n=  79 win=  35% PF=0.89 dd=  -271
+   2025     +174 n=  63 win=  38% PF=1.24 dd=  -173
+   2026     +361 n=  53 win=  38% PF=1.77 dd=   -84
+== rq12_pct0.007: 5y     +541 n= 294 win=  37% PF=1.15 dd=  -824
+   2022     +699 n=  73 win=  47% PF=1.83 dd=  -369
+   2023     -332 n=  64 win=  27% PF=0.64 dd=  -414
+   2024      -19 n=  67 win=  36% PF=0.98 dd=  -271
+   2025      +77 n=  50 win=  36% PF=1.12 dd=  -203
+   2026     +116 n=  40 win=  38% PF=1.31 dd=  -115
+--- command output ---
+[rq12_pct0.003] done: 260 days, 0 skipped
+[rq12_pct0.003] done: 260 days, 0 skipped
+[rq12_pct0.003] done: 262 days, 0 skipped
+[rq12_pct0.003] done: 261 days, 0 skipped
+[rq12_pct0.003] done: 181 days, 0 skipped
+[rq12_pct0.004] done: 260 days, 0 skipped
+[rq12_pct0.004] done: 260 days, 0 skipped
+[rq12_pct0.004] done: 262 days, 0 skipped
+[rq12_pct0.004] done: 261 days, 0 skipped
+[rq12_pct0.004] done: 181 days, 0 skipped
+[rq12_pct0.005] done: 260 days, 0 skipped
+[rq12_pct0.005] done: 260 days, 0 skipped
+[rq12_pct0.005] done: 262 days, 0 skipped
+[rq12_pct0.005] done: 261 days, 0 skipped
+[rq12_pct0.005] done: 181 days, 0 skipped
+[rq12_pct0.007] done: 260 days, 0 skipped
+[rq12_pct0.007] done: 260 days, 0 skipped
+[rq12_pct0.007] done: 262 days, 0 skipped
+[rq12_pct0.007] done: 261 days, 0 skipped
+[rq12_pct0.007] done: 181 days, 0 skipped
+== iex_v18: 5y    +1829 n= 434 win=  39% PF=1.40 dd=  -469
+   2022    +1089 n=  87 win=  45% PF=2.36 dd=  -291
+   2023       -3 n=  91 win=  33% PF=1.00 dd=  -250
+   2024      -17 n= 101 win=  39% PF=0.99 dd=  -331
+   2025     +332 n=  80 win=  41% PF=1.41 dd=  -179
+   2026     +429 n=  75 win=  39% PF=1.67 dd=  -124
+== rq12_pct0.003: 5y    +1376 n= 515 win=  36% PF=1.24 dd=  -588
+   2022     +818 n= 113 win=  38% PF=1.66 dd=  -390
+   2023      -11 n= 120 win=  32% PF=0.99 dd=  -252
+   2024     -111 n= 110 win=  36% PF=0.91 dd=  -281
+   2025     +375 n=  97 win=  38% PF=1.36 dd=  -211
+   2026     +305 n=  75 win=  36% PF=1.41 dd=  -131
+== rq12_pct0.004: 5y    +1628 n= 421 win=  38% PF=1.35 dd=  -513
+   2022     +919 n=  98 win=  43% PF=1.95 dd=  -351
+   2023     -132 n=  96 win=  32% PF=0.89 dd=  -304
+   2024      +17 n=  88 win=  38% PF=1.02 dd=  -313
+   2025     +389 n=  78 win=  38% PF=1.45 dd=  -181
+   2026     +435 n=  61 win=  39% PF=1.82 dd=  -102
+== rq12_pct0.005: 5y    +1304 n= 366 win=  37% PF=1.32 dd=  -712
+   2022    +1152 n=  86 win=  45% PF=2.56 dd=  -313
+   2023     -268 n=  85 win=  31% PF=0.75 dd=  -373
+   2024     -115 n=  79 win=  35% PF=0.89 dd=  -271
+   2025     +174 n=  63 win=  38% PF=1.24 dd=  -173
+   2026     +361 n=  53 win=  38% PF=1.77 dd=   -84
+== rq12_pct0.007: 5y     +541 n= 294 win=  37% PF=1.15 dd=  -824
+   2022     +699 n=  73 win=  47% PF=1.83 dd=  -369
+   2023     -332 n=  64 win=  27% PF=0.64 dd=  -414
+   2024      -19 n=  67 win=  36% PF=0.98 dd=  -271
+   2025      +77 n=  50 win=  36% PF=1.12 dd=  -203
+   2026     +116 n=  40 win=  38% PF=1.31 dd=  -115
+```
 ### RQ-13 a directional 1h sum: standard supertrend + signed ADX   status: approved from 2026-11-03
 proposed: 2026-10-29 by claude (engine-numerics audit: `supertrend` never turns bearish — is_bullish = 1 on 100 % of 10.7k dumped bars incl. −2.8 % and −3.5 % days — and `adx` is scored direction-free, so 60 % of the 1h weight is a +0.125 offset; the short windows' `s1h ≤ 0` gate passes 40.5 % of bars where the directional part alone would pass 59.9 %)
 hypothesis: with `supertrend.standard: true` and `adx.signed: true` (both added 2026-10-29, defaults unchanged) the 1h gate admits more genuine down-trends; trades rise toward 500 with PF ≥ 1.4 after the thresholds are re-fitted.
