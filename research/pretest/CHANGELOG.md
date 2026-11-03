@@ -8,3 +8,5 @@ reasoning is in `research/pretest/results/<cell>.json` (`verdict_text`).
 - 2026-10-30 `c05_earnings_gap`: pass-pretest -> fragile — fade the gap from the open on AAPL+AMZN+MSFT+NVDA: grid mode=fade,exit=390: PF 1.36, 3/5 years; LOYO +392 (3/5) -> engine study worth it | downgraded (controls): LOYO +392 (3/5) fails the 4/5 bar
 - 2026-10-30 `c11_tom_day_of_cycle`: pass-pretest -> fragile — long open->close on session k of the month on QQQ: PF 1.73, 4/5 years -> engine study worth it | downgraded (controls): LOYO +154 (3/5) fails the 4/5 bar
 - 2026-10-30 `c15_tom_day2_window`: pass-pretest -> fragile — long open->close on session k of the month on QQQ: PF 1.73, 4/5 years -> engine study worth it | downgraded (controls): LOYO +154 (3/5) fails the 4/5 bar
+- 2026-11-02 `c16_tom_day2_quarter`: new -> pass-pretest — long open->close, day +2, new-quarter months on SPY: PF 2.80, 4/5 years (home QQQ fails) -> engine study worth it
+- 2026-11-02 `c17_tom_day2_weekday`: new -> fragile — long open->close, Mon/Fri sessions on QQQ: PF 1.50, 4/5 years (home AAPL+AMZN+MSFT+NVDA fails) -> engine study worth it | downgraded (controls): LOYO -107 (2/5) fails the 4/5 bar
