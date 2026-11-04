@@ -245,14 +245,74 @@ result: ran 2026-11-02 20:00 PT, 18 min
    2025      +77 n=  50 win=  36% PF=1.12 dd=  -203
    2026     +116 n=  40 win=  38% PF=1.31 dd=  -115
 ```
-### RQ-13 a directional 1h sum: standard supertrend + signed ADX   status: approved from 2026-11-03
+### RQ-13 a directional 1h sum: standard supertrend + signed ADX   status: done
 proposed: 2026-10-29 by claude (engine-numerics audit: `supertrend` never turns bearish — is_bullish = 1 on 100 % of 10.7k dumped bars incl. −2.8 % and −3.5 % days — and `adx` is scored direction-free, so 60 % of the 1h weight is a +0.125 offset; the short windows' `s1h ≤ 0` gate passes 40.5 % of bars where the directional part alone would pass 59.9 %)
 hypothesis: with `supertrend.standard: true` and `adx.signed: true` (both added 2026-10-29, defaults unchanged) the 1h gate admits more genuine down-trends; trades rise toward 500 with PF ≥ 1.4 after the thresholds are re-fitted.
 cost: 3 five-year sweeps ≈ 15 min (patch alone; then the 1h threshold neighbourhood).
 command: BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rq13_dir1h --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --patch-json research/dir1h/dir1h.patch.json; BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rq13_dir1h_m04 --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --patch-json research/dir1h/dir1h.patch.json --set-action-param window_5m_thrust_short:conditions/3/max_score=-0.4; BARS_DIR=data/bars_iex scripts/run_cached_sweep.sh rq13_dir1h_p02 --sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY --patch-json research/dir1h/dir1h.patch.json --set-action-param window_5m_thrust_short:conditions/3/max_score=0.2; python3 research/entries/summarize.py iex_v18 rq13_dir1h rq13_dir1h_m04 rq13_dir1h_p02
 accept if: any cell with PF ≥ 1.40, trades ≥ 434, ex-best-year PF ≥ 1.25 and the paired day-bootstrap lower 90 % bound of the P&L difference vs iex_v18 > 0.
 next: an agent writes research/dir1h/dir1h.patch.json before the run (replace the 1h supertrend and adx instances of row 12 in place with the two flags; verify on one day with --dump-ticks that is_bullish takes both values). the windows' `timescale_max OneHour` condition index (3 for the thrust window) must be checked against row 12 first.
-
+result: ran 2026-11-03 20:00 PT, 13 min
+```
+== rq13_dir1h: 5y     +983 n= 744 win=  34% PF=1.11 dd=  -957
+   2022     +997 n= 167 win=  39% PF=1.52 dd=  -239
+   2023     -272 n= 155 win=  30% PF=0.85 dd=  -411
+   2024     -392 n= 164 win=  32% PF=0.82 dd=  -549
+   2025     +398 n= 124 win=  37% PF=1.30 dd=  -211
+   2026     +253 n= 134 win=  32% PF=1.17 dd=  -245
+== rq13_dir1h_m04: 5y     +971 n= 636 win=  33% PF=1.13 dd=  -680
+   2022    +1029 n= 150 win=  40% PF=1.58 dd=  -300
+   2023     -250 n= 122 win=  29% PF=0.82 dd=  -348
+   2024     -218 n= 142 win=  32% PF=0.89 dd=  -367
+   2025     +268 n= 110 win=  35% PF=1.23 dd=  -203
+   2026     +141 n= 112 win=  30% PF=1.10 dd=  -268
+== rq13_dir1h_p02: 5y    +1286 n= 760 win=  34% PF=1.15 dd=  -797
+   2022    +1108 n= 171 win=  41% PF=1.58 dd=  -239
+   2023     -203 n= 155 win=  30% PF=0.88 dd=  -366
+   2024     -309 n= 168 win=  32% PF=0.86 dd=  -473
+   2025     +450 n= 129 win=  38% PF=1.33 dd=  -207
+   2026     +240 n= 137 win=  31% PF=1.16 dd=  -234
+--- command output ---
+[rq13_dir1h] done: 260 days, 0 skipped
+[rq13_dir1h] done: 260 days, 0 skipped
+[rq13_dir1h] done: 262 days, 0 skipped
+[rq13_dir1h] done: 261 days, 0 skipped
+[rq13_dir1h] done: 181 days, 0 skipped
+[rq13_dir1h_m04] done: 260 days, 0 skipped
+[rq13_dir1h_m04] done: 260 days, 0 skipped
+[rq13_dir1h_m04] done: 262 days, 0 skipped
+[rq13_dir1h_m04] done: 261 days, 0 skipped
+[rq13_dir1h_m04] done: 181 days, 0 skipped
+[rq13_dir1h_p02] done: 260 days, 0 skipped
+[rq13_dir1h_p02] done: 260 days, 0 skipped
+[rq13_dir1h_p02] done: 262 days, 0 skipped
+[rq13_dir1h_p02] done: 261 days, 0 skipped
+[rq13_dir1h_p02] done: 181 days, 0 skipped
+== iex_v18: 5y    +1829 n= 434 win=  39% PF=1.40 dd=  -469
+   2022    +1089 n=  87 win=  45% PF=2.36 dd=  -291
+   2023       -3 n=  91 win=  33% PF=1.00 dd=  -250
+   2024      -17 n= 101 win=  39% PF=0.99 dd=  -331
+   2025     +332 n=  80 win=  41% PF=1.41 dd=  -179
+   2026     +429 n=  75 win=  39% PF=1.67 dd=  -124
+== rq13_dir1h: 5y     +983 n= 744 win=  34% PF=1.11 dd=  -957
+   2022     +997 n= 167 win=  39% PF=1.52 dd=  -239
+   2023     -272 n= 155 win=  30% PF=0.85 dd=  -411
+   2024     -392 n= 164 win=  32% PF=0.82 dd=  -549
+   2025     +398 n= 124 win=  37% PF=1.30 dd=  -211
+   2026     +253 n= 134 win=  32% PF=1.17 dd=  -245
+== rq13_dir1h_m04: 5y     +971 n= 636 win=  33% PF=1.13 dd=  -680
+   2022    +1029 n= 150 win=  40% PF=1.58 dd=  -300
+   2023     -250 n= 122 win=  29% PF=0.82 dd=  -348
+   2024     -218 n= 142 win=  32% PF=0.89 dd=  -367
+   2025     +268 n= 110 win=  35% PF=1.23 dd=  -203
+   2026     +141 n= 112 win=  30% PF=1.10 dd=  -268
+== rq13_dir1h_p02: 5y    +1286 n= 760 win=  34% PF=1.15 dd=  -797
+   2022    +1108 n= 171 win=  41% PF=1.58 dd=  -239
+   2023     -203 n= 155 win=  30% PF=0.88 dd=  -366
+   2024     -309 n= 168 win=  32% PF=0.86 dd=  -473
+   2025     +450 n= 129 win=  38% PF=1.33 dd=  -207
+   2026     +240 n= 137 win=  31% PF=1.16 dd=  -234
+```
 ### RQ-14 restatement bundle (human decision)   status: proposed
 proposed: 2026-10-29 by claude
 why: three parity/robustness fixes each move the record a little and must land together with a re-run baseline and a regate of every open candidate, not one at a time: (a) the backtest's max-hold clock starts at the fill bar, live at the signal bar (one bar late in every replay); (b) `warmup_days` 8 → 12 so the 1h ADX exists from the open after holiday weekends; (c) the VPIN sigma window straddles the overnight gap and the lookback carries yesterday's last 20 bars into 09:30–09:49 (the 0.217 gate is 30 % pass in the first 20 minutes and 6 % in the next 20 — it is largely a time-of-day filter; 70 % of trades enter in the first 20 minutes). (c) needs a `session_sigma: true` option in vpin.rs (not written yet) and a re-fit of 0.217.
