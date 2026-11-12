@@ -1,0 +1,2 @@
+{"name": "base/row25", "config_id": 25, "patches": [], "args": ["--max-position-pct", "0.45"],
+ "note": "the promoted row 25 (lab-na-bundle) as the lab replays it: blob tiers, research base 0.36, cap 0.45 — must equal frontier/na_bundle trade for trade"}

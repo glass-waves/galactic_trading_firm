@@ -487,22 +487,54 @@ def candidate_tickers(cand: dict, prom: dict) -> list[str]:
     return list(blob["tickers"])
 
 
+LIVE_BASELINE_TAGS = {12: "iex_v18"}   # research sweeps that already are a promoted row on its own tickers at GATE_SWEEP_ARGS
+
+
+def promoted_sweep_args(prom: dict) -> list[str]:
+    """the `_sweep_args` of the candidate that produced the promoted row (e.g. row 25's `--max-position-pct 0.45`), so the
+    live baseline is swept exactly as that row's own gate sweep was; [] when the row did not come through the pipeline."""
+    try:
+        rows = db.query("SELECT patch FROM pipeline_candidates WHERE materialized_config_id = %d OR proposed_config_version_id = %d "
+                        "ORDER BY id DESC LIMIT 1" % (int(prom["id"]), int(prom["id"])))
+    except db.DbError:
+        return []
+    patch = (rows[0].get("patch") if rows else None) or {}
+    if isinstance(patch, str):
+        try:
+            patch = json.loads(patch)
+        except ValueError:
+            return []
+    return shlex.split(patch.get("_sweep_args") or "") if isinstance(patch, dict) else []
+
+
+def live_baseline(prom: dict) -> tuple[str, list[str] | None]:
+    """(tag, sweep args or None) for the promoted row swept on its own tickers — the live book as a whole. row 12 is the
+    research sweep `iex_v18`; any other promoted row gets `live_<id>` (swept once, then reused) so a promotion never leaves
+    the gates comparing against the previous row's sweep."""
+    pid = int(prom["id"])
+    tag = LIVE_BASELINE_TAGS.get(pid)
+    if tag and metrics.sweep_files_present(tag):
+        args_file = DATA / f"{tag}.args"
+        if not args_file.exists() or set(args_file.read_text().split()) == set(GATE_SWEEP_ARGS):
+            return tag, None
+    return f"live_{pid}", ["--config-id", str(pid), *promoted_sweep_args(prom)]
+
+
 def baseline_for(base_id: int, tickers: list[str], prom: dict, gate_name: str | None = None) -> tuple[str, list[str] | None]:
-    """(tag, sweep args to produce it or None when the research baseline already covers it).
+    """(tag, sweep args to produce it or None when the sweep already covers it).
 
     additive-ticker and standalone-strategy are always judged against the live book as a whole
-    ('iex_v18'), never against a baseline swept on just the candidate's own ticker(s) — that
+    (`live_baseline`), never against a baseline swept on just the candidate's own ticker(s) — that
     baseline would itself be a different, barely-traded strategy on those names (additive-ticker:
     the candidate's marginal effect on the book, not its stand-alone record; standalone-strategy:
     a second, unrelated strategy — e.g. candidate #47 qqq-noise-pm-vol trades QQQ afternoons with
-    the promoted short windows disabled, so v18-on-QQQ is not a meaningful comparison). every
-    other gate's baseline is the promoted config swept on the candidate's own ticker set."""
+    the promoted short windows disabled, so the promoted row on QQQ is not a meaningful comparison).
+    a candidate on the promoted row and its own tickers is judged against the same live baseline;
+    every other gate's baseline is its base row swept on the candidate's own ticker set."""
     if gate_name in ("additive-ticker", "standalone-strategy"):
-        return "iex_v18", None
-    if base_id == prom["id"] and sorted(tickers) == sorted(prom["config_blob"]["tickers"]) and metrics.sweep_files_present("iex_v18"):
-        args_file = DATA / "iex_v18.args"
-        if not args_file.exists() or set(args_file.read_text().split()) == set(GATE_SWEEP_ARGS):
-            return "iex_v18", None
+        return live_baseline(prom)
+    if base_id == prom["id"] and sorted(tickers) == sorted(prom["config_blob"]["tickers"]):
+        return live_baseline(prom)
     key = hashlib.sha1(f"{base_id}|{','.join(sorted(tickers))}|{' '.join(GATE_SWEEP_ARGS)}".encode()).hexdigest()[:8]
     return f"base_{key}", ["--config-id", str(base_id), "--tickers", ",".join(tickers)]
 
@@ -1327,7 +1359,11 @@ def write_status() -> Path:
             except db.DbError as e:
                 c["shadow_status"] = {"due_reason": f"status unavailable: {e}"[:120]}
     ev = events(limit=20)
-    baseline = metrics.summarize("iex_v18") if metrics.sweep_files_present("iex_v18") else None
+    try:
+        btag, _ = live_baseline(promoted_row())
+    except (PipelineError, db.DbError):
+        btag = "iex_v18"
+    baseline = metrics.summarize(btag) if metrics.sweep_files_present(btag) else None
     md = report.render(cands, ev, baseline, {"shadow_books_enabled": SHADOW_BOOKS_ENABLED})
     return report.write(md)
 

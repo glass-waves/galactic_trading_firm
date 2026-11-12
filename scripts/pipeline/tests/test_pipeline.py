@@ -137,3 +137,32 @@ class VerifyMaterialization(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class LiveBaseline(unittest.TestCase):
+    """pipeline.live_baseline() / baseline_for(): the live-book baseline follows the promoted row. row 12 keeps the
+    research sweep `iex_v18`; any other promoted row is swept once as `live_<id>` with that row's own `_sweep_args`
+    (2026-11-11: row 25 promoted — the gates must not keep comparing against v18's sweep)."""
+
+    def test_row_12_uses_the_research_sweep(self):
+        prom = {"id": 12, "config_blob": {"tickers": ["AMZN", "AAPL", "NVDA", "MSFT"]}}
+        with mock.patch.object(pipeline.metrics, "sweep_files_present", return_value=True), \
+             mock.patch.object(pipeline, "DATA", Path(tempfile.mkdtemp())):
+            self.assertEqual(pipeline.live_baseline(prom), ("iex_v18", None))
+            self.assertEqual(pipeline.baseline_for(12, ["NVDA", "AMZN", "AAPL", "MSFT"], prom, "quality-config"), ("iex_v18", None))
+            self.assertEqual(pipeline.baseline_for(12, ["QQQ"], prom, "standalone-strategy"), ("iex_v18", None))
+
+    def test_other_promoted_row_is_swept_with_its_own_sweep_args(self):
+        prom = {"id": 25, "config_blob": {"tickers": ["AMZN", "AAPL", "NVDA", "MSFT"]}}
+        with mock.patch.object(pipeline.metrics, "sweep_files_present", return_value=True), \
+             mock.patch.object(pipeline, "promoted_sweep_args", return_value=["--max-position-pct", "0.45"]):
+            self.assertEqual(pipeline.live_baseline(prom), ("live_25", ["--config-id", "25", "--max-position-pct", "0.45"]))
+            tag, args = pipeline.baseline_for(25, ["AMZN", "AAPL", "NVDA", "MSFT"], prom, "quality-config")
+            self.assertEqual((tag, args), ("live_25", ["--config-id", "25", "--max-position-pct", "0.45"]))
+            self.assertEqual(pipeline.baseline_for(25, ["QQQ"], prom, "additive-ticker")[0], "live_25")
+
+    def test_other_base_row_keeps_the_hashed_baseline(self):
+        prom = {"id": 25, "config_blob": {"tickers": ["AMZN", "AAPL", "NVDA", "MSFT"]}}
+        tag, args = pipeline.baseline_for(12, ["AMZN", "AAPL", "NVDA", "MSFT"], prom, "quality-config")
+        self.assertTrue(tag.startswith("base_"))
+        self.assertEqual(args[:2], ["--config-id", "12"])

@@ -94,8 +94,12 @@ candidate #48 `qqq-noise-pm-vol`: QQQ only, afternoons, long and short, with the
 windows disabled). the other config gates all compare the candidate against the promoted config
 swept on the *candidate's own tickers* — meaningless here, since v18 on QQQ alone is a different,
 barely-traded strategy, not a baseline for this one. like `additive-ticker`, the baseline is
-forced to `iex_v18` (the live book's own record) regardless of the candidate's ticker set
-(`baseline_for()`'s `gate_name in ("additive-ticker", "standalone-strategy")` branch). the
+forced to the live book's own record regardless of the candidate's ticker set
+(`baseline_for()`'s `gate_name in ("additive-ticker", "standalone-strategy")` branch). that live baseline
+follows the promoted row (`live_baseline()`, since 2026-11-11): row 12 is the research sweep `iex_v18`; any other
+promoted row is swept once as `live_<id>` with the `_sweep_args` of the candidate that produced it (row 25:
+`--max-position-pct 0.45`) and reused from then on, so a promotion never leaves the gates comparing against the
+previous row's sweep. a candidate on the promoted row and its own tickers gets the same live baseline. the
 candidate is judged two ways at once: on its own 5y record (a higher bar than `default-ticker`,
 since this is a brand-new book, not a single extra name on the existing one), and on what it adds
 to the live book if run alongside it. `metrics.standalone_metrics()` builds a daily P&L series for
