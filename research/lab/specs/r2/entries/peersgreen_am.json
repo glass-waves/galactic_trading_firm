@@ -1,0 +1,12 @@
+{
+ "name": "r2-entries/peersgreen_am",
+ "config_id": 25,
+ "patches": [
+  "research/lab/patches/r2/entries/peersgreen_am.json"
+ ],
+ "args": [
+  "--max-position-pct",
+  "0.45"
+ ],
+ "note": "<= 1 of 3 peers red on the am windows only"
+}

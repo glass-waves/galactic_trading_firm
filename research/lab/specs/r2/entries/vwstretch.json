@@ -1,0 +1,12 @@
+{
+ "name": "r2-entries/vwstretch",
+ "config_id": 25,
+ "patches": [
+  "research/lab/patches/r2/entries/vwstretch.json"
+ ],
+ "args": [
+  "--max-position-pct",
+  "0.45"
+ ],
+ "note": "not stretched: vwapd_1m.dist_pct >= -1.0, am/pm"
+}

@@ -1,0 +1,12 @@
+{
+ "name": "r2/exits/troff",
+ "config_id": 25,
+ "patches": [
+  "research/lab/patches/r2/exits/troff.json"
+ ],
+ "args": [
+  "--max-position-pct",
+  "0.45"
+ ],
+ "note": "ATR trail off"
+}

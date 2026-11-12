@@ -1,0 +1,12 @@
+{
+ "name": "r2-books/s1_s10_1h06",
+ "config_id": 25,
+ "patches": [
+  "research/lab/patches/r2/books/s1_s10_1h06.json"
+ ],
+ "note": "row 25, stress window at SPY <= -1.0 % with 1h <= -0.6",
+ "args": [
+  "--max-position-pct",
+  "0.45"
+ ]
+}

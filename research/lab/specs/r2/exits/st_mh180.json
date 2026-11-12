@@ -1,0 +1,12 @@
+{
+ "name": "r2/exits/st_mh180",
+ "config_id": 25,
+ "patches": [
+  "research/lab/patches/r2/exits/st_mh180.json"
+ ],
+ "args": [
+  "--max-position-pct",
+  "0.45"
+ ],
+ "note": "stress max hold 3 h"
+}

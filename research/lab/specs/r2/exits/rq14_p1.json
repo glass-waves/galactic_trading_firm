@@ -1,0 +1,12 @@
+{
+ "name": "r2/exits/rq14_p1",
+ "config_id": 25,
+ "patches": [
+  "research/lab/patches/r2/exits/rq14_p1.json"
+ ],
+ "args": [
+  "--max-position-pct",
+  "0.45"
+ ],
+ "note": "RQ-14: max hold +1 bar (91/41, stress 2h01)"
+}

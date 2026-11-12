@@ -1,0 +1,13 @@
+{
+ "name": "r2-sizing-universe/p_aapl_half",
+ "config_id": 25,
+ "patches": [],
+ "args": [
+  "--sizing-fraction",
+  "0.18",
+  "--max-position-pct",
+  "0.45"
+ ],
+ "note": "UNION PIECE: row 25 on AAPL at half size (base 0.18, tier -> 0.225); pair with p_b3_noaapl = AAPL down-weight",
+ "tickers": "AAPL"
+}

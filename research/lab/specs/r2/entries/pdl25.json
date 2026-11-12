@@ -1,0 +1,12 @@
+{
+ "name": "r2-entries/pdl25",
+ "config_id": 25,
+ "patches": [
+  "research/lab/patches/r2/entries/pdl25.json"
+ ],
+ "args": [
+  "--max-position-pct",
+  "0.45"
+ ],
+ "note": "pdl_5m.dist_low_pct >= -2.5 on am/pm windows"
+}

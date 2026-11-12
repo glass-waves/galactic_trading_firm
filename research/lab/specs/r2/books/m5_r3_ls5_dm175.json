@@ -1,0 +1,9 @@
+{
+ "name": "r2-books/m5_r3_ls5_dm175",
+ "config_id": 23,
+ "patches": [
+  "research/lab/patches/r2/books/m5_r3_ls5_dm175.json"
+ ],
+ "note": "m1 with day_move 1.75 (long-2026 v4 plateau)",
+ "tickers": "AAPL,AMZN,NVDA,MSFT"
+}

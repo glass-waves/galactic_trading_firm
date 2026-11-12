@@ -1,0 +1,18 @@
+{
+ "actions": [
+  {
+   "phase": "Monitor",
+   "params": {
+    "trigger_pct": 0.003,
+    "breakeven_trigger_pct": 0.003
+   },
+   "enabled": true,
+   "priority": 0,
+   "action_type": "breakeven_stop",
+   "instance_id": "breakeven",
+   "last_modified_at": null,
+   "last_modified_by": null,
+   "modification_reason": "v16: breakeven stop 0.5% (engine now honours ModifyStop)"
+  }
+ ]
+}

@@ -1,0 +1,12 @@
+{
+ "name": "r2-entries/rvolcap",
+ "config_id": 25,
+ "patches": [
+  "research/lab/patches/r2/entries/rvolcap.json"
+ ],
+ "args": [
+  "--max-position-pct",
+  "0.45"
+ ],
+ "note": "5m bar rvol <= 3, am/pm"
+}

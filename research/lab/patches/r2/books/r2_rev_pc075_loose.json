@@ -1,0 +1,48 @@
+{
+ "disable": [
+  "window_5m_thrust_short_am",
+  "window_strong_core_short_am",
+  "window_5m_thrust_short_pm",
+  "window_strong_core_short_pm",
+  "window_strong_core_stress",
+  "breakeven",
+  "trailing_stop_atr"
+ ],
+ "actions": [
+  {
+   "instance_id": "window_stress_rev_long",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 10,
+   "enabled": true,
+   "params": {
+    "name": "stress reversal long",
+    "direction": "long",
+    "conditions": [
+     {
+      "type": "indicator_max",
+      "instance_id": "cross_1m.index_ret_prior_close",
+      "max_score": -0.75
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "cross_1m.index_session_ret",
+      "min_score": 0.0
+     },
+     {
+      "type": "timescale_min",
+      "timescale": "FiveMinute",
+      "min_score": 0.4
+     }
+    ],
+    "entry_after": "10:00",
+    "entry_before": "14:00",
+    "exit_overrides": {
+     "max_hold_ms": 25200000,
+     "force_exit_by": "15:55",
+     "score_exit_threshold": -1000000000.0
+    }
+   }
+  }
+ ]
+}

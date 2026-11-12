@@ -1,0 +1,12 @@
+{
+ "name": "r2/exits/pm_fx1230",
+ "config_id": 25,
+ "patches": [
+  "research/lab/patches/r2/exits/pm_fx1230.json"
+ ],
+ "args": [
+  "--max-position-pct",
+  "0.45"
+ ],
+ "note": "pm windows force exit 12:30"
+}

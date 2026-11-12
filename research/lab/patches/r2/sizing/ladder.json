@@ -1,0 +1,46 @@
+{
+ "actions": [
+  {
+   "phase": "Sizing",
+   "params": {
+    "tiers": [
+     {
+      "min": 0.35,
+      "mult": 1.75
+     },
+     {
+      "min": 0.3,
+      "mult": 1.5
+     },
+     {
+      "min": 0.26,
+      "mult": 1.25
+     },
+     {
+      "min": 0.24,
+      "mult": 1.0
+     },
+     {
+      "min": 0.22,
+      "mult": 0.9
+     },
+     {
+      "min": 0.2,
+      "mult": 0.8
+     },
+     {
+      "min": 0.0,
+      "mult": 0.7
+     }
+    ],
+    "instance_id": "vpin_1m.raw_vpin",
+    "base_fraction": 0.36,
+    "fallback_mult": 1.0
+   },
+   "enabled": true,
+   "priority": 0,
+   "action_type": "indicator_tiered",
+   "instance_id": "sizing_tiered_vpin"
+  }
+ ]
+}

@@ -1,0 +1,11 @@
+{
+ "name": "r2-sizing-universe/u_spy",
+ "config_id": 25,
+ "patches": [],
+ "args": [
+  "--max-position-pct",
+  "0.45"
+ ],
+ "note": "UNIVERSE: row 25 engine on SPY alone (union with base = row 25 + SPY; cross_1m is SPY's own session return), research sizing 0.36/0.45",
+ "tickers": "SPY"
+}

@@ -1,0 +1,19 @@
+{
+ "actions": [
+  {
+   "phase": "Exit",
+   "params": {
+    "timescale": "FiveMinute",
+    "atr_period": 14,
+    "multiplier": 5.0
+   },
+   "enabled": true,
+   "priority": 0,
+   "action_type": "atr_trailing_stop",
+   "instance_id": "trailing_stop_atr",
+   "last_modified_at": "2026-03-03T00:00:00Z",
+   "last_modified_by": "human",
+   "modification_reason": "widen trailing stop (2.0x->3.0x->7.0x ATR)"
+  }
+ ]
+}

@@ -1,0 +1,9 @@
+{
+ "name": "r2-books/q4_ls5_long_vp",
+ "config_id": 23,
+ "patches": [
+  "research/lab/patches/r2/books/q4_ls5_long_vp.json"
+ ],
+ "note": "q2 + VPIN >= 0.217",
+ "tickers": "QQQ"
+}

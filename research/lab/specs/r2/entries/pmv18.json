@@ -1,0 +1,12 @@
+{
+ "name": "r2-entries/pmv18",
+ "config_id": 25,
+ "patches": [
+  "research/lab/patches/r2/entries/pmv18.json"
+ ],
+ "args": [
+  "--max-position-pct",
+  "0.45"
+ ],
+ "note": "VPIN floor 0.18 on pm windows only"
+}

@@ -1,0 +1,48 @@
+{
+ "actions": [
+  {
+   "instance_id": "window_vwap_fail_short",
+   "action_type": "entry_window",
+   "phase": "Entry",
+   "priority": 60,
+   "enabled": true,
+   "params": {
+    "name": "vwap reclaim fail short",
+    "direction": "short",
+    "entry_after": "12:00",
+    "entry_before": "15:00",
+    "conditions": [
+     {
+      "type": "indicator_range",
+      "instance_id": "vwap_dist_1hr.dist_pct",
+      "min_score": -0.15,
+      "max_score": 0.0
+     },
+     {
+      "type": "indicator_max",
+      "instance_id": "vwap_dist_1hr.min_dist_pct_today",
+      "max_score": -0.6
+     },
+     {
+      "type": "timescale_max",
+      "timescale": "FiveMinute",
+      "max_score": -0.3
+     },
+     {
+      "type": "timescale_max",
+      "timescale": "OneHour",
+      "max_score": -0.4
+     },
+     {
+      "type": "indicator_min",
+      "instance_id": "vpin_1m.raw_vpin",
+      "min_score": 0.2
+     }
+    ],
+    "exit_overrides": {
+     "force_exit_by": "15:55"
+    }
+   }
+  }
+ ]
+}

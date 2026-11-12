@@ -1,0 +1,12 @@
+{
+ "name": "r2-sizing-universe/tier_x150",
+ "config_id": 25,
+ "patches": [
+  "research/lab/patches/r2/sizing/tier_x150.json"
+ ],
+ "args": [
+  "--max-position-pct",
+  "0.54"
+ ],
+ "note": "tier x1.5 at VPIN>=0.26, research base 0.36, cap 0.54 (live equivalent: tier_x150_live)"
+}

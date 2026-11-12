@@ -1,10 +1,10 @@
 # research pipeline — status
 
-generated 2026-11-12 07:03 UTC by `scripts/pipeline/pipeline.py report`. do not edit: regenerated nightly. lane: proposed → backtesting → backtest_passed → shadow → shadow_passed → promotion_proposed → promoted (human). failures: backtest_failed / shadow_failed (180 d cooldown), withdrawn (human).
+generated 2026-11-12 09:29 UTC by `scripts/pipeline/pipeline.py report`. do not edit: regenerated nightly. lane: proposed → backtesting → backtest_passed → shadow → shadow_passed → promotion_proposed → promoted (human). failures: backtest_failed / shadow_failed (180 d cooldown), withdrawn (human).
 
 - gate sweeps run at the research sizing (`--sizing-fraction 0.36 --max-position-pct 0.36 --cross-index SPY`, IEX cache, 3 bps + $0.005); the per-year floor (no year < −300) is stated at 36 %. live and shadow books size at the blob's fraction; parity replays use no sizing override.
 - shadow-book creation: **enabled** (`PIPELINE_SHADOW_BOOKS=1`; while disabled `advance` only prints the books it would create).
-- baseline `iex_v18` (promoted row on its own tickers): +1829 / 434 trades / PF 1.40 · 22:+1089 23:-3 24:-17 25:+332 26:+429
+- baseline `live_25` (promoted row on its own tickers): +3591 / 418 trades / PF 1.85 · 22:+1443 23:+136 24:+650 25:+584 26:+778
 
 ## promotion proposals (open)
 
@@ -24,9 +24,11 @@ none.
 
 ## candidates by stage
 
-### proposed (0)
+### proposed (1)
 
-none.
+| id | name | kind | gate | tickers | since | backtest (5y P&L / trades / PF · per year · gate) |
+|---:|---|---|---|---|---|---|
+| 52 | `lab-tier-x150` | config | sizing-config | base | 0 m | — |
 
 ### backtesting (0)
 
@@ -62,13 +64,13 @@ none.
 
 | id | name | kind | gate | book | since | trial | backtest |
 |---:|---|---|---|---|---|---|---|
-| 50 | `lab-na-bundle` | config | quality-config | — | 0 m | — | +3591 / 418 / PF 1.85 [1.46-2.32] · sign-flip p 0.00 · ex-22 PF 1.67 · best of 72 cells · 22:+1443 23:+136 24:+650 25:+584 26:+778 · fail: paired_pnl_lower_bound · base iex_v18: +1829 / 434 / PF 1.40 |
+| 50 | `lab-na-bundle` | config | quality-config | — | 2 h | — | +3591 / 418 / PF 1.85 [1.46-2.32] · sign-flip p 0.00 · ex-22 PF 1.67 · best of 72 cells · 22:+1443 23:+136 24:+650 25:+584 26:+778 · fail: paired_pnl_lower_bound · base iex_v18: +1829 / 434 / PF 1.40 |
 
 ### backtest_failed (40)
 
 | id | name | kind | gate | tickers | since | backtest (5y P&L / trades / PF · per year · gate) |
 |---:|---|---|---|---|---|---|
-| 1 | `bear-bounce-sma50` | config | volume-config | base | 45 d | +2179 / 828 / PF 1.23 · 22:+1422 23:+371 24:-436 25:+61 26:+762 · fail: pf_5y, min_year_pnl · base iex_v18: +1728 / 436 / PF 1.37 · cooldown to 2027-03-26 |
+| 1 | `bear-bounce-sma50` | config | volume-config | base | 46 d | +2179 / 828 / PF 1.23 · 22:+1422 23:+371 24:-436 25:+61 26:+762 · fail: pf_5y, min_year_pnl · base iex_v18: +1728 / 436 / PF 1.37 · cooldown to 2027-03-26 |
 | 2 | `ticker:AMD` | ticker | additive-ticker | AMD | 35 d | -18 / 158 / PF 0.99 · 22:+476 23:+132 24:-335 25:+171 26:-463 · fail: added_pnl, added_pf, combined_pf, combined_years_not_worse, added_worst_year · base iex_v18: +1728 / 436 / PF 1.37 · added -18 / 158 / PF 0.99 (worst yr -463, worst day -99) · cooldown to 2027-03-26 |
 | 3 | `ticker:META` | ticker | additive-ticker | META | 35 d | -19 / 160 / PF 0.99 · 22:+132 23:-223 24:-76 25:+73 26:+76 · fail: added_pnl, added_pf, combined_pf, combined_years_not_worse, added_worst_year · base iex_v18: +1728 / 436 / PF 1.37 · added -19 / 160 / PF 0.99 (worst yr -223, worst day -102) · cooldown to 2027-03-26 |
 | 5 | `rs-long-x0.3` | config | volume-config | base | 44 d | +1997 / 1586 / PF 1.11 · 22:+1490 23:+238 24:-197 25:-213 26:+679 · fail: pf_5y, years_positive · base iex_v18: +1728 / 436 / PF 1.37 · cooldown to 2027-03-28 |
@@ -120,6 +122,7 @@ none.
 
 | when (UTC) | candidate | transition | actor | detail |
 |---|---|---|---|---|
+| 2026-11-12 09:29 | `lab-tier-x150` | ∅ → proposed | human | proposed |
 | 2026-11-12 07:03 | `lab-na-bundle` | backtest_failed → promoted | human | promoted config_version_id=25 |
 | 2026-11-05 04:30 | `spy-sqrt-band` | shadow_passed → promotion_proposed | pipeline | promotion_proposed config_version_id=20 |
 | 2026-11-05 04:30 | `spy-sqrt-band` | shadow → shadow_passed | pipeline | shadow_verdict verdict=pass book=shadow:spy-sqrt-band |
@@ -139,4 +142,3 @@ none.
 | 2026-10-30 04:49 | `spy-sqrt-band` | shadow → shadow | human | restat tag=cand_44 |
 | 2026-10-30 04:49 | `thrust-1h15` | shadow → shadow | human | restat tag=cand_29 |
 | 2026-10-30 04:49 | `size-vpin26-x1.25` | shadow → shadow | human | restat tag=cand_28 |
-| 2026-10-30 04:49 | `stress-s15-core` | shadow → shadow | human | restat tag=cand_6 |

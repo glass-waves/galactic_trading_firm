@@ -1,0 +1,17 @@
+{
+ "actions": [
+  {
+   "phase": "Exit",
+   "params": {
+    "stop_loss_pct": 0.015
+   },
+   "enabled": true,
+   "priority": 1,
+   "action_type": "fixed_pct_stop",
+   "instance_id": "hard_stop",
+   "last_modified_at": null,
+   "last_modified_by": null,
+   "modification_reason": null
+  }
+ ]
+}

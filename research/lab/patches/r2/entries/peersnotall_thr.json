@@ -1,0 +1,61 @@
+{
+ "indicators": [],
+ "actions": [
+  {
+   "phase": "Entry",
+   "params": {
+    "name": "5m thrust short",
+    "direction": "short",
+    "conditions": [
+     {
+      "type": "composite_max",
+      "max_score": -0.35
+     },
+     {
+      "type": "timescale_lag",
+      "lag_by": 0.1,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_max",
+      "max_score": -0.5,
+      "timescale": "FiveMinute"
+     },
+     {
+      "type": "timescale_max",
+      "max_score": -0.1,
+      "timescale": "OneHour"
+     },
+     {
+      "type": "indicator_min",
+      "min_score": -0.4,
+      "instance_id": "cross_1m"
+     },
+     {
+      "type": "indicator_max",
+      "max_score": 0.4,
+      "instance_id": "cross_1m"
+     },
+     {
+      "type": "indicator_min",
+      "min_score": 0.2,
+      "instance_id": "vpin_1m.raw_vpin"
+     },
+     {
+      "type": "indicator_max",
+      "max_score": 0.7,
+      "instance_id": "cross_1m.peers_red_frac"
+     }
+    ],
+    "entry_before": "10:00",
+    "exit_overrides": {
+     "force_exit_by": "11:55"
+    }
+   },
+   "enabled": true,
+   "priority": 10,
+   "action_type": "entry_window",
+   "instance_id": "window_5m_thrust_short_am"
+  }
+ ]
+}

@@ -1,0 +1,12 @@
+{
+ "name": "r2-entries/relweak",
+ "config_id": 25,
+ "patches": [
+  "research/lab/patches/r2/entries/relweak.json"
+ ],
+ "args": [
+  "--max-position-pct",
+  "0.45"
+ ],
+ "note": "name down vs SPY since prior close (pdl_5m.rel_close_pct <= 0), am/pm"
+}

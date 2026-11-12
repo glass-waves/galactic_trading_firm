@@ -1,0 +1,12 @@
+{
+ "name": "r2-sizing-universe/tier3",
+ "config_id": 25,
+ "patches": [
+  "research/lab/patches/r2/sizing/tier3.json"
+ ],
+ "args": [
+  "--max-position-pct",
+  "0.54"
+ ],
+ "note": "three tiers: x1.25 at VPIN>=0.26, x1.5 at >=0.30; research base 0.36, cap 0.54"
+}

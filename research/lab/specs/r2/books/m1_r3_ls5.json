@@ -1,0 +1,10 @@
+{
+ "name": "r2-books/m1_r3_ls5",
+ "config_id": 23,
+ "patches": [
+  "research/lab/patches/long-2026/r3_q1_vpin.json",
+  "research/lab/patches/r2/books/noise_ls5.json"
+ ],
+ "note": "long-2026 r3_q1_vpin at lookback 8 with the 5-session noise band",
+ "tickers": "AAPL,AMZN,NVDA,MSFT"
+}

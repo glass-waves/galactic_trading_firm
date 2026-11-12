@@ -1,0 +1,9 @@
+{
+ "name": "r2-books/q2_ls5_long",
+ "config_id": 23,
+ "patches": [
+  "research/lab/patches/r2/books/q2_ls5_long.json"
+ ],
+ "note": "q1 long side only",
+ "tickers": "QQQ"
+}

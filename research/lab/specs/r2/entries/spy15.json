@@ -1,0 +1,12 @@
+{
+ "name": "r2-entries/spy15",
+ "config_id": 25,
+ "patches": [
+  "research/lab/patches/r2/entries/spy15.json"
+ ],
+ "args": [
+  "--max-position-pct",
+  "0.45"
+ ],
+ "note": "SPY last-15m return <= +0.05 %, am/pm"
+}

@@ -1,0 +1,12 @@
+{
+ "name": "r2/exits/pm_hold90",
+ "config_id": 25,
+ "patches": [
+  "research/lab/patches/r2/exits/pm_hold90.json"
+ ],
+ "args": [
+  "--max-position-pct",
+  "0.45"
+ ],
+ "note": "pm windows: losers held to 90 min"
+}

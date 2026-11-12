@@ -81,3 +81,22 @@ pdl dial; stress 2 % + long reversal; AAPL down-weight; VWAP stop on pm trades; 
 3. top ≤ 3 → `pipeline.py propose` (base row 25, gate by kind: quality-config for tweaks, additive-config /
    standalone-strategy for books) → nightly gate → shadow books (3 slots free under MAX_BOOKS 12).
 4. prune: keep the report, the base spec, the finalists' specs/patches; delete the rest of the grid (git holds them).
+
+## finalists (fixed 2026-11-12 before the holdout reveal)
+
+Desk hand-backs: exits nominated nothing (every hold/stop/VWAP-stop variant flat or negative; RQ-14's clock offset
+immaterial); sizing nominated one leverage cell; entries two near-misses; second-books an afternoon long book and its
+un-dialled control. **No cell passed test T's train clause (paired vs row 25 P < 0.05).** The reveal is run anyway, once,
+for the list below, so the holdout can say whether any of them deserves a shadow slot:
+
+1. `r2/entries/peersnotall_thr` — T; no am thrust when all three peers are red (train +2839 / 282 / PF 1.98, paired P 0.169).
+2. `r2/entries/pdl15` — T (quality variant); prior-day-low ≥ −1.5 % on the four am/pm windows (+2634 / 256 / PF 2.16, P 0.47).
+3. `r2/sizing/tier_x150` — T (leverage); ×1.5 at VPIN ≥ 0.26 (+2984 / 320 / PF 1.77; matched-notional +75, P 0.195).
+4. `base/row25 + r2/books/m5_r3_ls5_dm175` — A; afternoon high-vol breakout long book, four names, warm-up 8
+   (book +1071 / 97 / PF 1.69, corr +0.004; one day, 2025-04-09, is +757 of it).
+5. `base/row25 + r2/books/m1_r3_ls5` — A (control for 4, round-1 gate 1.5): book +935 / 153 / PF 1.42.
+
+Amendment to test A, made before the reveal: "pooled PF ≥ row 25's" is impossible for any book below PF 1.75 (a pooled PF
+lies between the two books'), which was not the intent. It is replaced by: pooled PF ≥ 1.5 **and** pooled max drawdown no
+deeper than 1.5 × row 25's on the same window. The other A clauses stand (added trades ≥ 60, added PF ≥ 1.3, added worst
+year ≥ −200, correlation < 0.3, holdout added P&L > 0).

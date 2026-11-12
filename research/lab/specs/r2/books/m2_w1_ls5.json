@@ -1,0 +1,10 @@
+{
+ "name": "r2-books/m2_w1_ls5",
+ "config_id": 23,
+ "patches": [
+  "research/lab/patches/long-2026/w1_q1_vpin_bull1h.json",
+  "research/lab/patches/r2/books/noise_ls5.json"
+ ],
+ "note": "long-2026 w1 (r3 + 1h std supertrend bullish) at lookback 8, 5-session noise",
+ "tickers": "AAPL,AMZN,NVDA,MSFT"
+}

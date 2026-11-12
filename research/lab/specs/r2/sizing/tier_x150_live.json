@@ -1,0 +1,15 @@
+{
+ "name": "r2-sizing-universe/tier_x150_live",
+ "config_id": 25,
+ "patches": [
+  "research/lab/patches/r2/sizing/tier_x150_live.json"
+ ],
+ "args": [],
+ "note": "tier x1.5 at VPIN>=0.26 at LIVE values: base 0.30, cap 0.45 (compare with live_base)",
+ "sizing": [
+  "--max-position-pct",
+  "0.45",
+  "--cross-index",
+  "SPY"
+ ]
+}

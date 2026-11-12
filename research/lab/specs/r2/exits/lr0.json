@@ -1,0 +1,12 @@
+{
+ "name": "r2/exits/lr0",
+ "config_id": 25,
+ "patches": [
+  "research/lab/patches/r2/exits/lr0.json"
+ ],
+ "args": [
+  "--max-position-pct",
+  "0.45"
+ ],
+ "note": "max hold 90/90"
+}

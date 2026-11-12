@@ -1,0 +1,19 @@
+{
+ "actions": [
+  {
+   "phase": "Exit",
+   "params": {
+    "max_hold_ms": 5400000,
+    "loss_reduction_ms": 3600000,
+    "profit_extension_ms": 0
+   },
+   "enabled": true,
+   "priority": 5,
+   "action_type": "max_hold_timeout",
+   "instance_id": "max_hold",
+   "last_modified_at": "2026-03-03T00:00:00Z",
+   "last_modified_by": "human",
+   "modification_reason": "v16: losing-side hold 40 min, winning 90 (exit-timing analysis 2026-09-12)"
+  }
+ ]
+}

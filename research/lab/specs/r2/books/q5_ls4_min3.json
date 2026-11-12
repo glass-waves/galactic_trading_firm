@@ -1,0 +1,9 @@
+{
+ "name": "r2-books/q5_ls4_min3",
+ "config_id": 23,
+ "patches": [
+  "research/lab/patches/r2/books/q5_ls4_min3.json"
+ ],
+ "note": "row 23 both sides, noise lookback 4 / min 3 (survives holiday weeks)",
+ "tickers": "QQQ"
+}
