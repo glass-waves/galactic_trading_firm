@@ -111,3 +111,14 @@ v18 = v17 + `max_concurrent_positions` 3 (was 1) and `max_capital_deployed_pct` 
 tickers may be short at once (≈ 90 % of the $10k budget); that is intended — the replay evidence
 was produced without a cross-ticker cap. do not lower it on a losing day unless the daily-loss
 WARNING fires. `entries_blocked` gate events should now be rare.
+
+## row 25 note (promoted 2026-11-11 22:02 PT by the human, `lab-na-bundle`; v18 row 12 superseded)
+
+row 25 = v18 with the SPY sqrt band, morning windows split at 10:00 plus a 10:00–11:00 extension (`… short pm`
+windows, still flat by 11:55), thrust 1h ≤ −0.10, VPIN floor 0.20, `adx_14_1hr` disabled, a **stress window**
+(`window:strong core short stress`, SPY ≤ −1.5 % intraday) that enters until 15:30 ET and holds to **15:55 ET**, and
+tiered sizing (0.30 base, ×1.25 at VPIN ≥ 0.26, cap 0.40). an afternoon primary position on a stress day is by design;
+`session.force_exit_by` is 15:55, so "flat by 11:55" applies only to the morning windows. evidence and caveats:
+research/lab/REPORT.md (holdout 2025-07 → 2026-10: +899 / 111 / PF 2.00; NVDA ~70 % of P&L; ~7 trades/month).
+the pipeline's own gate rejected it on the multiplicity-adjusted paired test; the human promoted on the holdout.
+rollback = re-insert the row 12 blob as a new promoted row.
