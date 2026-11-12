@@ -1,9 +1,0 @@
-{
- "name": "r2-books/q1_ls5",
- "config_id": 23,
- "patches": [
-  "research/lab/patches/r2/books/q1_ls5.json"
- ],
- "note": "row 23, noise lookback_sessions 5 / min 4 (fits 8-day warm-up), both sides as row 23",
- "tickers": "QQQ"
-}

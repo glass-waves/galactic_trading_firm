@@ -1,9 +1,0 @@
-{
- "name": "r2-books/m4_r3_ls5_dm125",
- "config_id": 23,
- "patches": [
-  "research/lab/patches/r2/books/m4_r3_ls5_dm125.json"
- ],
- "note": "m1 with day_move 1.25 (5-session sigma)",
- "tickers": "AAPL,AMZN,NVDA,MSFT"
-}

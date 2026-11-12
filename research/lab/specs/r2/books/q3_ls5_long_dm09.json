@@ -1,9 +1,0 @@
-{
- "name": "r2-books/q3_ls5_long_dm09",
- "config_id": 23,
- "patches": [
-  "research/lab/patches/r2/books/q3_ls5_long_dm09.json"
- ],
- "note": "q2 with day_move >= 0.9 (5-session sigma is noisier)",
- "tickers": "QQQ"
-}

@@ -1,9 +1,0 @@
-{
- "name": "r2-books/m3_idx_vp",
- "config_id": 23,
- "patches": [
-  "research/lab/patches/r2/books/m3_idx_vp.json"
- ],
- "note": "the r3 shape on the indices: QQQ+SPY, day_move 0.7, VPIN 0.217, long only",
- "tickers": "QQQ,SPY"
-}

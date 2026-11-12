@@ -100,3 +100,9 @@ Amendment to test A, made before the reveal: "pooled PF ≥ row 25's" is impossi
 lies between the two books'), which was not the intent. It is replaced by: pooled PF ≥ 1.5 **and** pooled max drawdown no
 deeper than 1.5 × row 25's on the same window. The other A clauses stand (added trades ≥ 60, added PF ≥ 1.3, added worst
 year ≥ −200, correlation < 0.3, holdout added P&L > 0).
+
+## pruned (2026-11-12)
+
+The round's full grid (every desk spec and patch, 105 cells) is in commit `382b290`; `git show 382b290:<path>` restores any
+of them. Kept: the finalists' specs and patches, the pipeline patch `patches/r2/sizing/tier_x150.pipeline.json`, the desks'
+generator / diagnostic scripts (`make.py`, `_make.py`, `diff.py`, `levm.py`, `ucmp.py`, `bands.py`) and the desk reports.

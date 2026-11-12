@@ -1,9 +1,0 @@
-{
- "name": "r2-books/q0_asis_lb8",
- "config_id": 23,
- "patches": [
-  "research/lab/patches/r2/books/q0_asis_lb8.json"
- ],
- "note": "row 23 (cand_48) as-is at lookback 8: noise needs 14 sessions -> expect 0 trades",
- "tickers": "QQQ"
-}
