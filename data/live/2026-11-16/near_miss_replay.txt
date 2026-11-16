@@ -1,0 +1,54 @@
+near-miss bars on 2026-11-16: 52
+  NVDA  09:30 ET  short would have made -0.21% (max_hold at 10:11)   filtered by: 5m thrust short: FiveMinute -0.61 not lagging by 0.10, OneHour -0.07>-0.10, cross_1m -0.42
+  AMZN  09:30 ET  short would have made -0.26% (breakeven at 10:50)   filtered by: 5m thrust short: FiveMinute -0.58 not lagging by 0.10, OneHour -0.08>-0.10, cross_1m none<
+  MSFT  09:31 ET  short would have made -0.04% (breakeven at 10:36)   filtered by: 5m thrust short: FiveMinute -0.47 not lagging by 0.10, FiveMinute -0.47>-0.50, cross_1m -0
+  AMZN  09:35 ET  short would have made -0.09% (breakeven at 10:38)   filtered by: 5m thrust short: FiveMinute -0.66 not lagging by 0.10, OneHour -0.05>-0.10, cross_1m -0.47
+  NVDA  09:35 ET  short would have made -0.24% (max_hold at 10:16)   filtered by: 5m thrust short: OneHour -0.02>-0.10, cross_1m -0.47<-0.40, vpin_1m.raw_vpin 0.11<0.20
+  MSFT  09:36 ET  short would have made -0.08% (breakeven at 10:38)   filtered by: 5m thrust short: FiveMinute -0.44 not lagging by 0.10, FiveMinute -0.44>-0.50, cross_1m -0
+  AMZN  09:40 ET  short would have made -0.08% (breakeven at 10:38)   filtered by: 5m thrust short: OneHour -0.08>-0.10, cross_1m -0.56<-0.40, vpin_1m.raw_vpin 0.00<0.20
+  MSFT  09:41 ET  short would have made -0.08% (max_hold at 10:30)   filtered by: 5m thrust short: FiveMinute -0.57 not lagging by 0.10, cross_1m -0.79<-0.40, vpin_1m.raw_v
+  AMZN  09:48 ET  short would have made -0.27% (breakeven at 10:50)   filtered by: 5m thrust short: OneHour 0.01>-0.10, cross_1m -0.48<-0.40, vpin_1m.raw_vpin 0.08<0.20
+  AMZN  09:59 ET  short would have made -0.24% (breakeven at 10:50)   filtered by: 5m thrust short: OneHour -0.03>-0.10, cross_1m -0.63<-0.40, vpin_1m.raw_vpin 0.01<0.20
+  NVDA  10:00 ET  short would have made -0.14% (breakeven at 11:22)   filtered by: 5m thrust short pm: FiveMinute -0.42 not lagging by 0.10, FiveMinute -0.42>-0.50, cross_1m
+  MSFT  10:00 ET  short would have made -0.09% (breakeven at 10:38)   filtered by: 5m thrust short pm: FiveMinute -0.49 not lagging by 0.10, FiveMinute -0.49>-0.50, cross_1m
+  AMZN  10:04 ET  short would have made -0.29% (max_hold at 10:45)   filtered by: 5m thrust short pm: FiveMinute -0.63 not lagging by 0.10, cross_1m.index_session_ret_per_s
+  NVDA  10:05 ET  short would have made -0.15% (max_hold at 10:46)   filtered by: 5m thrust short pm: FiveMinute -0.52 not lagging by 0.10, cross_1m.index_session_ret_per_s
+  MSFT  10:06 ET  short would have made -0.05% (breakeven at 10:31)   filtered by: 5m thrust short pm: FiveMinute -0.53 not lagging by 0.10, cross_1m.index_session_ret_per_s
+  AMZN  10:09 ET  short would have made -0.87% (max_hold at 10:50)   filtered by: 5m thrust short pm: cross_1m.index_session_ret_per_sqrt_min -0.10<-0.05, vpin_1m.raw_vpin 
+  MSFT  10:12 ET  short would have made -0.06% (breakeven at 10:31)   filtered by: 5m thrust short pm: FiveMinute -0.52 not lagging by 0.10, cross_1m.index_session_ret_per_s
+  AMZN  10:14 ET  short would have made -1.04% (max_hold at 10:55)   filtered by: 5m thrust short pm: cross_1m.index_session_ret_per_sqrt_min -0.09<-0.05
+  MSFT  10:17 ET  short would have made -1.36% (max_hold at 10:58)   filtered by: 5m thrust short pm: OneHour -0.10>-0.10, cross_1m.index_session_ret_per_sqrt_min -0.10<-0.
+  MSFT  10:22 ET  short would have made -1.39% (max_hold at 11:03)   filtered by: 5m thrust short pm: cross_1m.index_session_ret_per_sqrt_min -0.09<-0.05, vpin_1m.raw_vpin 
+  AMZN  10:23 ET  short would have made -0.85% (max_hold at 11:04)   filtered by: 5m thrust short pm: cross_1m.index_session_ret_per_sqrt_min -0.09<-0.05, vpin_1m.raw_vpin 
+  AMZN  10:29 ET  short would have made -0.75% (max_hold at 11:10)   filtered by: 5m thrust short pm: cross_1m.index_session_ret_per_sqrt_min -0.09<-0.05, vpin_1m.raw_vpin 
+  NVDA  10:36 ET  short would have made -0.62% (max_hold at 11:17)   filtered by: 5m thrust short pm: FiveMinute -0.46 not lagging by 0.10, FiveMinute -0.46>-0.50, cross_1m
+  NVDA  10:41 ET  short would have made -0.71% (max_hold at 11:22)   filtered by: 5m thrust short pm: FiveMinute -0.46>-0.50, cross_1m.index_session_ret_per_sqrt_min -0.08<
+  AMZN  12:04 ET  short would have made -0.09% (session_close at 12:05)   filtered by: strong core stress: FiveMinute -0.39>-0.40, OneHour -0.26>-0.40, vpin_1m.raw_vpin 0.17<0.2
+  NVDA  12:09 ET  short would have made -0.08% (session_close at 12:10)   filtered by: strong core stress: FiveMinute -0.36>-0.40, OneHour -0.29>-0.40, vpin_1m.raw_vpin 0.07<0.2
+  AMZN  12:09 ET  short would have made -0.02% (session_close at 12:10)   filtered by: strong core stress: OneHour -0.26>-0.40, vpin_1m.raw_vpin 0.19<0.20, cross_1m.index_sessio
+  AMZN  12:14 ET  short would have made -0.03% (session_close at 12:15)   filtered by: strong core stress: OneHour -0.27>-0.40, vpin_1m.raw_vpin 0.03<0.20, cross_1m.index_sessio
+  NVDA  12:14 ET  short would have made +0.05% (session_close at 12:15)   filtered by: strong core stress: FiveMinute -0.39>-0.40, OneHour -0.30>-0.40, vpin_1m.raw_vpin 0.05<0.2
+  NVDA  12:19 ET  short would have made +0.03% (session_close at 12:20)   filtered by: strong core stress: OneHour -0.32>-0.40, cross_1m.index_session_ret -0.74>-1.50
+  AMZN  12:19 ET  short would have made -0.05% (session_close at 12:20)   filtered by: strong core stress: OneHour -0.29>-0.40, cross_1m.index_session_ret -0.76>-1.50
+  NVDA  12:24 ET  short would have made +0.01% (session_close at 12:25)   filtered by: strong core stress: OneHour -0.34>-0.40, cross_1m.index_session_ret -0.81>-1.50
+  AMZN  12:24 ET  short would have made -0.02% (session_close at 12:25)   filtered by: strong core stress: OneHour -0.29>-0.40, vpin_1m.raw_vpin 0.11<0.20, cross_1m.index_sessio
+  NVDA  12:29 ET  short would have made -0.06% (session_close at 12:30)   filtered by: strong core stress: OneHour -0.36>-0.40, cross_1m.index_session_ret -0.82>-1.50
+  NVDA  12:34 ET  short would have made -0.24% (session_close at 12:35)   filtered by: strong core stress: OneHour -0.35>-0.40, cross_1m.index_session_ret -0.86>-1.50
+  AMZN  12:34 ET  short would have made -0.02% (session_close at 12:35)   filtered by: strong core stress: OneHour -0.30>-0.40, vpin_1m.raw_vpin 0.17<0.20, cross_1m.index_sessio
+  NVDA  12:39 ET  short would have made -0.07% (session_close at 12:40)   filtered by: strong core stress: OneHour -0.38>-0.40, cross_1m.index_session_ret -0.89>-1.50
+  NVDA  12:46 ET  short would have made -0.13% (session_close at 12:47)   filtered by: strong core stress: FiveMinute -0.40>-0.40, OneHour -0.37>-0.40, vpin_1m.raw_vpin 0.11<0.2
+  NVDA  12:57 ET  short would have made -0.09% (session_close at 12:58)   filtered by: strong core stress: FiveMinute -0.39>-0.40, OneHour -0.39>-0.40, vpin_1m.raw_vpin 0.12<0.2
+  MSFT  13:01 ET  short would have made -0.30% (session_close at 13:02)   filtered by: strong core stress: OneHour -0.10>-0.40, cross_1m.index_session_ret -0.99>-1.50
+  NVDA  13:02 ET  short would have made -0.05% (session_close at 13:03)   filtered by: strong core stress: OneHour -0.38>-0.40, vpin_1m.raw_vpin 0.15<0.20, cross_1m.index_sessio
+  NVDA  13:07 ET  short would have made -0.10% (session_close at 13:08)   filtered by: strong core stress: FiveMinute -0.39>-0.40, OneHour -0.39>-0.40, vpin_1m.raw_vpin 0.16<0.2
+  NVDA  13:17 ET  short would have made +0.03% (session_close at 13:18)   filtered by: strong core stress: FiveMinute -0.38>-0.40, vpin_1m.raw_vpin 0.14<0.20, cross_1m.index_ses
+  NVDA  13:22 ET  short would have made -0.08% (session_close at 13:23)   filtered by: strong core stress: FiveMinute -0.38>-0.40, vpin_1m.raw_vpin 0.06<0.20, cross_1m.index_ses
+  NVDA  13:27 ET  short would have made -0.07% (session_close at 13:28)   filtered by: strong core stress: vpin_1m.raw_vpin 0.11<0.20, cross_1m.index_session_ret -1.12>-1.50
+  AMZN  13:31 ET  short would have made -0.16% (session_close at 13:32)   filtered by: strong core stress: FiveMinute -0.36>-0.40, OneHour -0.33>-0.40, cross_1m.index_session_re
+  NVDA  13:35 ET  short would have made -0.04% (session_close at 13:36)   filtered by: strong core stress: FiveMinute -0.38>-0.40, cross_1m.index_session_ret -1.45>-1.50
+  AMZN  13:36 ET  short would have made -0.05% (session_close at 13:37)   filtered by: strong core stress: FiveMinute -0.37>-0.40, OneHour -0.33>-0.40, cross_1m.index_session_re
+  MSFT  14:21 ET  short would have made -0.07% (session_close at 14:22)   filtered by: strong core stress: FiveMinute -0.40>-0.40, OneHour -0.24>-0.40, vpin_1m.raw_vpin 0.07<0.2
+  MSFT  14:26 ET  short would have made -0.10% (session_close at 14:27)   filtered by: strong core stress: FiveMinute -0.40>-0.40, OneHour -0.24>-0.40, vpin_1m.raw_vpin 0.02<0.2
+  AMZN  14:45 ET  short would have made -0.03% (session_close at 14:46)   filtered by: strong core stress: FiveMinute -0.35>-0.40, OneHour -0.35>-0.40, cross_1m.index_session_re
+  NVDA  15:21 ET  short would have made -0.05% (session_close at 15:22)   filtered by: strong core stress: FiveMinute -0.33>-0.40, cross_1m.index_session_ret -1.42>-1.50
+sum of hypothetical short returns: -11.85%  (positive = the filters cost us; negative = they saved us)
