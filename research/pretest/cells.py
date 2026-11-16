@@ -760,3 +760,51 @@ CELLS.append(
          {"name": "long open->close, Tue/Wed/Thu sessions", "rule": tom_day_k_dow,
           "grid": [{"k": 2, "dow": (1, 2, 3)}, {"k": 3, "dow": (1, 2, 3)}]}],
      "verdict_fn": standard_verdict(4, 1.3), "verdict": cell_verdict})
+
+# ------------------------------------------------------------------ 18. turn-of-month day +2: prior-session conditioning (#17, ideate 2026-11-15)
+# PRE-REGISTRATION (written before the first run): c11/c15 pass day +2 open->close; c16/c17 test calendar and weekday
+# confounds. an untested one is a reversal/continuation confound: if day +2 only works after a down day +1 (short-term
+# reversal) it is not a turn-of-month flow. split day +2 (and neighbour k=3) by the sign of the prior session's
+# open->open return, known at the entry open (open(i)/open(i-1) - 1).
+def tom_day_k_prior(b, i, p):
+    if tom_day(b, i) != p["k"] or i < 1:
+        return []
+    p1, p0 = b.entry_px(i, 0)[0], b.entry_px(i - 1, 0)[0]
+    if not (np.isfinite(p1) and np.isfinite(p0) and p0):
+        return []
+    r = p1 / p0 - 1
+    if (p["prior"] == "down" and r > 0) or (p["prior"] == "up" and r <= 0):
+        return []
+    return [Order(i, 0, 1, i, 390)]
+
+
+CELLS.append(
+    {"id": "c18_tom_day2_prior", "anomaly": "#17 turn-of-month day +2 prior-session (reversal) confound (Ariel; McConnell-Xu; ideate 2026-11-15)",
+     "instruments": [ALL34, FOUR, "SPY", "QQQ"],
+     "kill_text": K45 + " on the primary point (k=2, open->close, prior session down, pooled 34-name book). pre-registered "
+                  "neighbourhood: k in {2, 3} x prior-session open->open return {down (<= 0), up (> 0)}, instruments = 34-name pool, "
+                  "4 mega-caps pooled, SPY, QQQ. a month-position effect must clear the bar (PF > 1.3, >= 4/5 yrs) in BOTH prior "
+                  "strata on the 34-name pool; passing only after a down day = short-term reversal, not a calendar flow -> "
+                  "downgrade c11/c15/c16. index strata ~25-35 trades: control only. expected ~100-150 trades/yr/stratum pooled stocks",
+     "variants": [
+         {"name": "long open->close, day k, prior session down", "rule": tom_day_k_prior,
+          "grid": [{"k": 2, "prior": "down"}, {"k": 3, "prior": "down"}]},
+         {"name": "long open->close, day k, prior session up", "rule": tom_day_k_prior,
+          "grid": [{"k": 2, "prior": "up"}, {"k": 3, "prior": "up"}]}],
+     "verdict_fn": standard_verdict(4, 1.3), "verdict": cell_verdict})
+
+# ------------------------------------------------------------------ 19. turn-of-month day +2: sector / size ETF neighbourhood (#17, ideate 2026-11-15)
+# PRE-REGISTRATION (written before the first run): c11 passed on SPY/QQQ/XLK, and was strong but short a year on IWM/SMH.
+# the other cached sector ETFs (XLF, XLE) are untested. a broad index-flow edge should show on every liquid ETF; a tech-beta
+# artefact (2022-26 tech drift) would fail on financials/energy. same trade as c11 (long open->close, session k).
+CELLS.append(
+    {"id": "c19_tom_day2_sectors", "anomaly": "#17 turn-of-month day +2: sector/size ETF breadth check (Ariel; McConnell-Xu; ideate 2026-11-15)",
+     "instruments": ["SPY", "XLF", "XLE", "IWM", "XLK"],
+     "kill_text": K45 + " on the primary point (k=2, open->close, SPY). pre-registered neighbourhood: k in {1, 2, 3} x "
+                  "SPY/XLF/XLE/IWM/XLK. calendar-flow story requires k=2 to clear the bar on >= 4 of 5 ETFs including both XLF and XLE; "
+                  "if XLF and XLE both fail, the SPY/QQQ pass is a tech-drift artefact -> downgrade c11. ~12 trades/yr/ETF so the "
+                  "read is breadth across instruments, not any one ETF",
+     "variants": [
+         {"name": "long open->close on session k of the month", "rule": tom_day_k,
+          "grid": [{"k": 2}, {"k": 1}, {"k": 3}]}],
+     "verdict_fn": standard_verdict(4, 1.3), "verdict": cell_verdict})
