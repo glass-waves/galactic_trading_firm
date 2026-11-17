@@ -10,3 +10,5 @@ reasoning is in `research/pretest/results/<cell>.json` (`verdict_text`).
 - 2026-10-30 `c15_tom_day2_window`: pass-pretest -> fragile — long open->close on session k of the month on QQQ: PF 1.73, 4/5 years -> engine study worth it | downgraded (controls): LOYO +154 (3/5) fails the 4/5 bar
 - 2026-11-02 `c16_tom_day2_quarter`: new -> pass-pretest — long open->close, day +2, new-quarter months on SPY: PF 2.80, 4/5 years (home QQQ fails) -> engine study worth it
 - 2026-11-02 `c17_tom_day2_weekday`: new -> fragile — long open->close, Mon/Fri sessions on QQQ: PF 1.50, 4/5 years (home AAPL+AMZN+MSFT+NVDA fails) -> engine study worth it | downgraded (controls): LOYO -107 (2/5) fails the 4/5 bar
+- 2026-11-16 `c18_tom_day2_prior`: new -> pass-pretest — long open->close, day k, prior session down on AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM: PF 1.55, 4/5 years -> engine study worth it
+- 2026-11-16 `c19_tom_day2_sectors`: new -> pass-pretest — long open->close on session k of the month on SPY: PF 1.78, 5/5 years -> engine study worth it
