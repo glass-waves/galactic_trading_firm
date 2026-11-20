@@ -1,0 +1,12 @@
+2026-11-20T06:40:05-08:00 [warning] NVDA -2.42% vs today's open (140.05 vs 143.52) at 0940 ET — primary: short from 140.30 (unrealized 0.00), daily P&L 0.00; shadows in a trade: shadow:vpin-0.26 short, shadow:size-vpin26-x1.25 short, shadow:stress-s15-core short, shadow:spy-sqrt-band-1h15 short, shadow:spy-sqrt-band-v020 short, shadow:lab-tier-x150 short, shadow:thrust-1h15 short, shadow:spy-sqrt-band short
+2026-11-20T06:40:06-08:00 [warning] NVDA -2.55% off its intraday high (140.05 vs 143.72) at 0940 ET — primary: short from 140.30 (unrealized 0.00), daily P&L 0.00; shadows in a trade: shadow:vpin-0.26 short, shadow:size-vpin26-x1.25 short, shadow:stress-s15-core short, shadow:spy-sqrt-band-1h15 short, shadow:spy-sqrt-band-v020 short, shadow:lab-tier-x150 short, shadow:thrust-1h15 short, shadow:spy-sqrt-band short
+2026-11-20T07:00:05-08:00 [info] AMZN +2.39% vs today's open (259.585 vs 253.535) at 1000 ET — primary: flat, daily P&L -0.26; shadows in a trade: none
+2026-11-20T07:00:06-08:00 [info] MSFT +2.03% vs today's open (503.135 vs 493.14) at 1000 ET — primary: flat, daily P&L -0.26; shadows in a trade: none
+2026-11-20T07:45:05-08:00 [warning] AMZN -2.05% off its intraday high (254.62 vs 259.94) at 1045 ET — primary: flat, daily P&L -0.26; shadows in a trade: none
+2026-11-20T07:45:06-08:00 [warning] MSFT -2.04% off its intraday high (493.435 vs 503.735) at 1045 ET — primary: flat, daily P&L -0.26; shadows in a trade: none
+2026-11-20T08:05:06-08:00 [critical] SPY -1.14% vs today's open (705.41 vs 713.56) at 1105 ET — primary: flat, daily P&L -0.26; shadows in a trade: none
+2026-11-20T08:05:06-08:00 [critical] SPY -1.79% off its intraday high (705.41 vs 718.26) at 1105 ET — primary: flat, daily P&L -0.26; shadows in a trade: none
+2026-11-20T08:35:05-08:00 [warning] AAPL -2.01% off its intraday high (347.17 vs 354.29) at 1135 ET — primary: flat, daily P&L -0.26; shadows in a trade: none
+2026-11-20T09:20:05-08:00 [warning] AAPL -2.03% vs today's open (345.48 vs 352.65) at 1220 ET — primary: flat, daily P&L -0.26; shadows in a trade: none
+2026-11-20T11:25:06-08:00 [warning] AMZN -2.18% vs today's open (248.02 vs 253.535) at 1425 ET — primary: flat, daily P&L -0.26; shadows in a trade: none
+2026-11-20T12:35:04-08:00 [warning] MSFT -2.13% vs today's open (482.64 vs 493.14) at 1535 ET — primary: short from 485.56 (unrealized 19.64), daily P&L -0.26; shadows in a trade: shadow:pdl15 short, shadow:lab-tier-x150 short
