@@ -24,23 +24,23 @@
 
 | cell | variant | inst | grid | n | net bps | PF | yrs+ | P&L | ex-top3 | LOYO (yrs+) | pass |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| c03_hks_halfhour | all 13 half-hours, sign of 40d same-clock mean | AAPL+AMZN+MSFT+NVDA | t=0 | 61104 | -7.7 | 0.62 | 0/5 | -163571 | -164041 | -6263 (0/5) | no |
-|  |  |  | t=1 | 19052 | -8.0 | 0.59 | 0/5 | -53369 | -53729 |  |  |
-|  |  |  | t=2 | 3031 | -5.9 | 0.70 | 0/5 | -6263 | -6581 |  |  |
-| c03_hks_halfhour | first+last half-hour only | AAPL+AMZN+MSFT+NVDA | t=0 | 9400 | -8.7 | 0.71 | 0/5 | -28556 | -29027 | -130 (2/5) | no |
-|  |  |  | t=1 | 2979 | -9.3 | 0.67 | 0/5 | -9651 | -10006 |  |  |
+| c03_hks_halfhour | all 13 half-hours, sign of 40d same-clock mean | AAPL+AMZN+MSFT+NVDA | t=0 | 61156 | -7.6 | 0.62 | 0/5 | -163459 | -163930 | -6207 (0/5) | no |
+|  |  |  | t=1 | 19069 | -8.0 | 0.59 | 0/5 | -53464 | -53824 |  |  |
+|  |  |  | t=2 | 3034 | -5.8 | 0.70 | 0/5 | -6207 | -6525 |  |  |
+| c03_hks_halfhour | first+last half-hour only | AAPL+AMZN+MSFT+NVDA | t=0 | 9408 | -8.7 | 0.71 | 0/5 | -28583 | -29054 | -130 (2/5) | no |
+|  |  |  | t=1 | 2982 | -9.3 | 0.66 | 0/5 | -9692 | -10048 |  |  |
 |  |  |  | t=2 | 541 | -0.8 | 0.97 | 2/5 | -130 | -446 |  |  |
 
 **c03_hks_halfhour: dead** — best tradable on AAPL+AMZN+MSFT+NVDA = first+last half-hour only: -8.7 bps/trade, 0/5 years positive (needs 4); PF 0.71 (needs > 1.3); LOYO -130 (2/5)
 
 | cell | variant | inst | grid | n | net bps | PF | yrs+ | P&L | ex-top3 | LOYO (yrs+) | pass |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| c04_orb5_qqq | OR candle direction, stop other side, 10R target or close | QQQ | or=5,R=10 | 1193 | -3.0 | 0.87 | 1/5 | -1225 | -1698 | -646 (1/5) | no |
-|  |  |  | or=15,R=10 | 1111 | -1.6 | 0.94 | 1/5 | -646 | -1248 |  |  |
-| c04_orb5_qqq | OR candle direction, stop other side, 10R target or close | SPY | or=5,R=10 | 1209 | -4.8 | 0.72 | 0/5 | -1925 | -2304 | -2128 (0/5) | no |
-|  |  |  | or=15,R=10 | 1196 | -4.8 | 0.77 | 1/5 | -1902 | -2193 |  |  |
+| c04_orb5_qqq | OR candle direction, stop other side, 10R target or close | QQQ | or=5,R=10 | 1194 | -3.0 | 0.87 | 1/5 | -1244 | -1717 | -665 (1/5) | no |
+|  |  |  | or=15,R=10 | 1112 | -1.6 | 0.94 | 1/5 | -665 | -1267 |  |  |
+| c04_orb5_qqq | OR candle direction, stop other side, 10R target or close | SPY | or=5,R=10 | 1210 | -4.8 | 0.72 | 0/5 | -1935 | -2315 | -2138 (0/5) | no |
+|  |  |  | or=15,R=10 | 1197 | -4.8 | 0.77 | 1/5 | -1912 | -2202 |  |  |
 
-**c04_orb5_qqq: dead** — best tradable on QQQ = OR candle direction, stop other side, 10R target or close: -3.0 bps/trade, 1/5 years positive (needs 4); PF 0.87 (needs > 1.3); LOYO -646 (1/5)
+**c04_orb5_qqq: dead** — best tradable on QQQ = OR candle direction, stop other side, 10R target or close: -3.0 bps/trade, 1/5 years positive (needs 4); PF 0.87 (needs > 1.3); LOYO -665 (1/5)
 
 | cell | variant | inst | grid | n | net bps | PF | yrs+ | P&L | ex-top3 | LOYO (yrs+) | pass |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -53,99 +53,99 @@
 
 | cell | variant | inst | grid | n | net bps | PF | yrs+ | P&L | ex-top3 | LOYO (yrs+) | pass |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| c06_gap_fade_fill | fade/continue, exit 10:30 | AAPL+AMZN+MSFT+NVDA | thresh=0.02,exit=60 | 4782 | -7.6 | 0.84 | 0/5 | -12762 | -13280 | -10540 (0/5) | no |
-|  |  |  | thresh=0.015,exit=60 | 4782 | -7.7 | 0.83 | 0/5 | -12934 | -13452 |  |  |
-|  |  |  | thresh=0.01,exit=60 | 4782 | -6.2 | 0.86 | 0/5 | -10540 | -11043 |  |  |
-| c06_gap_fade_fill | fade/continue, exit 10:30 | SPY | thresh=0.02,exit=60 | 1218 | -6.8 | 0.64 | 0/5 | -2758 | -2911 | -2566 (0/5) | no |
-|  |  |  | thresh=0.015,exit=60 | 1218 | -6.2 | 0.66 | 0/5 | -2538 | -2691 |  |  |
-|  |  |  | thresh=0.01,exit=60 | 1218 | -5.3 | 0.70 | 0/5 | -2160 | -2309 |  |  |
-| c06_gap_fade_fill | fade/continue, exit 10:30 | QQQ | thresh=0.02,exit=60 | 1216 | -7.4 | 0.73 | 0/5 | -3054 | -3272 | -3233 (0/5) | no |
-|  |  |  | thresh=0.015,exit=60 | 1216 | -7.5 | 0.73 | 0/5 | -3101 | -3318 |  |  |
-|  |  |  | thresh=0.01,exit=60 | 1216 | -6.1 | 0.78 | 1/5 | -2472 | -2707 |  |  |
-| c06_gap_fade_fill | fade/continue, exit 10:30 | IWM | thresh=0.02,exit=60 | 1216 | -4.9 | 0.84 | 0/5 | -2060 | -2278 | -2440 (0/5) | no |
-|  |  |  | thresh=0.015,exit=60 | 1216 | -5.0 | 0.83 | 0/5 | -2120 | -2333 |  |  |
-|  |  |  | thresh=0.01,exit=60 | 1216 | -6.9 | 0.77 | 0/5 | -2952 | -3164 |  |  |
-| c06_gap_fade_fill | fade/continue, exit 10:30 | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | thresh=0.02,exit=60 | 41253 | -8.2 | 0.85 | 0/5 | -117366 | -118572 | -108821 (0/5) | no |
-|  |  |  | thresh=0.015,exit=60 | 41253 | -7.6 | 0.86 | 0/5 | -108821 | -110026 |  |  |
-|  |  |  | thresh=0.01,exit=60 | 41253 | -8.3 | 0.84 | 0/5 | -118377 | -119582 |  |  |
-| c06_gap_fade_fill | fade/continue, exit 11:30 | AAPL+AMZN+MSFT+NVDA | thresh=0.02,exit=120 | 4782 | -8.5 | 0.84 | 0/5 | -14303 | -14955 | -11316 (0/5) | no |
-|  |  |  | thresh=0.015,exit=120 | 4782 | -8.1 | 0.85 | 0/5 | -13584 | -14235 |  |  |
-|  |  |  | thresh=0.01,exit=120 | 4782 | -6.7 | 0.87 | 0/5 | -11316 | -11967 |  |  |
-| c06_gap_fade_fill | fade/continue, exit 11:30 | SPY | thresh=0.02,exit=120 | 1218 | -5.7 | 0.75 | 0/5 | -2301 | -2490 | -2692 (0/5) | no |
-|  |  |  | thresh=0.015,exit=120 | 1218 | -5.9 | 0.74 | 0/5 | -2354 | -2543 |  |  |
-|  |  |  | thresh=0.01,exit=120 | 1218 | -5.0 | 0.77 | 0/5 | -2019 | -2216 |  |  |
-| c06_gap_fade_fill | fade/continue, exit 11:30 | QQQ | thresh=0.02,exit=120 | 1216 | -7.7 | 0.76 | 0/5 | -3218 | -3467 | -3783 (0/5) | no |
-|  |  |  | thresh=0.015,exit=120 | 1216 | -7.9 | 0.76 | 0/5 | -3257 | -3506 |  |  |
-|  |  |  | thresh=0.01,exit=120 | 1216 | -6.9 | 0.79 | 0/5 | -2860 | -3141 |  |  |
-| c06_gap_fade_fill | fade/continue, exit 11:30 | IWM | thresh=0.02,exit=120 | 1216 | -5.2 | 0.85 | 1/5 | -2209 | -2493 | -2667 (1/5) | no |
-|  |  |  | thresh=0.015,exit=120 | 1216 | -5.4 | 0.85 | 1/5 | -2283 | -2567 |  |  |
-|  |  |  | thresh=0.01,exit=120 | 1216 | -7.8 | 0.79 | 0/5 | -3321 | -3619 |  |  |
-| c06_gap_fade_fill | fade/continue, exit 11:30 | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | thresh=0.02,exit=120 | 41253 | -8.3 | 0.86 | 0/5 | -119114 | -120903 | -108990 (0/5) | no |
-|  |  |  | thresh=0.015,exit=120 | 41253 | -7.6 | 0.87 | 0/5 | -108990 | -110595 |  |  |
-|  |  |  | thresh=0.01,exit=120 | 41253 | -8.5 | 0.86 | 0/5 | -122064 | -123668 |  |  |
-| c06_gap_fade_fill | fade/continue, exit close | AAPL+AMZN+MSFT+NVDA | thresh=0.02,exit=390 | 4782 | -8.2 | 0.88 | 0/5 | -13745 | -15183 | -10846 (0/5) | no |
-|  |  |  | thresh=0.015,exit=390 | 4782 | -8.5 | 0.88 | 0/5 | -14358 | -15796 |  |  |
-|  |  |  | thresh=0.01,exit=390 | 4782 | -6.4 | 0.91 | 0/5 | -10846 | -12284 |  |  |
-| c06_gap_fade_fill | fade/continue, exit close | SPY | thresh=0.02,exit=390 | 1218 | -5.5 | 0.84 | 1/5 | -2134 | -2674 | -2586 (0/5) | no |
-|  |  |  | thresh=0.015,exit=390 | 1218 | -5.9 | 0.83 | 1/5 | -2319 | -2855 |  |  |
-|  |  |  | thresh=0.01,exit=390 | 1218 | -5.8 | 0.83 | 0/5 | -2297 | -2832 |  |  |
-| c06_gap_fade_fill | fade/continue, exit close | QQQ | thresh=0.02,exit=390 | 1216 | -7.5 | 0.84 | 1/5 | -3175 | -3829 | -4531 (0/5) | no |
-|  |  |  | thresh=0.015,exit=390 | 1216 | -8.0 | 0.83 | 1/5 | -3326 | -3972 |  |  |
-|  |  |  | thresh=0.01,exit=390 | 1216 | -7.6 | 0.84 | 0/5 | -3174 | -3826 |  |  |
-| c06_gap_fade_fill | fade/continue, exit close | IWM | thresh=0.02,exit=390 | 1216 | -4.5 | 0.90 | 1/5 | -1924 | -2570 | -1924 (1/5) | no |
-|  |  |  | thresh=0.015,exit=390 | 1216 | -5.2 | 0.89 | 1/5 | -2248 | -2876 |  |  |
-|  |  |  | thresh=0.01,exit=390 | 1216 | -10.4 | 0.79 | 0/5 | -4436 | -4848 |  |  |
-| c06_gap_fade_fill | fade/continue, exit close | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | thresh=0.02,exit=390 | 41253 | -8.4 | 0.89 | 0/5 | -120954 | -123120 | -110827 (0/5) | no |
-|  |  |  | thresh=0.015,exit=390 | 41253 | -7.7 | 0.90 | 0/5 | -110827 | -112993 |  |  |
-|  |  |  | thresh=0.01,exit=390 | 41253 | -9.0 | 0.88 | 0/5 | -129382 | -131839 |  |  |
+| c06_gap_fade_fill | fade/continue, exit 10:30 | AAPL+AMZN+MSFT+NVDA | thresh=0.02,exit=60 | 4786 | -7.7 | 0.84 | 0/5 | -12793 | -13311 | -10528 (0/5) | no |
+|  |  |  | thresh=0.015,exit=60 | 4786 | -7.6 | 0.84 | 0/5 | -12726 | -13244 |  |  |
+|  |  |  | thresh=0.01,exit=60 | 4786 | -6.2 | 0.86 | 0/5 | -10528 | -11030 |  |  |
+| c06_gap_fade_fill | fade/continue, exit 10:30 | SPY | thresh=0.02,exit=60 | 1219 | -6.8 | 0.63 | 0/5 | -2775 | -2928 | -2583 (0/5) | no |
+|  |  |  | thresh=0.015,exit=60 | 1219 | -6.3 | 0.66 | 0/5 | -2555 | -2708 |  |  |
+|  |  |  | thresh=0.01,exit=60 | 1219 | -5.4 | 0.70 | 0/5 | -2178 | -2327 |  |  |
+| c06_gap_fade_fill | fade/continue, exit 10:30 | QQQ | thresh=0.02,exit=60 | 1217 | -7.5 | 0.73 | 0/5 | -3088 | -3306 | -3203 (0/5) | no |
+|  |  |  | thresh=0.015,exit=60 | 1217 | -7.6 | 0.72 | 0/5 | -3135 | -3352 |  |  |
+|  |  |  | thresh=0.01,exit=60 | 1217 | -6.0 | 0.78 | 1/5 | -2441 | -2676 |  |  |
+| c06_gap_fade_fill | fade/continue, exit 10:30 | IWM | thresh=0.02,exit=60 | 1217 | -4.9 | 0.84 | 0/5 | -2066 | -2284 | -2446 (0/5) | no |
+|  |  |  | thresh=0.015,exit=60 | 1217 | -5.0 | 0.83 | 0/5 | -2126 | -2339 |  |  |
+|  |  |  | thresh=0.01,exit=60 | 1217 | -7.0 | 0.77 | 0/5 | -2958 | -3171 |  |  |
+| c06_gap_fade_fill | fade/continue, exit 10:30 | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | thresh=0.02,exit=60 | 41287 | -8.3 | 0.85 | 0/5 | -117829 | -119035 | -108932 (0/5) | no |
+|  |  |  | thresh=0.015,exit=60 | 41287 | -7.6 | 0.86 | 0/5 | -108932 | -110138 |  |  |
+|  |  |  | thresh=0.01,exit=60 | 41287 | -8.2 | 0.84 | 0/5 | -117855 | -119060 |  |  |
+| c06_gap_fade_fill | fade/continue, exit 11:30 | AAPL+AMZN+MSFT+NVDA | thresh=0.02,exit=120 | 4786 | -8.6 | 0.84 | 0/5 | -14452 | -15103 | -11185 (0/5) | no |
+|  |  |  | thresh=0.015,exit=120 | 4786 | -8.0 | 0.85 | 0/5 | -13391 | -14042 |  |  |
+|  |  |  | thresh=0.01,exit=120 | 4786 | -6.6 | 0.88 | 0/5 | -11185 | -11837 |  |  |
+| c06_gap_fade_fill | fade/continue, exit 11:30 | SPY | thresh=0.02,exit=120 | 1219 | -5.8 | 0.74 | 0/5 | -2343 | -2532 | -2734 (0/5) | no |
+|  |  |  | thresh=0.015,exit=120 | 1219 | -6.0 | 0.74 | 0/5 | -2396 | -2585 |  |  |
+|  |  |  | thresh=0.01,exit=120 | 1219 | -5.1 | 0.77 | 0/5 | -2062 | -2258 |  |  |
+| c06_gap_fade_fill | fade/continue, exit 11:30 | QQQ | thresh=0.02,exit=120 | 1217 | -7.9 | 0.76 | 0/5 | -3283 | -3532 | -3722 (0/5) | no |
+|  |  |  | thresh=0.015,exit=120 | 1217 | -8.0 | 0.76 | 0/5 | -3322 | -3571 |  |  |
+|  |  |  | thresh=0.01,exit=120 | 1217 | -6.8 | 0.79 | 0/5 | -2799 | -3080 |  |  |
+| c06_gap_fade_fill | fade/continue, exit 11:30 | IWM | thresh=0.02,exit=120 | 1217 | -5.3 | 0.85 | 1/5 | -2238 | -2522 | -2696 (1/5) | no |
+|  |  |  | thresh=0.015,exit=120 | 1217 | -5.5 | 0.84 | 1/5 | -2312 | -2596 |  |  |
+|  |  |  | thresh=0.01,exit=120 | 1217 | -7.9 | 0.78 | 0/5 | -3350 | -3648 |  |  |
+| c06_gap_fade_fill | fade/continue, exit 11:30 | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | thresh=0.02,exit=120 | 41287 | -8.3 | 0.86 | 0/5 | -119439 | -121228 | -108576 (0/5) | no |
+|  |  |  | thresh=0.015,exit=120 | 41287 | -7.6 | 0.87 | 0/5 | -108576 | -110180 |  |  |
+|  |  |  | thresh=0.01,exit=120 | 41287 | -8.4 | 0.86 | 0/5 | -120616 | -122221 |  |  |
+| c06_gap_fade_fill | fade/continue, exit close | AAPL+AMZN+MSFT+NVDA | thresh=0.02,exit=390 | 4786 | -8.5 | 0.88 | 0/5 | -14252 | -15690 | -10356 (0/5) | no |
+|  |  |  | thresh=0.015,exit=390 | 4786 | -8.3 | 0.88 | 0/5 | -13973 | -15489 |  |  |
+|  |  |  | thresh=0.01,exit=390 | 4786 | -6.1 | 0.91 | 0/5 | -10356 | -11873 |  |  |
+| c06_gap_fade_fill | fade/continue, exit close | SPY | thresh=0.02,exit=390 | 1219 | -5.7 | 0.84 | 1/5 | -2250 | -2790 | -2703 (0/5) | no |
+|  |  |  | thresh=0.015,exit=390 | 1219 | -6.2 | 0.82 | 1/5 | -2436 | -2971 |  |  |
+|  |  |  | thresh=0.01,exit=390 | 1219 | -6.0 | 0.83 | 0/5 | -2413 | -2949 |  |  |
+| c06_gap_fade_fill | fade/continue, exit close | QQQ | thresh=0.02,exit=390 | 1217 | -7.9 | 0.83 | 1/5 | -3320 | -3975 | -4266 (0/5) | no |
+|  |  |  | thresh=0.015,exit=390 | 1217 | -8.4 | 0.82 | 1/5 | -3472 | -4118 |  |  |
+|  |  |  | thresh=0.01,exit=390 | 1217 | -7.3 | 0.84 | 0/5 | -3032 | -3699 |  |  |
+| c06_gap_fade_fill | fade/continue, exit close | IWM | thresh=0.02,exit=390 | 1217 | -4.7 | 0.90 | 1/5 | -2012 | -2657 | -2012 (1/5) | no |
+|  |  |  | thresh=0.015,exit=390 | 1217 | -5.5 | 0.88 | 1/5 | -2336 | -2964 |  |  |
+|  |  |  | thresh=0.01,exit=390 | 1217 | -10.6 | 0.79 | 0/5 | -4523 | -4936 |  |  |
+| c06_gap_fade_fill | fade/continue, exit close | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | thresh=0.02,exit=390 | 41287 | -8.5 | 0.89 | 0/5 | -121429 | -123594 | -109428 (0/5) | no |
+|  |  |  | thresh=0.015,exit=390 | 41287 | -7.6 | 0.90 | 0/5 | -109428 | -111594 |  |  |
+|  |  |  | thresh=0.01,exit=390 | 41287 | -8.8 | 0.89 | 0/5 | -126297 | -128754 |  |  |
 
-**c06_gap_fade_fill: dead** — best tradable on AAPL+AMZN+MSFT+NVDA = fade/continue, exit 10:30: -7.6 bps/trade, 0/5 years positive (needs 4); PF 0.84 (needs > 1.3); LOYO -10540 (0/5)
-
-| cell | variant | inst | grid | n | net bps | PF | yrs+ | P&L | ex-top3 | LOYO (yrs+) | pass |
-|---|---|---|---|---|---|---|---|---|---|---|---|
-| c07_overnight_decile | top/bottom 5% (ventile) lean, trailing window | AAPL+AMZN+MSFT+NVDA | window=60,decile=0.05 | 636 | -9.1 | 0.89 | 3/5 | -1958 | -2875 | -2252 (1/5) | no |
-|  |  |  | window=20,decile=0.05 | 931 | -14.4 | 0.82 | 1/5 | -4612 | -5618 |  |  |
-|  |  |  | window=120,decile=0.05 | 546 | -9.1 | 0.90 | 1/5 | -1692 | -2696 |  |  |
-| c07_overnight_decile | top/bottom 5% (ventile) lean, trailing window | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | window=60,decile=0.05 | 5450 | -18.9 | 0.80 | 1/5 | -36243 | -37903 | -38515 (1/5) | no |
-|  |  |  | window=20,decile=0.05 | 7786 | -19.5 | 0.78 | 1/5 | -53303 | -54940 |  |  |
-|  |  |  | window=120,decile=0.05 | 4850 | -20.8 | 0.79 | 1/5 | -35297 | -36957 |  |  |
-| c07_overnight_decile | top/bottom decile lean, trailing window | AAPL+AMZN+MSFT+NVDA | window=60,decile=0.1 | 1097 | -13.2 | 0.84 | 1/5 | -5006 | -6012 | -4894 (1/5) | no |
-|  |  |  | window=20,decile=0.1 | 1397 | -9.7 | 0.87 | 1/5 | -4698 | -5705 |  |  |
-|  |  |  | window=120,decile=0.1 | 1010 | -11.8 | 0.86 | 1/5 | -4092 | -5215 |  |  |
-| c07_overnight_decile | top/bottom decile lean, trailing window | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | window=60,decile=0.1 | 9373 | -15.2 | 0.82 | 1/5 | -50372 | -52036 | -47592 (1/5) | no |
-|  |  |  | window=20,decile=0.1 | 11701 | -15.0 | 0.82 | 1/5 | -61464 | -63216 |  |  |
-|  |  |  | window=120,decile=0.1 | 8836 | -15.3 | 0.82 | 1/5 | -47592 | -49474 |  |  |
-| c07_overnight_decile | top/bottom quintile lean (wider), trailing window | AAPL+AMZN+MSFT+NVDA | window=60,decile=0.2 | 2021 | -10.7 | 0.86 | 1/5 | -7544 | -8681 | -5921 (1/5) | no |
-|  |  |  | window=20,decile=0.2 | 2265 | -7.5 | 0.90 | 1/5 | -5921 | -7058 |  |  |
-|  |  |  | window=120,decile=0.2 | 1961 | -10.3 | 0.86 | 1/5 | -7024 | -8161 |  |  |
-| c07_overnight_decile | top/bottom quintile lean (wider), trailing window | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | window=60,decile=0.2 | 17396 | -14.4 | 0.82 | 0/5 | -87903 | -89786 | -81642 (0/5) | no |
-|  |  |  | window=20,decile=0.2 | 19363 | -12.0 | 0.85 | 0/5 | -81642 | -83531 |  |  |
-|  |  |  | window=120,decile=0.2 | 16962 | -14.7 | 0.82 | 0/5 | -87496 | -89378 |  |  |
-
-**c07_overnight_decile: dead** — best tradable on AAPL+AMZN+MSFT+NVDA = top/bottom 5% (ventile) lean, trailing window: -9.1 bps/trade, 3/5 years positive (needs 4); PF 0.89 (needs > 1.3); LOYO -2252 (1/5)
+**c06_gap_fade_fill: dead** — best tradable on AAPL+AMZN+MSFT+NVDA = fade/continue, exit 10:30: -7.7 bps/trade, 0/5 years positive (needs 4); PF 0.84 (needs > 1.3); LOYO -10528 (0/5)
 
 | cell | variant | inst | grid | n | net bps | PF | yrs+ | P&L | ex-top3 | LOYO (yrs+) | pass |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| c08_hedging_momentum | gated on realized-range proxy (trailing percentile), hold=30 (paper) | SPY | gate=50,window=60,hold=30 | 562 | -7.8 | 0.46 | 0/5 | -1460 | -1561 | -1007 (0/5) | no |
-|  |  |  | gate=60,window=60,hold=30 | 440 | -8.6 | 0.45 | 0/5 | -1256 | -1356 |  |  |
-|  |  |  | gate=70,window=60,hold=30 | 356 | -8.5 | 0.48 | 0/5 | -1007 | -1108 |  |  |
-| c08_hedging_momentum | gated on realized-range proxy (trailing percentile), hold=30 (paper) | QQQ | gate=50,window=60,hold=30 | 551 | -7.7 | 0.53 | 0/5 | -1443 | -1564 | -1026 (0/5) | no |
-|  |  |  | gate=60,window=60,hold=30 | 467 | -7.9 | 0.54 | 0/5 | -1252 | -1373 |  |  |
-|  |  |  | gate=70,window=60,hold=30 | 352 | -8.6 | 0.53 | 0/5 | -1026 | -1148 |  |  |
-| c08_hedging_momentum | gated on realized-range proxy (trailing percentile), hold=30 (paper) | IWM | gate=50,window=60,hold=30 | 559 | -10.3 | 0.40 | 0/5 | -2017 | -2156 | -1411 (0/5) | no |
-|  |  |  | gate=60,window=60,hold=30 | 454 | -10.6 | 0.41 | 0/5 | -1679 | -1818 |  |  |
-|  |  |  | gate=70,window=60,hold=30 | 348 | -11.6 | 0.40 | 0/5 | -1411 | -1550 |  |  |
-| c08_hedging_momentum | ungated (plain momentum, #3 comparison), holding-window neighbourhood | SPY | gate=None,hold=30 | 1210 | -6.7 | 0.47 | 0/5 | -2690 | -2820 | -2927 (0/5) | no |
-|  |  |  | gate=None,hold=20 | 1210 | -6.6 | 0.43 | 0/5 | -2635 | -2748 |  |  |
-|  |  |  | gate=None,hold=45 | 1209 | -6.5 | 0.53 | 0/5 | -2592 | -2775 |  |  |
-| c08_hedging_momentum | ungated (plain momentum, #3 comparison), holding-window neighbourhood | QQQ | gate=None,hold=30 | 1210 | -6.5 | 0.55 | 1/5 | -2624 | -2771 | -2918 (0/5) | no |
-|  |  |  | gate=None,hold=20 | 1208 | -6.6 | 0.49 | 0/5 | -2663 | -2787 |  |  |
-|  |  |  | gate=None,hold=45 | 1210 | -7.0 | 0.57 | 0/5 | -2842 | -3021 |  |  |
-| c08_hedging_momentum | ungated (plain momentum, #3 comparison), holding-window neighbourhood | IWM | gate=None,hold=30 | 1210 | -7.9 | 0.45 | 0/5 | -3341 | -3495 | -3130 (0/5) | no |
-|  |  |  | gate=None,hold=20 | 1206 | -7.4 | 0.41 | 0/5 | -3124 | -3242 |  |  |
-|  |  |  | gate=None,hold=45 | 1209 | -7.1 | 0.56 | 0/5 | -2987 | -3156 |  |  |
+| c07_overnight_decile | top/bottom 5% (ventile) lean, trailing window | AAPL+AMZN+MSFT+NVDA | window=60,decile=0.05 | 638 | -8.4 | 0.90 | 3/5 | -1818 | -2735 | -2423 (1/5) | no |
+|  |  |  | window=20,decile=0.05 | 932 | -14.2 | 0.82 | 1/5 | -4560 | -5566 |  |  |
+|  |  |  | window=120,decile=0.05 | 547 | -8.8 | 0.90 | 1/5 | -1639 | -2644 |  |  |
+| c07_overnight_decile | top/bottom 5% (ventile) lean, trailing window | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | window=60,decile=0.05 | 5460 | -18.0 | 0.81 | 1/5 | -34529 | -36189 | -38390 (1/5) | no |
+|  |  |  | window=20,decile=0.05 | 7797 | -18.7 | 0.79 | 1/5 | -51378 | -53015 |  |  |
+|  |  |  | window=120,decile=0.05 | 4852 | -20.7 | 0.79 | 1/5 | -35269 | -36929 |  |  |
+| c07_overnight_decile | top/bottom decile lean, trailing window | AAPL+AMZN+MSFT+NVDA | window=60,decile=0.1 | 1099 | -12.8 | 0.84 | 1/5 | -4866 | -5872 | -4754 (1/5) | no |
+|  |  |  | window=20,decile=0.1 | 1399 | -9.4 | 0.88 | 1/5 | -4558 | -5565 |  |  |
+|  |  |  | window=120,decile=0.1 | 1012 | -11.4 | 0.86 | 1/5 | -3952 | -5075 |  |  |
+| c07_overnight_decile | top/bottom decile lean, trailing window | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | window=60,decile=0.1 | 9388 | -14.5 | 0.83 | 1/5 | -48150 | -49813 | -48243 (1/5) | no |
+|  |  |  | window=20,decile=0.1 | 11715 | -14.5 | 0.82 | 1/5 | -59458 | -61211 |  |  |
+|  |  |  | window=120,decile=0.1 | 8847 | -14.9 | 0.83 | 1/5 | -46467 | -48350 |  |  |
+| c07_overnight_decile | top/bottom quintile lean (wider), trailing window | AAPL+AMZN+MSFT+NVDA | window=60,decile=0.2 | 2024 | -9.8 | 0.87 | 1/5 | -6959 | -8196 | -6569 (1/5) | no |
+|  |  |  | window=20,decile=0.2 | 2267 | -7.3 | 0.90 | 1/5 | -5781 | -6918 |  |  |
+|  |  |  | window=120,decile=0.2 | 1964 | -9.4 | 0.88 | 1/5 | -6439 | -7676 |  |  |
+| c07_overnight_decile | top/bottom quintile lean (wider), trailing window | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | window=60,decile=0.2 | 17420 | -13.8 | 0.83 | 1/5 | -84361 | -86243 | -78708 (1/5) | no |
+|  |  |  | window=20,decile=0.2 | 19384 | -11.6 | 0.85 | 1/5 | -78708 | -80596 |  |  |
+|  |  |  | window=120,decile=0.2 | 16984 | -14.2 | 0.83 | 1/5 | -84433 | -86315 |  |  |
 
-**c08_hedging_momentum: dead** — best tradable on SPY = gated on realized-range proxy (trailing percentile), hold=30 (paper): -7.8 bps/trade, 0/5 years positive (needs 4); PF 0.46 (needs > 1.3); LOYO -1007 (0/5)
+**c07_overnight_decile: dead** — best tradable on AAPL+AMZN+MSFT+NVDA = top/bottom 5% (ventile) lean, trailing window: -8.4 bps/trade, 3/5 years positive (needs 4); PF 0.90 (needs > 1.3); LOYO -2423 (1/5)
+
+| cell | variant | inst | grid | n | net bps | PF | yrs+ | P&L | ex-top3 | LOYO (yrs+) | pass |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| c08_hedging_momentum | gated on realized-range proxy (trailing percentile), hold=30 (paper) | SPY | gate=50,window=60,hold=30 | 563 | -7.8 | 0.46 | 0/5 | -1453 | -1553 | -1000 (0/5) | no |
+|  |  |  | gate=60,window=60,hold=30 | 441 | -8.5 | 0.45 | 0/5 | -1248 | -1349 |  |  |
+|  |  |  | gate=70,window=60,hold=30 | 357 | -8.4 | 0.48 | 0/5 | -1000 | -1101 |  |  |
+| c08_hedging_momentum | gated on realized-range proxy (trailing percentile), hold=30 (paper) | QQQ | gate=50,window=60,hold=30 | 552 | -7.7 | 0.53 | 0/5 | -1434 | -1555 | -1017 (0/5) | no |
+|  |  |  | gate=60,window=60,hold=30 | 468 | -7.8 | 0.54 | 0/5 | -1243 | -1364 |  |  |
+|  |  |  | gate=70,window=60,hold=30 | 353 | -8.5 | 0.53 | 0/5 | -1017 | -1138 |  |  |
+| c08_hedging_momentum | gated on realized-range proxy (trailing percentile), hold=30 (paper) | IWM | gate=50,window=60,hold=30 | 560 | -10.2 | 0.40 | 0/5 | -2006 | -2145 | -1401 (0/5) | no |
+|  |  |  | gate=60,window=60,hold=30 | 455 | -10.5 | 0.41 | 0/5 | -1668 | -1807 |  |  |
+|  |  |  | gate=70,window=60,hold=30 | 349 | -11.5 | 0.40 | 0/5 | -1401 | -1539 |  |  |
+| c08_hedging_momentum | ungated (plain momentum, #3 comparison), holding-window neighbourhood | SPY | gate=None,hold=30 | 1211 | -6.7 | 0.47 | 0/5 | -2683 | -2813 | -2925 (0/5) | no |
+|  |  |  | gate=None,hold=20 | 1211 | -6.6 | 0.43 | 0/5 | -2633 | -2746 |  |  |
+|  |  |  | gate=None,hold=45 | 1210 | -6.5 | 0.54 | 0/5 | -2581 | -2764 |  |  |
+| c08_hedging_momentum | ungated (plain momentum, #3 comparison), holding-window neighbourhood | QQQ | gate=None,hold=30 | 1211 | -6.4 | 0.55 | 1/5 | -2615 | -2762 | -2912 (0/5) | no |
+|  |  |  | gate=None,hold=20 | 1209 | -6.6 | 0.49 | 0/5 | -2657 | -2782 |  |  |
+|  |  |  | gate=None,hold=45 | 1211 | -7.0 | 0.57 | 0/5 | -2830 | -3008 |  |  |
+| c08_hedging_momentum | ungated (plain momentum, #3 comparison), holding-window neighbourhood | IWM | gate=None,hold=30 | 1211 | -7.9 | 0.45 | 0/5 | -3330 | -3484 | -3116 (0/5) | no |
+|  |  |  | gate=None,hold=20 | 1207 | -7.4 | 0.42 | 0/5 | -3116 | -3234 |  |  |
+|  |  |  | gate=None,hold=45 | 1210 | -7.0 | 0.56 | 0/5 | -2974 | -3142 |  |  |
+
+**c08_hedging_momentum: dead** — best tradable on SPY = gated on realized-range proxy (trailing percentile), hold=30 (paper): -7.8 bps/trade, 0/5 years positive (needs 4); PF 0.46 (needs > 1.3); LOYO -1000 (0/5)
 
 | cell | variant | inst | grid | n | net bps | PF | yrs+ | P&L | ex-top3 | LOYO (yrs+) | pass |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -153,7 +153,7 @@
 | c09_fomc_compression | no-trade regime probe (diagnostics only, see extra) (diagnostic only, not a trade) | QQQ | paper | 0 | +0.0 | 0.00 | 0/5 | +0 | +0 |  | no |
 | c09_fomc_compression | no-trade regime probe (diagnostics only, see extra) (diagnostic only, not a trade) | IWM | paper | 0 | +0.0 | 0.00 | 0/5 | +0 | +0 |  | no |
 
-**c09_fomc_compression: pass-pretest** — 9 cells scanned (3 instruments x 3 windows); SPY 10:30-14:00 compressed 37.0% vs non-event sessions (z=-7.09, n=39) -> measurable, worth gating the FOMC-day windows in c01_pre_fomc
+**c09_fomc_compression: pass-pretest** — 9 cells scanned (3 instruments x 3 windows); SPY 10:30-14:00 compressed 37.1% vs non-event sessions (z=-7.11, n=39) -> measurable, worth gating the FOMC-day windows in c01_pre_fomc
 
 | cell | variant | inst | grid | n | net bps | PF | yrs+ | P&L | ex-top3 | LOYO (yrs+) | pass |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -161,7 +161,7 @@
 | c10_opex_compression | no-trade regime probe (diagnostics only, see extra) (diagnostic only, not a trade) | QQQ | paper | 0 | +0.0 | 0.00 | 0/5 | +0 | +0 |  | no |
 | c10_opex_compression | no-trade regime probe (diagnostics only, see extra) (diagnostic only, not a trade) | IWM | paper | 0 | +0.0 | 0.00 | 0/5 | +0 | +0 |  | no |
 
-**c10_opex_compression: dead** — 9 cells scanned (3 instruments x 3 windows); no cell clears |z|>=2.0 and 10.0% compression (best IWM 10:30-14:30: z=-0.5, 3.5%) -> discard as a regime gate
+**c10_opex_compression: dead** — 9 cells scanned (3 instruments x 3 windows); no cell clears |z|>=2.0 and 10.0% compression (best SPY 10:00-14:00: z=0.4, -3.8%) -> discard as a regime gate
 
 | cell | variant | inst | grid | n | net bps | PF | yrs+ | P&L | ex-top3 | LOYO (yrs+) | pass |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -185,55 +185,55 @@
 
 | cell | variant | inst | grid | n | net bps | PF | yrs+ | P&L | ex-top3 | LOYO (yrs+) | pass |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| c12_vwap_reversion_stock | fade VWAP stretch, enter 11:00 hold 60 | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | t=90,hold=60,z=0.75 | 252 | -0.9 | 0.98 | 2/5 | -88 | -630 | -551 (2/5) | no |
-|  |  |  | t=90,hold=60,z=0.5 | 1514 | -6.0 | 0.84 | 1/5 | -3190 | -3736 |  |  |
-|  |  |  | t=90,hold=60,z=1.0 | 58 | -7.8 | 0.85 | 2/5 | -154 | -600 |  |  |
+| c12_vwap_reversion_stock | fade VWAP stretch, enter 11:00 hold 60 | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | t=90,hold=60,z=0.75 | 253 | -1.4 | 0.96 | 2/5 | -140 | -682 | -603 (2/5) | no |
+|  |  |  | t=90,hold=60,z=0.5 | 1516 | -6.2 | 0.83 | 1/5 | -3274 | -3820 |  |  |
+|  |  |  | t=90,hold=60,z=1.0 | 59 | -10.2 | 0.81 | 2/5 | -205 | -652 |  |  |
 | c12_vwap_reversion_stock | fade VWAP stretch, enter 11:00 hold 60 | AAPL+AMZN+MSFT+NVDA | t=90,hold=60,z=0.75 | 21 | -1.6 | 0.93 | 2/5 | -13 | -155 | -104 (1/5) | no |
 |  |  |  | t=90,hold=60,z=0.5 | 169 | -6.4 | 0.80 | 2/5 | -381 | -718 |  |  |
 |  |  |  | t=90,hold=60,z=1.0 | 10 | +2.6 | 1.18 | 1/5 | +11 | -56 |  |  |
-| c12_vwap_reversion_stock | fade VWAP stretch, enter 12:30 hold 60 | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | t=180,hold=60,z=0.75 | 485 | +6.8 | 1.23 | 3/5 | +1137 | +836 | +1137 (3/5) | no |
-|  |  |  | t=180,hold=60,z=0.5 | 2233 | -2.5 | 0.91 | 1/5 | -1910 | -2577 |  |  |
-|  |  |  | t=180,hold=60,z=1.0 | 120 | +14.0 | 1.46 | 3/5 | +587 | +312 |  |  |
+| c12_vwap_reversion_stock | fade VWAP stretch, enter 12:30 hold 60 | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | t=180,hold=60,z=0.75 | 488 | +6.5 | 1.22 | 3/5 | +1107 | +805 | +1107 (3/5) | no |
+|  |  |  | t=180,hold=60,z=0.5 | 2244 | -2.5 | 0.91 | 1/5 | -1904 | -2571 |  |  |
+|  |  |  | t=180,hold=60,z=1.0 | 121 | +13.8 | 1.46 | 3/5 | +585 | +310 |  |  |
 | c12_vwap_reversion_stock | fade VWAP stretch, enter 12:30 hold 60 | AAPL+AMZN+MSFT+NVDA | t=180,hold=60,z=0.75 | 57 | +19.8 | 1.75 | 3/5 | +393 | +177 | +393 (3/5) | no |
-|  |  |  | t=180,hold=60,z=0.5 | 276 | -3.2 | 0.89 | 2/5 | -299 | -527 |  |  |
+|  |  |  | t=180,hold=60,z=0.5 | 277 | -3.1 | 0.89 | 2/5 | -290 | -519 |  |  |
 |  |  |  | t=180,hold=60,z=1.0 | 15 | +15.3 | 2.21 | 3/5 | +84 | -13 |  |  |
-| c12_vwap_reversion_stock | fade VWAP stretch, enter 11:00 hold 120 | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | t=90,hold=120,z=0.75 | 252 | +4.9 | 1.09 | 2/5 | +358 | +5 | -257 (2/5) | no |
-|  |  |  | t=90,hold=120,z=0.5 | 1514 | -6.8 | 0.85 | 1/5 | -3658 | -4240 |  |  |
-|  |  |  | t=90,hold=120,z=1.0 | 58 | +10.0 | 1.23 | 3/5 | +184 | -58 |  |  |
+| c12_vwap_reversion_stock | fade VWAP stretch, enter 11:00 hold 120 | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | t=90,hold=120,z=0.75 | 253 | +3.7 | 1.06 | 2/5 | +255 | -98 | -360 (2/5) | no |
+|  |  |  | t=90,hold=120,z=0.5 | 1516 | -7.2 | 0.84 | 1/5 | -3845 | -4428 |  |  |
+|  |  |  | t=90,hold=120,z=1.0 | 59 | +4.8 | 1.09 | 2/5 | +81 | -162 |  |  |
 | c12_vwap_reversion_stock | fade VWAP stretch, enter 11:00 hold 120 | AAPL+AMZN+MSFT+NVDA | t=90,hold=120,z=0.75 | 21 | -7.2 | 0.80 | 3/5 | -54 | -229 | -131 (1/5) | no |
 |  |  |  | t=90,hold=120,z=0.5 | 169 | -4.0 | 0.89 | 2/5 | -245 | -568 |  |  |
 |  |  |  | t=90,hold=120,z=1.0 | 10 | -5.6 | 0.84 | 1/5 | -17 | -103 |  |  |
 
-**c12_vwap_reversion_stock: dead** — best tradable on AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM = fade VWAP stretch, enter 12:30 hold 60: +6.8 bps/trade, 3/5 years positive (needs 4); PF 1.23 (needs > 1.3); LOYO +1137 (3/5)
+**c12_vwap_reversion_stock: dead** — best tradable on AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM = fade VWAP stretch, enter 12:30 hold 60: +6.5 bps/trade, 3/5 years positive (needs 4); PF 1.22 (needs > 1.3); LOYO +1107 (3/5)
 
 | cell | variant | inst | grid | n | net bps | PF | yrs+ | P&L | ex-top3 | LOYO (yrs+) | pass |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| c13_letf_close_momentum | large-move last-30-min momentum | SPY | thresh=0.01,hold=30 | 205 | -4.5 | 0.72 | 0/5 | -294 | -402 | -41 (2/5) | no |
-|  |  |  | thresh=0.015,hold=30 | 79 | -0.5 | 0.99 | 3/5 | -6 | -104 |  |  |
-|  |  |  | thresh=0.02,hold=30 | 36 | -1.9 | 0.92 | 2/5 | -20 | -105 |  |  |
-| c13_letf_close_momentum | large-move last-30-min momentum | QQQ | thresh=0.01,hold=30 | 365 | -6.5 | 0.61 | 0/5 | -817 | -928 | -75 (1/5) | no |
-|  |  |  | thresh=0.015,hold=30 | 177 | -3.7 | 0.78 | 1/5 | -220 | -321 |  |  |
-|  |  |  | thresh=0.02,hold=30 | 101 | -2.2 | 0.88 | 1/5 | -75 | -175 |  |  |
-| c13_letf_close_momentum | large-move last-30-min momentum | IWM | thresh=0.01,hold=30 | 405 | -9.0 | 0.47 | 0/5 | -1268 | -1377 | -176 (0/5) | no |
-|  |  |  | thresh=0.015,hold=30 | 200 | -7.7 | 0.56 | 0/5 | -537 | -645 |  |  |
-|  |  |  | thresh=0.02,hold=30 | 90 | -5.7 | 0.69 | 0/5 | -176 | -284 |  |  |
-| c13_letf_close_momentum | large-move last-30-min momentum | XLK | thresh=0.01,hold=30 | 453 | -8.1 | 0.57 | 0/5 | -1296 | -1426 | -203 (2/5) | no |
-|  |  |  | thresh=0.015,hold=30 | 234 | -6.5 | 0.68 | 0/5 | -539 | -669 |  |  |
-|  |  |  | thresh=0.02,hold=30 | 126 | -4.5 | 0.79 | 2/5 | -203 | -319 |  |  |
-| c13_letf_close_momentum | large-move last-15-min momentum | SPY | thresh=0.01,hold=15 | 212 | -8.3 | 0.45 | 0/5 | -578 | -664 | -70 (1/5) | no |
-|  |  |  | thresh=0.015,hold=15 | 91 | -5.0 | 0.67 | 1/5 | -146 | -228 |  |  |
-|  |  |  | thresh=0.02,hold=15 | 34 | -6.5 | 0.69 | 1/5 | -70 | -147 |  |  |
-| c13_letf_close_momentum | large-move last-15-min momentum | QQQ | thresh=0.01,hold=15 | 371 | -6.4 | 0.55 | 0/5 | -797 | -909 | -179 (2/5) | no |
-|  |  |  | thresh=0.015,hold=15 | 191 | -5.4 | 0.66 | 0/5 | -352 | -454 |  |  |
-|  |  |  | thresh=0.02,hold=15 | 97 | -5.5 | 0.66 | 2/5 | -179 | -240 |  |  |
-| c13_letf_close_momentum | large-move last-15-min momentum | IWM | thresh=0.01,hold=15 | 414 | -8.5 | 0.40 | 0/5 | -1231 | -1322 | -356 (0/5) | no |
-|  |  |  | thresh=0.015,hold=15 | 202 | -8.8 | 0.43 | 0/5 | -621 | -712 |  |  |
-|  |  |  | thresh=0.02,hold=15 | 94 | -10.8 | 0.40 | 0/5 | -356 | -428 |  |  |
-| c13_letf_close_momentum | large-move last-15-min momentum | XLK | thresh=0.01,hold=15 | 455 | -7.3 | 0.54 | 0/5 | -1179 | -1302 | -296 (1/5) | no |
-|  |  |  | thresh=0.015,hold=15 | 230 | -6.9 | 0.59 | 1/5 | -565 | -671 |  |  |
-|  |  |  | thresh=0.02,hold=15 | 119 | -7.0 | 0.63 | 1/5 | -296 | -399 |  |  |
+| c13_letf_close_momentum | large-move last-30-min momentum | SPY | thresh=0.01,hold=30 | 206 | -4.4 | 0.72 | 0/5 | -286 | -395 | -34 (3/5) | no |
+|  |  |  | thresh=0.015,hold=30 | 80 | -0.2 | 1.00 | 4/5 | +2 | -97 |  |  |
+|  |  |  | thresh=0.02,hold=30 | 37 | -1.2 | 0.95 | 2/5 | -13 | -98 |  |  |
+| c13_letf_close_momentum | large-move last-30-min momentum | QQQ | thresh=0.01,hold=30 | 366 | -6.4 | 0.61 | 0/5 | -808 | -919 | -66 (1/5) | no |
+|  |  |  | thresh=0.015,hold=30 | 178 | -3.5 | 0.79 | 1/5 | -211 | -312 |  |  |
+|  |  |  | thresh=0.02,hold=30 | 102 | -1.9 | 0.89 | 1/5 | -66 | -166 |  |  |
+| c13_letf_close_momentum | large-move last-30-min momentum | IWM | thresh=0.01,hold=30 | 406 | -8.9 | 0.47 | 0/5 | -1257 | -1366 | -165 (0/5) | no |
+|  |  |  | thresh=0.015,hold=30 | 201 | -7.5 | 0.56 | 0/5 | -527 | -635 |  |  |
+|  |  |  | thresh=0.02,hold=30 | 91 | -5.3 | 0.71 | 0/5 | -165 | -273 |  |  |
+| c13_letf_close_momentum | large-move last-30-min momentum | XLK | thresh=0.01,hold=30 | 454 | -8.0 | 0.57 | 0/5 | -1286 | -1416 | -193 (2/5) | no |
+|  |  |  | thresh=0.015,hold=30 | 235 | -6.3 | 0.68 | 0/5 | -528 | -659 |  |  |
+|  |  |  | thresh=0.02,hold=30 | 127 | -4.3 | 0.80 | 2/5 | -193 | -309 |  |  |
+| c13_letf_close_momentum | large-move last-15-min momentum | SPY | thresh=0.01,hold=15 | 213 | -8.4 | 0.45 | 0/5 | -585 | -670 | -76 (0/5) | no |
+|  |  |  | thresh=0.015,hold=15 | 92 | -5.2 | 0.66 | 1/5 | -153 | -235 |  |  |
+|  |  |  | thresh=0.02,hold=15 | 35 | -6.8 | 0.67 | 0/5 | -76 | -154 |  |  |
+| c13_letf_close_momentum | large-move last-15-min momentum | QQQ | thresh=0.01,hold=15 | 372 | -6.4 | 0.55 | 0/5 | -800 | -912 | -182 (2/5) | no |
+|  |  |  | thresh=0.015,hold=15 | 192 | -5.5 | 0.65 | 0/5 | -355 | -457 |  |  |
+|  |  |  | thresh=0.02,hold=15 | 98 | -5.5 | 0.66 | 2/5 | -182 | -243 |  |  |
+| c13_letf_close_momentum | large-move last-15-min momentum | IWM | thresh=0.01,hold=15 | 415 | -8.5 | 0.40 | 0/5 | -1230 | -1321 | -355 (0/5) | no |
+|  |  |  | thresh=0.015,hold=15 | 203 | -8.7 | 0.43 | 0/5 | -620 | -711 |  |  |
+|  |  |  | thresh=0.02,hold=15 | 95 | -10.7 | 0.40 | 0/5 | -355 | -427 |  |  |
+| c13_letf_close_momentum | large-move last-15-min momentum | XLK | thresh=0.01,hold=15 | 456 | -7.3 | 0.54 | 0/5 | -1182 | -1304 | -299 (1/5) | no |
+|  |  |  | thresh=0.015,hold=15 | 231 | -6.9 | 0.59 | 1/5 | -568 | -673 |  |  |
+|  |  |  | thresh=0.02,hold=15 | 120 | -7.0 | 0.63 | 1/5 | -299 | -402 |  |  |
 
-**c13_letf_close_momentum: dead** — best tradable on SPY = large-move last-30-min momentum: -4.5 bps/trade, 0/5 years positive (needs 4); PF 0.72 (needs > 1.3); LOYO -41 (2/5)
+**c13_letf_close_momentum: dead** — best tradable on SPY = large-move last-30-min momentum: -4.4 bps/trade, 0/5 years positive (needs 4); PF 0.72 (needs > 1.3); LOYO -34 (3/5)
 
 | cell | variant | inst | grid | n | net bps | PF | yrs+ | P&L | ex-top3 | LOYO (yrs+) | pass |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -246,15 +246,15 @@
 |  |  |  | t=180,hold=90,z=0.75 | 57 | +18.7 | 1.57 | 3/5 | +369 | +73 |  |  |
 |  |  |  | t=180,hold=90,z=1.0 | 15 | -0.3 | 1.00 | 3/5 | +0 | -92 |  |  |
 |  |  |  | t=180,hold=90,z=1.25 | 1 | +4.2 | 99.00 | 1/5 | +1 | +0 |  |  |
-| c14_vwap_fade_pm | fade VWAP stretch, enter 12:30 | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | t=180,hold=60,z=0.75 | 485 | +6.8 | 1.23 | 3/5 | +1137 | +836 | +955 (3/5) | no |
-|  |  |  | t=180,hold=60,z=1.0 | 120 | +14.0 | 1.46 | 3/5 | +587 | +312 |  |  |
-|  |  |  | t=180,hold=60,z=1.25 | 19 | +20.5 | 1.55 | 3/5 | +129 | -67 |  |  |
-|  |  |  | t=180,hold=45,z=0.75 | 485 | +1.1 | 1.03 | 3/5 | +158 | -114 |  |  |
-|  |  |  | t=180,hold=45,z=1.0 | 120 | +16.4 | 1.69 | 4/5 | +684 | +426 |  |  |
-|  |  |  | t=180,hold=45,z=1.25 | 19 | +3.2 | 1.08 | 3/5 | +17 | -126 |  |  |
-|  |  |  | t=180,hold=90,z=0.75 | 485 | +6.5 | 1.18 | 3/5 | +1099 | +739 |  |  |
-|  |  |  | t=180,hold=90,z=1.0 | 120 | +8.5 | 1.20 | 3/5 | +345 | +49 |  |  |
-|  |  |  | t=180,hold=90,z=1.25 | 19 | +24.5 | 1.65 | 3/5 | +158 | -70 |  |  |
+| c14_vwap_fade_pm | fade VWAP stretch, enter 12:30 | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | t=180,hold=60,z=0.75 | 488 | +6.5 | 1.22 | 3/5 | +1107 | +805 | +924 (3/5) | no |
+|  |  |  | t=180,hold=60,z=1.0 | 121 | +13.8 | 1.46 | 3/5 | +585 | +310 |  |  |
+|  |  |  | t=180,hold=60,z=1.25 | 20 | +19.1 | 1.54 | 3/5 | +126 | -69 |  |  |
+|  |  |  | t=180,hold=45,z=0.75 | 488 | +0.8 | 1.02 | 3/5 | +119 | -153 |  |  |
+|  |  |  | t=180,hold=45,z=1.0 | 121 | +15.8 | 1.66 | 4/5 | +664 | +406 |  |  |
+|  |  |  | t=180,hold=45,z=1.25 | 20 | +0.1 | 0.99 | 3/5 | -3 | -146 |  |  |
+|  |  |  | t=180,hold=90,z=0.75 | 488 | +6.4 | 1.18 | 3/5 | +1083 | +723 |  |  |
+|  |  |  | t=180,hold=90,z=1.0 | 121 | +8.6 | 1.21 | 3/5 | +353 | +57 |  |  |
+|  |  |  | t=180,hold=90,z=1.25 | 20 | +24.4 | 1.68 | 3/5 | +166 | -61 |  |  |
 | c14_vwap_fade_pm | fade VWAP stretch, enter 12:00 | AAPL+AMZN+MSFT+NVDA | t=150,hold=60,z=0.75 | 41 | -7.9 | 0.71 | 2/5 | -117 | -222 | +0 (0/5) | no |
 |  |  |  | t=150,hold=60,z=1.0 | 11 | -35.1 | 0.19 | 2/5 | -138 | -165 |  |  |
 |  |  |  | t=150,hold=60,z=1.25 | 0 | +0.0 | 0.00 | 0/5 | +0 | +0 |  |  |
@@ -264,14 +264,14 @@
 |  |  |  | t=150,hold=90,z=0.75 | 41 | -16.3 | 0.54 | 1/5 | -236 | -391 |  |  |
 |  |  |  | t=150,hold=90,z=1.0 | 11 | -56.0 | 0.09 | 0/5 | -217 | -234 |  |  |
 |  |  |  | t=150,hold=90,z=1.25 | 0 | +0.0 | 0.00 | 0/5 | +0 | +0 |  |  |
-| c14_vwap_fade_pm | fade VWAP stretch, enter 12:00 | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | t=150,hold=60,z=0.75 | 389 | -10.1 | 0.73 | 2/5 | -1324 | -1562 | -321 (2/5) | no |
-|  |  |  | t=150,hold=60,z=1.0 | 82 | -13.1 | 0.71 | 3/5 | -365 | -590 |  |  |
+| c14_vwap_fade_pm | fade VWAP stretch, enter 12:00 | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | t=150,hold=60,z=0.75 | 390 | -10.4 | 0.73 | 2/5 | -1373 | -1610 | -321 (2/5) | no |
+|  |  |  | t=150,hold=60,z=1.0 | 83 | -14.6 | 0.68 | 2/5 | -414 | -639 |  |  |
 |  |  |  | t=150,hold=60,z=1.25 | 18 | +24.7 | 1.76 | 2/5 | +151 | -50 |  |  |
-|  |  |  | t=150,hold=45,z=0.75 | 389 | -14.6 | 0.62 | 2/5 | -1952 | -2200 |  |  |
-|  |  |  | t=150,hold=45,z=1.0 | 82 | -19.8 | 0.59 | 3/5 | -558 | -799 |  |  |
+|  |  |  | t=150,hold=45,z=0.75 | 390 | -14.9 | 0.61 | 2/5 | -2000 | -2249 |  |  |
+|  |  |  | t=150,hold=45,z=1.0 | 83 | -21.3 | 0.57 | 2/5 | -606 | -848 |  |  |
 |  |  |  | t=150,hold=45,z=1.25 | 18 | +37.2 | 2.34 | 2/5 | +230 | -12 |  |  |
-|  |  |  | t=150,hold=90,z=0.75 | 389 | -7.9 | 0.80 | 3/5 | -1032 | -1353 |  |  |
-|  |  |  | t=150,hold=90,z=1.0 | 82 | -6.8 | 0.85 | 4/5 | -187 | -482 |  |  |
+|  |  |  | t=150,hold=90,z=0.75 | 390 | -8.2 | 0.80 | 3/5 | -1080 | -1400 |  |  |
+|  |  |  | t=150,hold=90,z=1.0 | 83 | -8.4 | 0.82 | 4/5 | -235 | -529 |  |  |
 |  |  |  | t=150,hold=90,z=1.25 | 18 | +37.4 | 2.17 | 3/5 | +235 | -52 |  |  |
 | c14_vwap_fade_pm | fade VWAP stretch, enter 13:00 | AAPL+AMZN+MSFT+NVDA | t=210,hold=60,z=0.75 | 59 | -4.6 | 0.84 | 2/5 | -94 | -326 | -88 (2/5) | no |
 |  |  |  | t=210,hold=60,z=1.0 | 12 | -3.5 | 0.89 | 2/5 | -12 | -106 |  |  |
@@ -282,17 +282,17 @@
 |  |  |  | t=210,hold=90,z=0.75 | 59 | -2.6 | 0.93 | 3/5 | -55 | -278 |  |  |
 |  |  |  | t=210,hold=90,z=1.0 | 12 | +3.5 | 1.12 | 2/5 | +16 | -103 |  |  |
 |  |  |  | t=210,hold=90,z=1.25 | 4 | +80.4 | 31.85 | 3/5 | +114 | -4 |  |  |
-| c14_vwap_fade_pm | fade VWAP stretch, enter 13:00 | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | t=210,hold=60,z=0.75 | 505 | -3.1 | 0.90 | 3/5 | -554 | -888 | -1567 (3/5) | no |
-|  |  |  | t=210,hold=60,z=1.0 | 101 | -7.4 | 0.80 | 2/5 | -274 | -552 |  |  |
+| c14_vwap_fade_pm | fade VWAP stretch, enter 13:00 | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | t=210,hold=60,z=0.75 | 506 | -3.1 | 0.90 | 3/5 | -544 | -878 | -1567 (3/5) | no |
+|  |  |  | t=210,hold=60,z=1.0 | 102 | -7.0 | 0.81 | 2/5 | -264 | -541 |  |  |
 |  |  |  | t=210,hold=60,z=1.25 | 22 | +17.9 | 1.48 | 3/5 | +131 | -80 |  |  |
-|  |  |  | t=210,hold=45,z=0.75 | 505 | +0.2 | 1.01 | 2/5 | +57 | -316 |  |  |
-|  |  |  | t=210,hold=45,z=1.0 | 101 | +1.0 | 1.03 | 2/5 | +28 | -266 |  |  |
+|  |  |  | t=210,hold=45,z=0.75 | 506 | +0.2 | 1.01 | 2/5 | +46 | -328 |  |  |
+|  |  |  | t=210,hold=45,z=1.0 | 102 | +0.7 | 1.02 | 2/5 | +18 | -277 |  |  |
 |  |  |  | t=210,hold=45,z=1.25 | 22 | +21.7 | 1.74 | 3/5 | +163 | -40 |  |  |
-|  |  |  | t=210,hold=90,z=0.75 | 505 | -3.4 | 0.91 | 3/5 | -608 | -1010 |  |  |
-|  |  |  | t=210,hold=90,z=1.0 | 101 | -3.2 | 0.91 | 2/5 | -144 | -516 |  |  |
+|  |  |  | t=210,hold=90,z=0.75 | 506 | -3.5 | 0.91 | 3/5 | -625 | -1028 |  |  |
+|  |  |  | t=210,hold=90,z=1.0 | 102 | -3.7 | 0.90 | 2/5 | -161 | -533 |  |  |
 |  |  |  | t=210,hold=90,z=1.25 | 22 | +39.8 | 2.43 | 4/5 | +299 | +81 |  |  |
 
-**c14_vwap_fade_pm: fragile** — 54 cells; best pool34:t=180,hold=45,z=1.0: n=120, net +16.4 / gross +23.0 bps, PF 1.69, 4/5 yrs; clears in-sample but is a grid pick: LOYO over its variant +955 (3/5), 2 of 54 cells clear the bar; z=0 control p=0.0
+**c14_vwap_fade_pm: fragile** — 54 cells; best pool34:t=180,hold=45,z=1.0: n=121, net +15.8 / gross +22.4 bps, PF 1.66, 4/5 yrs; clears in-sample but is a grid pick: LOYO over its variant +924 (3/5), 2 of 54 cells clear the bar; z=0 control p=0.0
 
 | cell | variant | inst | grid | n | net bps | PF | yrs+ | P&L | ex-top3 | LOYO (yrs+) | pass |
 |---|---|---|---|---|---|---|---|---|---|---|---|
@@ -345,16 +345,16 @@
 | c16_tom_day2_quarter | long open->close, day +2, other months | SPY | k=2,months=(2, 3, 5, 6, 8, 9, 11, 12) | 39 | +11.4 | 1.44 | 4/5 | +148 | +1 |  | yes |
 | c16_tom_day2_quarter | long open->close, day +2, other months | AAPL+AMZN+MSFT+NVDA | k=2,months=(2, 3, 5, 6, 8, 9, 11, 12) | 156 | +30.1 | 1.57 | 4/5 | +1638 | +1093 |  | yes |
 | c16_tom_day2_quarter | long open->close, day +2, other months | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | k=2,months=(2, 3, 5, 6, 8, 9, 11, 12) | 1326 | +19.8 | 1.30 | 5/5 | +9238 | +7789 |  | yes |
-| c16_tom_day2_quarter | long open->close, mid-month placebo | QQQ | k=10,months=None | 58 | -14.6 | 0.70 | 1/5 | -272 | -439 | -470 (1/5) | no |
+| c16_tom_day2_quarter | long open->close, mid-month placebo | QQQ | k=10,months=None | 59 | -22.1 | 0.61 | 1/5 | -418 | -585 | -263 (2/5) | no |
 |  |  |  | k=11,months=None | 58 | -6.0 | 0.86 | 2/5 | -122 | -296 |  |  |
 |  |  |  | k=12,months=None | 58 | -6.6 | 0.85 | 2/5 | -117 | -378 |  |  |
-| c16_tom_day2_quarter | long open->close, mid-month placebo | SPY | k=10,months=None | 58 | -16.6 | 0.54 | 0/5 | -322 | -432 | +15 (2/5) | no |
+| c16_tom_day2_quarter | long open->close, mid-month placebo | SPY | k=10,months=None | 59 | -21.9 | 0.47 | 0/5 | -438 | -548 | +15 (2/5) | no |
 |  |  |  | k=11,months=None | 58 | -6.7 | 0.78 | 2/5 | -132 | -259 |  |  |
 |  |  |  | k=12,months=None | 58 | -0.2 | 1.03 | 2/5 | +15 | -172 |  |  |
-| c16_tom_day2_quarter | long open->close, mid-month placebo | AAPL+AMZN+MSFT+NVDA | k=10,months=None | 232 | -19.2 | 0.75 | 1/5 | -1546 | -2247 | -696 (2/5) | no |
+| c16_tom_day2_quarter | long open->close, mid-month placebo | AAPL+AMZN+MSFT+NVDA | k=10,months=None | 236 | -27.1 | 0.68 | 1/5 | -2238 | -2940 | -696 (2/5) | no |
 |  |  |  | k=11,months=None | 232 | -0.9 | 0.99 | 3/5 | -56 | -646 |  |  |
 |  |  |  | k=12,months=None | 232 | +0.9 | 1.02 | 2/5 | +71 | -459 |  |  |
-| c16_tom_day2_quarter | long open->close, mid-month placebo | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | k=10,months=None | 1972 | -7.6 | 0.90 | 2/5 | -4982 | -6032 | +1988 (3/5) | no |
+| c16_tom_day2_quarter | long open->close, mid-month placebo | AAPL+ABBV+ADBE+AMAT+AMD+AMZN+AVGO+CAT+COIN+COST+CRM+CVX+GS+HD+JPM+LLY+MA+META+MRK+MSFT+MU+NFLX+NVDA+ORCL+PG+PLTR+QCOM+SHOP+TSLA+TXN+UBER+UNH+V+XOM | k=10,months=None | 2006 | -13.8 | 0.83 | 2/5 | -9319 | -10369 | +1988 (3/5) | no |
 |  |  |  | k=11,months=None | 1972 | +2.4 | 1.04 | 3/5 | +1988 | +774 |  |  |
 |  |  |  | k=12,months=None | 1972 | -3.5 | 0.95 | 3/5 | -2381 | -3216 |  |  |
 
