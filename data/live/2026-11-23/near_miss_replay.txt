@@ -1,0 +1,11 @@
+near-miss bars on 2026-11-23: 9
+  MSFT  11:15 ET  short would have made -0.00% (session_close at 11:55)   filtered by: strong core stress: OneHour 0.08>-0.40, cross_1m.index_session_ret -0.08>-1.50
+  MSFT  11:31 ET  short would have made -0.09% (session_close at 11:55)   filtered by: strong core stress: OneHour 0.06>-0.40, cross_1m.index_session_ret -0.03>-1.50
+  MSFT  11:36 ET  short would have made -0.11% (session_close at 11:55)   filtered by: strong core stress: OneHour 0.06>-0.40, vpin_1m.raw_vpin 0.12<0.20, cross_1m.index_session
+  MSFT  11:41 ET  short would have made -0.51% (session_close at 11:55)   filtered by: strong core stress: OneHour -0.03>-0.40, cross_1m.index_session_ret -0.54>-1.50
+  AMZN  11:45 ET  short would have made -0.53% (session_close at 11:55)   filtered by: strong core stress: OneHour 0.08>-0.40, cross_1m.index_session_ret -0.61>-1.50
+  MSFT  11:46 ET  short would have made -0.49% (session_close at 11:55)   filtered by: strong core stress: OneHour -0.02>-0.40, vpin_1m.raw_vpin 0.13<0.20, cross_1m.index_sessio
+  MSFT  12:45 ET  short would have made -0.04% (session_close at 12:46)   filtered by: strong core stress: OneHour -0.05>-0.40, cross_1m.index_session_ret -0.55>-1.50
+  NVDA  12:45 ET  short would have made +0.14% (session_close at 12:46)   filtered by: strong core stress: OneHour 0.38>-0.40, cross_1m.index_session_ret -0.55>-1.50
+  AMZN  14:42 ET  short would have made -0.10% (session_close at 14:43)   filtered by: strong core stress: OneHour 0.01>-0.40, cross_1m.index_session_ret -0.37>-1.50
+sum of hypothetical short returns: -1.72%  (positive = the filters cost us; negative = they saved us)
