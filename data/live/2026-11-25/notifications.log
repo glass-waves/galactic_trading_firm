@@ -1,0 +1,9 @@
+2026-11-25T06:25:03-08:00 [warning] preopen-check check-in failed: is_error":true
+2026-11-25T06:45:03-08:00 [warning] AMZN -2.09% vs today's open (238.03 vs 243.11) at 0945 ET — primary: flat, daily P&L 0.00; shadows in a trade: none
+2026-11-25T06:45:04-08:00 [warning] AMZN -2.16% off its intraday high (238.03 vs 243.28) at 0945 ET — primary: flat, daily P&L 0.00; shadows in a trade: none
+2026-11-25T06:45:04-08:00 [warning] NVDA -2.49% off its intraday high (141.415 vs 145.02) at 0945 ET — primary: flat, daily P&L 0.00; shadows in a trade: none
+2026-11-25T06:45:04-08:00 [critical] SPY -1.03% vs today's open (695.92 vs 703.155) at 0945 ET — primary: flat, daily P&L 0.00; shadows in a trade: none
+2026-11-25T07:25:03-08:00 [warning] AAPL -2.02% off its intraday high (346.64 vs 353.775) at 1025 ET — primary: flat, daily P&L 0.00; shadows in a trade: none
+2026-11-25T07:50:03-08:00 [warning] AAPL -2.02% vs today's open (345.93 vs 353.05) at 1050 ET — primary: flat, daily P&L 0.00; shadows in a trade: none
+2026-11-25T09:45:03-08:00 [info] SPY +1.04% vs today's open (710.5 vs 703.155) at 1245 ET — primary: flat, daily P&L 0.00; shadows in a trade: none
+2026-11-25T10:20:03-08:00 [info] NVDA +2.39% vs today's open (147.51 vs 144.06) at 1320 ET — primary: flat, daily P&L 0.00; shadows in a trade: none
