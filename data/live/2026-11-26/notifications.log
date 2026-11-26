@@ -1,0 +1,7 @@
+2026-11-26T06:25:05-08:00 [warning] preopen-check check-in failed: is_error":true
+2026-11-26T06:40:05-08:00 [warning] AAPL feed_stale at 0940 ET (last bar 99999s ago)
+2026-11-26T06:40:05-08:00 [warning] AMZN feed_stale at 0940 ET (last bar 99999s ago)
+2026-11-26T06:40:05-08:00 [warning] MSFT feed_stale at 0940 ET (last bar 99999s ago)
+2026-11-26T06:40:05-08:00 [warning] NVDA feed_stale at 0940 ET (last bar 99999s ago)
+2026-11-26T06:40:05-08:00 [warning] QQQ feed_stale at 0940 ET (last bar 99999s ago)
+2026-11-26T06:40:06-08:00 [critical] ALL tickers feed_stale at 0940 ET

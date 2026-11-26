@@ -1,0 +1,40 @@
+{"timestamp":"2026-11-26T14:10:05.727375Z","level":"INFO","fields":{"message":"engine built","book":"shadow:vpin-0.26","ticker":"MSFT","config_version_id":14},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.727422Z","level":"INFO","fields":{"message":"engine built","book":"shadow:stress-s15-core","ticker":"AMZN","config_version_id":16},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.727449Z","level":"INFO","fields":{"message":"engine built","book":"shadow:stress-s15-core","ticker":"AAPL","config_version_id":16},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.727474Z","level":"INFO","fields":{"message":"engine built","book":"shadow:stress-s15-core","ticker":"NVDA","config_version_id":16},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.727499Z","level":"INFO","fields":{"message":"engine built","book":"shadow:stress-s15-core","ticker":"MSFT","config_version_id":16},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.727543Z","level":"INFO","fields":{"message":"engine built","book":"shadow:thrust-1h15","ticker":"AMZN","config_version_id":19},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.727568Z","level":"INFO","fields":{"message":"engine built","book":"shadow:thrust-1h15","ticker":"AAPL","config_version_id":19},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.727592Z","level":"INFO","fields":{"message":"engine built","book":"shadow:thrust-1h15","ticker":"NVDA","config_version_id":19},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.727615Z","level":"INFO","fields":{"message":"engine built","book":"shadow:thrust-1h15","ticker":"MSFT","config_version_id":19},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.727655Z","level":"INFO","fields":{"message":"engine built","book":"shadow:size-vpin26-x1.25","ticker":"AMZN","config_version_id":18},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.727679Z","level":"INFO","fields":{"message":"engine built","book":"shadow:size-vpin26-x1.25","ticker":"AAPL","config_version_id":18},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.727703Z","level":"INFO","fields":{"message":"engine built","book":"shadow:size-vpin26-x1.25","ticker":"NVDA","config_version_id":18},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.727725Z","level":"INFO","fields":{"message":"engine built","book":"shadow:size-vpin26-x1.25","ticker":"MSFT","config_version_id":18},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.727783Z","level":"INFO","fields":{"message":"engine built","book":"shadow:spy-sqrt-band","ticker":"AMZN","config_version_id":20},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.727808Z","level":"INFO","fields":{"message":"engine built","book":"shadow:spy-sqrt-band","ticker":"AAPL","config_version_id":20},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.727832Z","level":"INFO","fields":{"message":"engine built","book":"shadow:spy-sqrt-band","ticker":"NVDA","config_version_id":20},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.727856Z","level":"INFO","fields":{"message":"engine built","book":"shadow:spy-sqrt-band","ticker":"MSFT","config_version_id":20},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.727904Z","level":"INFO","fields":{"message":"engine built","book":"shadow:spy-sqrt-band-1h15","ticker":"AMZN","config_version_id":21},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.727931Z","level":"INFO","fields":{"message":"engine built","book":"shadow:spy-sqrt-band-1h15","ticker":"AAPL","config_version_id":21},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.727957Z","level":"INFO","fields":{"message":"engine built","book":"shadow:spy-sqrt-band-1h15","ticker":"NVDA","config_version_id":21},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.727991Z","level":"INFO","fields":{"message":"engine built","book":"shadow:spy-sqrt-band-1h15","ticker":"MSFT","config_version_id":21},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.728033Z","level":"INFO","fields":{"message":"engine built","book":"shadow:qqq-noise-pm-vol","ticker":"QQQ","config_version_id":23},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.728075Z","level":"INFO","fields":{"message":"engine built","book":"shadow:spy-sqrt-band-v020","ticker":"AMZN","config_version_id":24},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.728107Z","level":"INFO","fields":{"message":"engine built","book":"shadow:spy-sqrt-band-v020","ticker":"AAPL","config_version_id":24},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.728143Z","level":"INFO","fields":{"message":"engine built","book":"shadow:spy-sqrt-band-v020","ticker":"NVDA","config_version_id":24},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.728177Z","level":"INFO","fields":{"message":"engine built","book":"shadow:spy-sqrt-band-v020","ticker":"MSFT","config_version_id":24},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.728235Z","level":"INFO","fields":{"message":"engine built","book":"shadow:pdl15","ticker":"AMZN","config_version_id":27},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.728276Z","level":"INFO","fields":{"message":"engine built","book":"shadow:pdl15","ticker":"AAPL","config_version_id":27},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.728309Z","level":"INFO","fields":{"message":"engine built","book":"shadow:pdl15","ticker":"NVDA","config_version_id":27},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.728343Z","level":"INFO","fields":{"message":"engine built","book":"shadow:pdl15","ticker":"MSFT","config_version_id":27},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.728395Z","level":"INFO","fields":{"message":"engine built","book":"shadow:lab-tier-x150","ticker":"AMZN","config_version_id":28},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.728430Z","level":"INFO","fields":{"message":"engine built","book":"shadow:lab-tier-x150","ticker":"AAPL","config_version_id":28},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.728465Z","level":"INFO","fields":{"message":"engine built","book":"shadow:lab-tier-x150","ticker":"NVDA","config_version_id":28},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:10:05.728497Z","level":"INFO","fields":{"message":"engine built","book":"shadow:lab-tier-x150","ticker":"MSFT","config_version_id":28},"target":"data_feed::book"}
+{"timestamp":"2026-11-26T14:36:09.505086Z","level":"WARN","fields":{"message":"FEED STALE — no bar during market hours","ticker":"AAPL","last_bar_age_s":"None"},"target":"paper_trader"}
+{"timestamp":"2026-11-26T14:36:09.505104Z","level":"WARN","fields":{"message":"FEED STALE — no bar during market hours","ticker":"AMZN","last_bar_age_s":"None"},"target":"paper_trader"}
+{"timestamp":"2026-11-26T14:36:09.505109Z","level":"WARN","fields":{"message":"FEED STALE — no bar during market hours","ticker":"MSFT","last_bar_age_s":"None"},"target":"paper_trader"}
+{"timestamp":"2026-11-26T14:36:09.505113Z","level":"WARN","fields":{"message":"FEED STALE — no bar during market hours","ticker":"NVDA","last_bar_age_s":"None"},"target":"paper_trader"}
+{"timestamp":"2026-11-26T14:36:09.505118Z","level":"WARN","fields":{"message":"FEED STALE — no bar during market hours","ticker":"QQQ","last_bar_age_s":"None"},"target":"paper_trader"}
+{"timestamp":"2026-11-26T21:10:04.910905Z","level":"INFO","fields":{"message":"shutdown complete","total_ticks":0,"daily_pnl":"0.00","open_positions":0,"books":"[\"primary: pnl 0.00, open []\", \"shadow:vpin-0.26: pnl 0.00, open []\", \"shadow:stress-s15-core: pnl 0.00, open []\", \"shadow:thrust-1h15: pnl 0.00, open []\", \"shadow:size-vpin26-x1.25: pnl 0.00, open []\", \"shadow:spy-sqrt-band: pnl 0.00, open []\", \"shadow:spy-sqrt-band-1h15: pnl 0.00, open []\", \"shadow:qqq-noise-pm-vol: pnl 0.00, open []\", \"shadow:spy-sqrt-band-v020: pnl 0.00, open []\", \"shadow:pdl15: pnl 0.00, open []\", \"shadow:lab-tier-x150: pnl 0.00, open []\"]"},"target":"paper_trader"}
