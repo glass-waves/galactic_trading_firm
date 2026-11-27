@@ -1,0 +1,2 @@
+{"name": "r3/ant_add", "config_id": 25, "patches": [], "args": ["--max-position-pct", "0.45"], "tickers": "AMZN,AAPL,NVDA,MSFT,ANT",
+ "note": "row 25 with ANT added as a fifth name (additive-ticker shape). five sessions exist; not a statistical test."}

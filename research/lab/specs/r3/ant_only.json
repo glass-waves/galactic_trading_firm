@@ -1,0 +1,2 @@
+{"name": "r3/ant_only", "config_id": 25, "patches": [], "args": ["--max-position-pct", "0.45"], "tickers": "ANT",
+ "note": "row 25 (lab-na-bundle) applied to ANT alone (Anthropic, NASDAQ, listed 2026-11-19). mechanics check only: five sessions exist."}
