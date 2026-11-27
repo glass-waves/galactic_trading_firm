@@ -1,0 +1,11 @@
+2026-11-27T06:25:05-08:00 [warning] preopen-check check-in failed: is_error":true
+2026-11-27T06:35:05-08:00 [warning] NVDA -2.77% vs today's open (147.575 vs 151.775) at 0935 ET — primary: flat, daily P&L 0.00; shadows in a trade: none
+2026-11-27T06:35:06-08:00 [warning] NVDA -2.88% off its intraday high (147.575 vs 151.945) at 0935 ET — primary: flat, daily P&L 0.00; shadows in a trade: none
+2026-11-27T07:10:04-08:00 [warning] MSFT -2.05% off its intraday high (489.95 vs 500.2) at 1010 ET — primary: flat, daily P&L 0.00; shadows in a trade: none
+2026-11-27T08:15:04-08:00 [warning] MSFT -2.02% vs today's open (489.39 vs 499.485) at 1115 ET — primary: flat, daily P&L 0.00; shadows in a trade: none
+2026-11-27T10:05:04-08:00 [warning] AAPL feed_stale at 1305 ET (last bar 304s ago)
+2026-11-27T10:05:04-08:00 [warning] AMZN feed_stale at 1305 ET (last bar 364s ago)
+2026-11-27T10:05:04-08:00 [warning] MSFT feed_stale at 1305 ET (last bar 424s ago)
+2026-11-27T10:05:04-08:00 [warning] NVDA feed_stale at 1305 ET (last bar 244s ago)
+2026-11-27T10:05:05-08:00 [warning] QQQ feed_stale at 1305 ET (last bar 364s ago)
+2026-11-27T10:05:05-08:00 [critical] ALL tickers feed_stale at 1305 ET
