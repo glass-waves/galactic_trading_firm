@@ -432,6 +432,7 @@ new tool *types* require code changes. *instances* of existing types can be adde
 | [research_synthesis.md](docs/research_synthesis.md) | applied learnings from 44 papers → architecture decisions | understanding why decisions were made |
 | [action_items.md](docs/action_items.md) | prioritized implementation items from research synthesis | checking remaining work items |
 | [intraday-trading-research.md](docs/intraday-trading-research.md) | bibliography of 32 papers on ML trading and microstructure | deep research on trading strategies |
+| [agent-breakdown.md](docs/agent-breakdown.md) | the tuning loop for an agent keeping it closed: engine vs AI roles, backtest determinism, shadow books, lab → pipeline → promotion, each routine job's failure signatures, human-vs-agent decisions. **update it in the same commit** when the promoted row, gates, timers or a known gap change | taking over ops or research; after any promotion or protocol change |
 
 ---
 
