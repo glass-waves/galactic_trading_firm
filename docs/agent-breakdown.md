@@ -12,8 +12,10 @@ commit — see §8.
 
 a rust intraday engine (`crates/`) trades four mega-caps short-only on an alpaca paper account from a
 desktop, 06:10–13:10 PT on weekdays, with every decision keyed to one immutable `config_versions`
-row (the promoted row; today **row 25**, `lab-na-bundle`). nothing with an LLM in it touches an
-order. AI tunes the *config*, and only through a lane that ends in a human `UPDATE … status='promoted'`.
+row (the promoted row; today **row 25**, `lab-na-bundle`). nothing with an LLM in it places, cancels or
+flattens an order. AI tunes the *config*: through the pipeline lane, which ends in a human
+`UPDATE … status='promoted'`, or — one guardrailed exception — the eod-review check-in's
+`scripts/update_config.sh` (one validated parameter for the next session; allow-listed, never yet used).
 the loop is: idea → patch over the promoted blob → multi-year deterministic replay against the
 promoted row's own replay → a shadow book trading the candidate live with simulated fills → a parity
 check → a written promotion proposal → a human. every stage leaves a row in postgres and a commit.
@@ -50,14 +52,15 @@ check → a written promotion proposal → a human. every stage leaves a row in 
 |---|---|---|
 | **pipeline** (`scripts/pipeline/pipeline.py`, nightly 20:30 PT, no LLM) | materialize a patch as a `config_versions` row (`status='backtesting'`), run the gate sweep, insert `books` rows for shadows, write `validated` / `rejected`, append a *promotion proposal* to `docs/pipeline/status.md` | set `status='promoted'`; change the primary's tickers; touch crates |
 | **lab** (`scripts/lab/`, run by agents in a session) | replay specs over fixed windows, judge them against pre-registered tests, write reports under `research/lab/` | reveal the holdout outside the protocol (`LAB_REVEAL=1` is a decision, write it down) |
-| **claude check-ins** (`preopen-check` 06:15, `eod-review` 13:30, `ideate` Sun 18:00; `claude -p` under systemd) | read state, write `agent_memos`, notify, propose (eod-review is the only one with "tuning authority", and it must *propose* a validated row, not promote) | run the trader, promote, edit crates, `git push` |
+| **claude check-ins** (`preopen-check` 06:15, `eod-review` 13:30, `ideate` Sun 18:00; `claude -p` under systemd) | read state, write `agent_memos`, notify, propose. **eod-review alone has tuning authority** (skill §4): one parameter, validated on the last 20 sessions, applied for the next session with `scripts/update_config.sh`, which inserts a *new promoted row* — the one automated path to a promotion. never exercised to date (no `created_by='claude_eod'` rows) | run the trader, place or flatten orders, edit crates, `git push`, promote through the pipeline lane |
 | **cloud EOD routine** (`docs/routines/eod-report.md`, 13:35 PT; **silent since 2026-10-20**) | write `docs/reports/<date>.md`, `docs/briefings/<next>.md`, `docs/research_queue.md` | anything else |
 | **human** | promote, roll back, withdraw, decide holdout reveals, change gates, change timers / units / settings.json | — |
 
 the chain of custody for one tuning change: patch json → `pipeline.py propose` (row in
 `pipeline_candidates`, gate named up front, `cells_scanned` declared) → nightly sweep → `books` row →
 20+ sessions / 15+ trades → `status.md` proposal → human SQL. there is no path where an agent's output
-reaches the live engine without the human SQL.
+reaches the live engine without the human SQL — except the eod-review path above, which the human can
+close by removing `update_config.sh` from the check-in allow-list and skill §4.
 
 ## 3. backtesting and determinism
 
@@ -199,7 +202,7 @@ rules of the road:
 | 06:25–13:15 /5 min | `scripts/watchdog.sh` (no LLM) | silent, or `[info]` abnormal-move lines in `logs/notifications.log` | `[critical] ALL tickers feed_stale` → feed down **or a market holiday / early close** (the stack has no holiday calendar: 2026-11-26 and the 13:00 ET close on 11-27 both fired this falsely); a single ticker `feed_stale` → IEX gap, usually self-heals; "position still open 5 min after force_exit_by" → CRITICAL, check the broker; "book NAME not hosted" → WARNING, normal on a shadow's first day |
 | 13:10 | `paper-trader-stop` | SIGTERM → flatten → `inactive`, `Result=success` | a position at the broker after stop → CRITICAL; on a **half-day** the flatten runs after the close and the order queues — a known gap, no calendar check yet |
 | 13:20 | `export-day` → `data/live/<date>/`, commit+push | 25 files incl. one `replay_<book>.csv` per enabled book; push ok | "could not read Username for github.com" → `gh auth git-credential` returned nothing in the service (gh login expired; human re-logs); "Could not resolve host" → no network; **a day with no export = a bar-cache hole** (§3.2) |
-| 13:30 | `eod-review` (claude -p, opus) | memo "plumbing: ok \| mismatch …; strategy …" | same auth signature as pre-open; "plumbing: MISMATCH" two sessions running → the cache hole / warm-up gap, backfill before believing any replay |
+| 13:30 | `eod-review` (claude -p, opus) | memo "plumbing: ok \| mismatch …; strategy …"; a `created_by='claude_eod'` promoted row would mean it used its tuning authority — check `parent_version_id` and the memo's validation numbers | same auth signature as pre-open; "plumbing: MISMATCH" two sessions running → the cache hole / warm-up gap, backfill before believing any replay |
 | 13:35 | cloud EOD routine | `docs/reports/<date>.md`, briefing, email | **silent since 2026-10-20** (cloud side; the desktop eod-review covers the plumbing verdict) |
 | 20:00 | `research-runner` | runs `status: approved` RQ entries; holds `logs/.research.lock` | lock held past 20:30 → the pipeline waits; a dead sweep leaves a candidate in `backtesting` (`advance` resumes it) |
 | 20:30 | `pipeline.timer` → `nightly.sh` | 197 unit tests green, `advance --max-backtests 2`, `report`, commit of `status.md` + `data/cand_*.args` | red tests → night skipped + ntfy; "refusing to gate: bar coverage" → fetch the gap; candidate stuck in `backtesting` → check `logs/sweeps/` |
@@ -221,7 +224,8 @@ EOD routine.
 
 **human only** (never do these from a session; write the SQL / command into the report instead):
 
-- promote or roll back a config row; `superseded` flips.
+- promote or roll back a config row; `superseded` flips. (the eod-review check-in's guardrailed
+  `update_config.sh` path is the sanctioned exception; an agent in a session never uses it.)
 - create or retire a `books` row (the auto-mode classifier denies the INSERT to the agent; write it out).
 - withdraw a candidate, change a gate's thresholds, change `cells_scanned` after the fact.
 - reveal the holdout (`LAB_REVEAL=1`), or run any window after 2026-10-30 — allowed when pre-declared and
@@ -265,5 +269,7 @@ loop-level view only — do not duplicate the per-row trading notes here.
 
 revision log:
 
+- 2026-11-27 (later) — fact-check of the visual map (`docs/engine-map-review.md`) surfaced that the
+  eod-review check-in can insert a promoted row via `update_config.sh`; §1, §2.2, §6, §7 now say so.
 - 2026-11-27 — first version. row 25 promoted 11-11; round 2 (`research/lab/ROUND2.md`) found it at a
   local optimum; check-in auth expiry, holiday / half-day gap, cache hole, ANT test recorded.
